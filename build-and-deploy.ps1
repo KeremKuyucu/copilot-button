@@ -467,9 +467,9 @@ try {
     }
 
     # -- 6) GitHub Release (Otomatik Aciklama Dosyasi Tespiti Ile) -----------------
-    $createRelease = "H"
+    $shouldCreateRelease = $false
     if ($CreateRelease) {
-        $createRelease = "e"
+        $shouldCreateRelease = $true
     }
     elseif ($SkipRelease) {
         Write-Info "GitHub Release adimi parametre ile atlandi (-SkipRelease)."
@@ -480,10 +480,13 @@ try {
     else {
         Write-Host ""
         Write-Host "-- GitHub Release --" -ForegroundColor Cyan
-        $createRelease = Read-Host "   GitHub Release olusturulsun / guncellensin mi? (e/H)"
+        $answer = Read-Host "   GitHub Release olusturulsun / guncellensin mi? (e/H)"
+        if ($answer -match '^[Ee]$') {
+            $shouldCreateRelease = $true
+        }
     }
 
-    if ($createRelease -match '^[Ee]$') {
+    if ($shouldCreateRelease) {
         $releaseFiles = @()
 
         # GitHub'a sadece derlenen EXE dosyasi yuklenir
