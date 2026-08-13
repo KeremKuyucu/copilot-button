@@ -12,7 +12,9 @@
 
 param(
     [Parameter(Mandatory = $false)][switch]$NoPrompt,
-    [Parameter(Mandatory = $false)][switch]$SkipRelease
+    [Parameter(Mandatory = $false)][switch]$SkipRelease,
+    [Parameter(Mandatory = $false)][switch]$CreateRelease,
+    [Parameter(Mandatory = $false)][string]$ReleaseNotes
 )
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -466,7 +468,10 @@ try {
 
     # -- 6) GitHub Release (Otomatik Aciklama Dosyasi Tespiti Ile) -----------------
     $createRelease = "H"
-    if ($SkipRelease) {
+    if ($CreateRelease) {
+        $createRelease = "e"
+    }
+    elseif ($SkipRelease) {
         Write-Info "GitHub Release adimi parametre ile atlandi (-SkipRelease)."
     }
     elseif ([Console]::IsInputRedirected -or $NoPrompt) {
@@ -500,7 +505,7 @@ try {
 
                 Push-Location $projectRoot
                 try {
-                    # Release notu dosyasini ara: RELEASE_1.0.1.md, RELEASE_v1.0.1.md, RELEASE_NOTES.md, RELEASE.md, CHANGELOG.md
+                    # Release notu dosyasini ara: RELEASE_1.0.2.md, RELEASE_v1.0.2.md, RELEASE_NOTES.md, RELEASE.md, CHANGELOG.md
                     $releaseNotesFile = $null
                     $notesCandidates = @(
                         (Join-Path $projectRoot "RELEASE_$currentVersion.md"),
@@ -554,11 +559,14 @@ try {
                             $ghArgs += @("--notes-file", $releaseNotesFile)
                         }
                         else {
-                            $releaseNotes = Read-Host "   Release notlari (bos birakilirsa otomatik tarihli not atanir)"
-                            if ([string]::IsNullOrWhiteSpace($releaseNotes)) {
-                                $releaseNotes = "Copilot Button v$currentVersion - $(Get-Date -Format 'yyyy-MM-dd')"
+                            $releaseNotesContent = $ReleaseNotes
+                            if ([string]::IsNullOrWhiteSpace($releaseNotesContent) -and -not [Console]::IsInputRedirected -and -not $NoPrompt) {
+                                $releaseNotesContent = Read-Host "   Release notlari (bos birakilirsa otomatik tarihli not atanir)"
                             }
-                            $ghArgs += @("--notes", $releaseNotes)
+                            if ([string]::IsNullOrWhiteSpace($releaseNotesContent)) {
+                                $releaseNotesContent = "Copilot Button v$currentVersion - $(Get-Date -Format 'yyyy-MM-dd')"
+                            }
+                            $ghArgs += @("--notes", $releaseNotesContent)
                         }
 
                         foreach ($file in $releaseFiles) {
