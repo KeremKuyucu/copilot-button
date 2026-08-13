@@ -300,19 +300,15 @@ RunAction(actionName) {
         case "MicMute":
             ToggleMicrophoneMute()
         case "PlayPause":
-            nowPlaying := GetNowPlaying()
-            if (nowPlaying != "")
-                ShowTip("⏸️ Şarkı Durduruldu / Başlatıldı")
-            else
-                ShowTip("⏸️ " nowPlaying)
             Send "{Media_Play_Pause}"
+            SetTimer(ShowPlayPauseTrackInfo, -400)
         case "NextTrack":
             Send "{Media_Next}"
             ; Kısa gecikme sonrası güncel şarkı bilgisini göster
             SetTimer(ShowNextTrackInfo, -600)
         case "PrevTrack":
-            ShowTip("⏮️ Önceki Parça")
             Send "{Media_Prev}"
+            SetTimer(ShowPrevTrackInfo, -600)
         case "VolumeUp":
             ShowTip("🔊 Ses Artırıldı")
             Send "{Volume_Up 5}"
@@ -326,12 +322,28 @@ RunAction(actionName) {
     }
 }
 
+ShowPlayPauseTrackInfo() {
+    nowPlaying := GetNowPlaying()
+    if (nowPlaying != "")
+        ShowTip("⏯️ " nowPlaying)
+    else
+        ShowTip("⏯️ Oynat / Duraklat")
+}
+
 ShowNextTrackInfo() {
     nowPlaying := GetNowPlaying()
     if (nowPlaying != "")
         ShowTip("⏭️ " nowPlaying)
     else
         ShowTip("⏭️ Sonraki Parça")
+}
+
+ShowPrevTrackInfo() {
+    nowPlaying := GetNowPlaying()
+    if (nowPlaying != "")
+        ShowTip("⏮️ " nowPlaying)
+    else
+        ShowTip("⏮️ Önceki Parça")
 }
 
 ; ══════════════════════════════════════════
