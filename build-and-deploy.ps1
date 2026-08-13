@@ -3,9 +3,8 @@
 .SYNOPSIS
     Copilot Button - Otomatik Derle (AHK -> EXE), Imzala ve GitHub'a Dagit
 .DESCRIPTION
-    AutoHotkey v2 scriptini (copilot-buton.ahk) Ahk2Exe ile derler,
-    signtool ile imzalar, C:\Users\Kerem\Projects\Outputs klasorune kopyalar
-    ve GitHub Release olusturarak EXE dosyasini yukler.
+    AutoHotkey v2 scriptini (copilot-buton.ahk) Ahk2Exe ile C:\Users\Kerem\Projects\Outputs klasorune derler,
+    signtool ile imzalar ve GitHub Release olusturarak EXE dosyasini yukler.
 .NOTES
     Proje kokunde calistirilmalidir.
 #>
@@ -48,7 +47,7 @@ try {
     $ahkScriptName  = "copilot-buton.ahk"
     $ahkScriptPath  = Join-Path $projectRoot $ahkScriptName
     $outputExeName  = "CopilotButton.exe"
-    $outputExePath  = Join-Path $projectRoot $outputExeName
+    $outputExePath  = Join-Path $distPath $outputExeName
     $iconPath       = Join-Path $projectRoot "logo.ico"
 
     # Ahk2Exe Derleyici Yolu Arama
@@ -228,8 +227,7 @@ try {
     function Show-ActionMenu {
         $actions = @(
             [pscustomobject]@{ Name = "AHK Derle (Ahk2Exe -> EXE)";  Key = "Compile"; Selected = $true }
-            [pscustomobject]@{ Name = "Kod Imzalama (SignTool)";       Key = "Sign";    Selected = (Test-Path $pfxPath) }
-            [pscustomobject]@{ Name = "Cikti Klasorune Kopyala";      Key = "Dist";    Selected = $true }
+            [pscustomobject]@{ Name = "Kod Imzalama (SignTool)";     Key = "Sign";    Selected = (Test-Path $pfxPath) }
         )
 
         if ([Console]::IsInputRedirected -or $env:CI -eq "true") {
@@ -300,7 +298,7 @@ try {
         Write-Info "Derleyici: $ahk2exePath"
         Write-Info "Taban EXE: $ahkBasePath"
         Write-Info "Kaynak: $ahkScriptName"
-        Write-Info "Hedef: $outputExeName"
+        Write-Info "Hedef: $outputExePath"
 
         $ahk2exeArgs = @(
             "/in", $ahkScriptPath,
@@ -329,7 +327,7 @@ try {
                 Success = $true
                 Detail  = "$outputExeName ($sizeMB)"
             }
-            Write-Ok "EXE basariyla olusturuldu: $outputExeName ($sizeMB) - $(Format-Elapsed $sw.Elapsed)"
+            Write-Ok "EXE basariyla olusturuldu: $outputExePath ($sizeMB) - $(Format-Elapsed $sw.Elapsed)"
         }
         catch {
             $sw.Stop()
@@ -442,31 +440,7 @@ try {
         }
     }
 
-    # -- 5) Cikti Klasorune Dagitim ($distPath) -------------------------------------
-    if ($selectedKeys -contains "Dist") {
-        Write-Step "EXE Dagitim Klasorune Kopyalaniyor ($distPath)..."
-        $sw = [System.Diagnostics.Stopwatch]::StartNew()
-        Ensure-Dir $distPath
-
-        $copiedFiles = @()
-
-        if (Test-Path $outputExePath) {
-            $destExe = Join-Path $distPath $outputExeName
-            Copy-Item $outputExePath $destExe -Force
-            $copiedFiles += $outputExeName
-            Write-Info "Kopyalandi: $outputExeName -> $distPath"
-        }
-
-        $sw.Stop()
-        $stepResults["Dagitim"] = [pscustomobject]@{
-            Elapsed = $sw.Elapsed
-            Success = $true
-            Detail  = "$outputExeName kopyalandi"
-        }
-        Write-Ok "Dagitim klasorune kopyalama tamamlandi - $(Format-Elapsed $sw.Elapsed)"
-    }
-
-    # -- 6) GitHub Release (Otomatik Aciklama Dosyasi Tespiti Ile) -----------------
+    # -- 5) GitHub Release (Otomatik Aciklama Dosyasi Tespiti Ile) -----------------
     $shouldCreateRelease = $false
     if ($CreateRelease) {
         $shouldCreateRelease = $true
@@ -489,7 +463,7 @@ try {
     if ($shouldCreateRelease) {
         $releaseFiles = @()
 
-        # GitHub'a sadece derlenen EXE dosyasi yuklenir
+        # GitHub'a sadece cikti klasorundeki derlenen EXE dosyasi yuklenir
         if (Test-Path $outputExePath) {
             $releaseFiles += $outputExePath
         }
@@ -600,7 +574,7 @@ try {
         }
     }
 
-    # -- 7) Ozet Tablosu -----------------------------------------------------------
+    # -- 6) Ozet Tablosu -----------------------------------------------------------
     $scriptStopwatch.Stop()
 
     Write-Host ""
@@ -618,32 +592,13 @@ try {
     }
 
     # Cikti Dosyalarini Listele
-    $outputItems = @()
-    if (Test-Path $outputExePath) { $outputItems += (Get-Item $outputExePath) }
-
-    if ($outputItems.Count -gt 0) {
+    if (Test-Path $outputExePath) {
+        $f = Get-Item $outputExePath
+        $sizeStr = if ($f.Length -ge 1MB) { "{0:N2} MB" -f ($f.Length / 1MB) } else { "{0:N0} KB" -f ($f.Length / 1KB) }
         Write-Host "+-------------------------------------------------------------------+" -ForegroundColor Green
-        Write-Host "|  Uretilen Dosyalar (Proje Dizini)" -ForegroundColor Green
-        foreach ($f in $outputItems) {
-            $sizeStr = if ($f.Length -ge 1MB) { "{0:N2} MB" -f ($f.Length / 1MB) } else { "{0:N0} KB" -f ($f.Length / 1KB) }
-            $fLine   = "|    {0,-38} {1,23}|" -f $f.Name, $sizeStr
-            Write-Host $fLine -ForegroundColor White
-        }
-    }
-
-    if (Test-Path $distPath) {
-        $distFiles = Get-ChildItem -Path $distPath -File -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -like "*CopilotButton.exe*" } |
-            Sort-Object LastWriteTime -Descending | Select-Object -First 5
-        if ($distFiles) {
-            Write-Host "+-------------------------------------------------------------------+" -ForegroundColor Green
-            Write-Host "|  Dagitim Klasoru ($distPath)" -ForegroundColor Green
-            foreach ($f in $distFiles) {
-                $sizeStr = if ($f.Length -ge 1MB) { "{0:N2} MB" -f ($f.Length / 1MB) } else { "{0:N0} KB" -f ($f.Length / 1KB) }
-                $fLine   = "|    {0,-38} {1,23}|" -f $f.Name, $sizeStr
-                Write-Host $fLine -ForegroundColor White
-            }
-        }
+        Write-Host "|  Uretilen Dosya ($distPath)" -ForegroundColor Green
+        $fLine   = "|    {0,-38} {1,23}|" -f $f.Name, $sizeStr
+        Write-Host $fLine -ForegroundColor White
     }
 
     Write-Host "+-------------------------------------------------------------------+" -ForegroundColor Green
