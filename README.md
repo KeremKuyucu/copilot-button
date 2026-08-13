@@ -3,6 +3,7 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![AutoHotkey v2](https://img.shields.io/badge/AutoHotkey-v2.0+-green.svg)](https://www.autohotkey.com/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-blue)](https://microsoft.com)
+[![Built with AI](https://img.shields.io/badge/Built%20with-AI-8A2BE2.svg)](#)
 
 Windows 11 klavyelerindeki **Copilot tuşunu (`Win + Shift + F23`)** gelişmiş bir **Mikrofon & Medya Kontrolörüne** dönüştüren güçlü ve özelleştirilebilir bir AutoHotkey v2 aracıdır.
 
@@ -113,6 +114,13 @@ TrayIconMicState=1
 
 ---
 
+## 🤖 Geliştirme Notu
+
+Bu proje, yapay zeka (AI) asistanı desteğiyle tasarlanmış ve geliştirilmiştir.
+
+---
+
 ## 📜 Lisans
 
 Bu proje **GNU General Public License v3.0 (GPL-3.0)** altında lisanslanmıştır. Detaylar için [LICENSE](LICENSE) dosyasına göz atabilirsiniz.
+
