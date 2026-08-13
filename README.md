@@ -25,7 +25,8 @@ Windows 11 klavyelerindeki **Copilot tuşunu (`Win + Shift + F23`)** gelişmiş 
   - **Konum Seçimi:** Sol Üst, Sağ Üst, Sol Alt, Sağ Alt, Merkez.
   - **Renk & Font:** Özelleştirilebilir Hex renk kodu ve font boyutu.
   - **Fade Animasyonu:** Yumuşak beliriş ve kayboluş (Fade-in / Fade-out) animasyonu.
-- ⚙️ **Görsel Ayarlar Menüsü (GUI):** Tüm zamanlama, eylem atamaları ve OSD ayarlarını grafiksel arayüzden kolayca yönetin.
+- 🎨 **Karanlık Tema (Dark Mode) Desteği:** Windows 10/11 uyumlu modern koyu başlık çubuğu ve koyu tema arayüzü (Karanlık, Aydınlık veya Sistem Teması).
+- ⚙️ **Görsel Ayarlar Menüsü (GUI):** Tüm zamanlama, eylem atamaları, tema ve OSD ayarlarını grafiksel arayüzden kolayca yönetin.
 - 🔄 **Otomatik Güncelleme Sistemi:** Yeni sürümleri GitHub Releases üzerinden otomatik kontrol eder ve tek tıkla kendini günceller.
 - 📁 **Sıfır Bağımlılık & Otomatik Kurulum:** Tek bir `.exe` çalıştırıldığında kendini `%LocalAppData%\CopilotButton` klasörüne kopyalar, simgeleri ve konfigürasyonu otomatik üretir.
 
@@ -86,7 +87,8 @@ YtmWindowTitle=YouTube Music
 SpotifyCmd=spotify:
 SpotifyWindowTitle=ahk_exe spotify.exe
 
-; ── OSD Bildirim Ayarları ──
+; ── OSD & Görünüm Ayarları ──
+Theme=Dark
 OsdPosition=TopLeft
 OsdColor=00E5FF
 OsdFontSize=10

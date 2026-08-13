@@ -38,7 +38,8 @@ global ytmTitle     := IniRead(configFile, "Settings", "YtmWindowTitle", "YouTub
 global spotifyCmd   := IniRead(configFile, "Settings", "SpotifyCmd", "spotify:")
 global spotifyTitle := IniRead(configFile, "Settings", "SpotifyWindowTitle", "ahk_exe spotify.exe")
 
-; OSD Ayarları
+; OSD & Tema Ayarları
+global themeMode      := IniRead(configFile, "Settings", "Theme", "Dark")
 global osdPosition    := IniRead(configFile, "Settings", "OsdPosition", "TopLeft")
 global osdColor       := IniRead(configFile, "Settings", "OsdColor", "00E5FF")
 
@@ -67,7 +68,7 @@ catch
     trayIconMicState := 1
 
 global doubleTapThreshold, holdThreshold, autoStart
-global osdFontSize, osdDurationMs, osdFadeEnabled, trayIconMicState
+global osdFontSize, osdDurationMs, osdFadeEnabled, trayIconMicState, themeMode
 global isKeyDown      := false
 global holdTriggered  := false   ; Basılı tutma eyleminin tetiklenip tetiklenmediği
 global tapCount       := 0       ; Arka arkaya tıklama sayısı
@@ -577,18 +578,70 @@ SetStartupShortcut(enable := true) {
 }
 
 ; ══════════════════════════════════════════
+;  TEMA VE GÖRÜNÜM YARDIMCILARI
+; ══════════════════════════════════════════
+GetEffectiveTheme() {
+    global themeMode
+    if (themeMode = "Dark")
+        return "Dark"
+    if (themeMode = "Light")
+        return "Light"
+
+    ; "Auto" — Windows Sistem temasını oku
+    try {
+        appsUseLight := RegRead("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "AppsUseLightTheme")
+        if (appsUseLight == 0)
+            return "Dark"
+        else
+            return "Light"
+    } catch {
+        return "Dark"
+    }
+}
+
+SetWindowDarkMode(hWnd, isDark := true) {
+    val := isDark ? 1 : 0
+    ; 20 = DWMWA_USE_IMMERSIVE_DARK_MODE (Windows 10 20H1+ ve Windows 11)
+    ; 19 = DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 (Eski Win10)
+    if DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", hWnd, "UInt", 20, "Int*", &val, "UInt", 4)
+        DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", hWnd, "UInt", 19, "Int*", &val, "UInt", 4)
+}
+
+ApplyThemeToControls(guiObj, isDark) {
+    themeName := isDark ? "DarkMode_Explorer" : "Explorer"
+    for _, ctrl in guiObj {
+        try DllCall("uxtheme\SetWindowTheme", "Ptr", ctrl.Hwnd, "Str", themeName, "Str", "")
+    }
+}
+
+; ══════════════════════════════════════════
 ;  GÖRSEL AYARLAR PENCERESİ (AHK GUI)
 ; ══════════════════════════════════════════
 ShowSettingsGUI(*) {
-    global settingsGui, configFile, doubleTapThreshold, holdThreshold, musicApp, autoStart, ytmUrl, ytmTitle, spotifyCmd, spotifyTitle, osdPosition, osdColor, osdFontSize, osdDurationMs, osdFadeEnabled, holdAction, action1, action2, action3, action4, trayIconMicState, customAppPath
+    global settingsGui, configFile, doubleTapThreshold, holdThreshold, musicApp, autoStart, ytmUrl, ytmTitle, spotifyCmd, spotifyTitle, osdPosition, osdColor, osdFontSize, osdDurationMs, osdFadeEnabled, holdAction, action1, action2, action3, action4, trayIconMicState, customAppPath, themeMode
 
     if (IsObject(settingsGui)) {
         settingsGui.Show()
         return
     }
 
+    isDark := (GetEffectiveTheme() = "Dark")
+
+    ; Renk Tanımları
+    if (isDark) {
+        bgColor     := "1E1E1E"   ; Koyu modern gri (Windows 11 Dark Mode)
+        textColor   := "FFFFFF"   ; Beyaz metin
+        editBgColor := "2B2B2B"   ; Koyu input arka planı
+    } else {
+        bgColor     := "F5F5F5"
+        textColor   := "111111"
+        editBgColor := "FFFFFF"
+    }
+    editOpt := "Background" editBgColor " c" textColor
+
     settingsGui := Gui("+AlwaysOnTop +Owner", "⚙️ Copilot Tuşu Ayarları")
-    settingsGui.SetFont("s9", "Segoe UI")
+    settingsGui.BackColor := bgColor
+    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
 
     ; --- Müzik Uygulaması Seçimi ---
     settingsGui.Add("GroupBox", "x12 y10 w360 h60", "🎵 Hedef Müzik Uygulaması")
@@ -598,10 +651,10 @@ ShowSettingsGUI(*) {
     ; --- Tıklama & Başlangıç Ayarları ---
     settingsGui.Add("GroupBox", "x12 y75 w360 h120", "⏱️ Zamanlama & Başlangıç Ayarları")
     settingsGui.Add("Text",     "x26 y95 w180 h20", "Tıklama Bekleme Süresi (ms):")
-    edtDoubleTap := settingsGui.Add("Edit", "x210 y92 w140 h22 Number", doubleTapThreshold)
+    edtDoubleTap := settingsGui.Add("Edit", "x210 y92 w140 h22 Number " editOpt, doubleTapThreshold)
     
     settingsGui.Add("Text",     "x26 y130 w180 h20", "Basılı Tutma Eşik Süresi (ms):")
-    edtHold := settingsGui.Add("Edit", "x210 y127 w140 h22 Number", holdThreshold)
+    edtHold := settingsGui.Add("Edit", "x210 y127 w140 h22 Number " editOpt, holdThreshold)
 
     chkAuto := settingsGui.Add("Checkbox", "x26 y162 w320 h20 Checked" (autoStart ? "1" : "0"), "Windows açıldığında otomatik başlat")
 
@@ -609,77 +662,86 @@ ShowSettingsGUI(*) {
     settingsGui.Add("GroupBox", "x12 y200 w360 h150", "⚙️ Uygulama Başlık & Komut Ayarları")
     
     settingsGui.Add("Text",     "x26 y225 w120 h20", "YTM URL / Komut:")
-    edtYtmUrl := settingsGui.Add("Edit", "x150 y222 w200 h22", ytmUrl)
+    edtYtmUrl := settingsGui.Add("Edit", "x150 y222 w200 h22 " editOpt, ytmUrl)
 
     settingsGui.Add("Text",     "x26 y255 w120 h20", "YTM Başlık:")
-    edtYtmTitle := settingsGui.Add("Edit", "x150 y252 w200 h22", ytmTitle)
+    edtYtmTitle := settingsGui.Add("Edit", "x150 y252 w200 h22 " editOpt, ytmTitle)
 
     settingsGui.Add("Text",     "x26 y285 w120 h20", "Spotify Komut:")
-    edtSpotCmd := settingsGui.Add("Edit", "x150 y282 w200 h22", spotifyCmd)
+    edtSpotCmd := settingsGui.Add("Edit", "x150 y282 w200 h22 " editOpt, spotifyCmd)
 
     settingsGui.Add("Text",     "x26 y315 w120 h20", "Spotify Başlık:")
-    edtSpotTitle := settingsGui.Add("Edit", "x150 y312 w200 h22", spotifyTitle)
+    edtSpotTitle := settingsGui.Add("Edit", "x150 y312 w200 h22 " editOpt, spotifyTitle)
 
-    ; --- OSD Bildirim Ayarları ---
-    settingsGui.Add("GroupBox", "x12 y355 w360 h175", "💬 OSD Bildirim Ayarları")
+    ; --- OSD Bildirim & Tema Ayarları ---
+    settingsGui.Add("GroupBox", "x12 y355 w360 h205", "💬 OSD & Görünüm Ayarları")
 
-    settingsGui.Add("Text", "x26 y378 w120 h20", "OSD Konumu:")
-    ddlPos := settingsGui.Add("DropDownList", "x150 y375 w200 h22", ["TopLeft", "TopRight", "BottomLeft", "BottomRight", "Center"])
+    settingsGui.Add("Text", "x26 y378 w120 h20", "Arayüz Teması:")
+    ddlTheme := settingsGui.Add("DropDownList", "x150 y375 w200 h22 " editOpt, ["Dark", "Light", "Auto"])
+    ddlTheme.Text := themeMode
+
+    settingsGui.Add("Text", "x26 y408 w120 h20", "OSD Konumu:")
+    ddlPos := settingsGui.Add("DropDownList", "x150 y405 w200 h22 " editOpt, ["TopLeft", "TopRight", "BottomLeft", "BottomRight", "Center"])
     ddlPos.Text := osdPosition
 
-    settingsGui.Add("Text", "x26 y408 w120 h20", "Metin Rengi (hex):")
-    edtOsdColor := settingsGui.Add("Edit", "x150 y405 w200 h22", osdColor)
+    settingsGui.Add("Text", "x26 y438 w120 h20", "Metin Rengi (hex):")
+    edtOsdColor := settingsGui.Add("Edit", "x150 y435 w200 h22 " editOpt, osdColor)
 
-    settingsGui.Add("Text", "x26 y438 w120 h20", "Font Boyutu:")
-    edtOsdSize := settingsGui.Add("Edit", "x150 y435 w200 h22 Number", osdFontSize)
+    settingsGui.Add("Text", "x26 y468 w120 h20", "Font Boyutu:")
+    edtOsdSize := settingsGui.Add("Edit", "x150 y465 w200 h22 Number " editOpt, osdFontSize)
 
-    settingsGui.Add("Text", "x26 y468 w120 h20", "Gösterim Süresi (ms):")
-    edtOsdDur := settingsGui.Add("Edit", "x150 y465 w200 h22 Number", osdDurationMs)
+    settingsGui.Add("Text", "x26 y498 w120 h20", "Gösterim Süresi (ms):")
+    edtOsdDur := settingsGui.Add("Edit", "x150 y495 w200 h22 Number " editOpt, osdDurationMs)
 
-    chkFade := settingsGui.Add("Checkbox", "x26 y498 w320 h20 Checked" (osdFadeEnabled ? "1" : "0"), "Fade (solma) animasyonu kullan")
+    chkFade := settingsGui.Add("Checkbox", "x26 y528 w320 h20 Checked" (osdFadeEnabled ? "1" : "0"), "Fade (solma) animasyonu kullan")
 
     ; --- Basılı Tutma & Tray İkonu ---
-    settingsGui.Add("GroupBox", "x12 y535 w360 h105", "🎤 Basılı Tutma & Tray İkonu")
+    settingsGui.Add("GroupBox", "x12 y565 w360 h105", "🎤 Basılı Tutma & Tray İkonu")
 
-    settingsGui.Add("Text", "x26 y558 w120 h20", "Basılı Tutma:")
-    ddlHold := settingsGui.Add("DropDownList", "x150 y555 w200 h22", ["MusicApp", "PushToTalk", "CustomApp"])
+    settingsGui.Add("Text", "x26 y588 w120 h20", "Basılı Tutma:")
+    ddlHold := settingsGui.Add("DropDownList", "x150 y585 w200 h22 " editOpt, ["MusicApp", "PushToTalk", "CustomApp"])
     ddlHold.Text := holdAction
 
-    settingsGui.Add("Text", "x26 y588 w120 h20", "Uygulama / URL:")
-    edtCustomApp := settingsGui.Add("Edit", "x150 y585 w200 h22", customAppPath)
+    settingsGui.Add("Text", "x26 y618 w120 h20", "Uygulama / URL:")
+    edtCustomApp := settingsGui.Add("Edit", "x150 y615 w200 h22 " editOpt, customAppPath)
 
-    chkTrayMic := settingsGui.Add("Checkbox", "x26 y615 w320 h20 Checked" (trayIconMicState ? "1" : "0"), "Mikrofon durumuna göre tray ikonu değiştir")
+    chkTrayMic := settingsGui.Add("Checkbox", "x26 y645 w320 h20 Checked" (trayIconMicState ? "1" : "0"), "Mikrofon durumuna göre tray ikonu değiştir")
 
     ; --- Eylem Atamaları ---
     actionList := ["MicMute", "PlayPause", "NextTrack", "PrevTrack", "VolumeUp", "VolumeDown", "None"]
 
-    settingsGui.Add("GroupBox", "x12 y645 w360 h145", "⌨️ Tık Eylem Atamaları")
+    settingsGui.Add("GroupBox", "x12 y675 w360 h145", "⌨️ Tık Eylem Atamaları")
 
-    settingsGui.Add("Text", "x26 y668 w120 h20", "1 Tık:")
-    ddlAct1 := settingsGui.Add("DropDownList", "x150 y665 w200 h22", actionList)
+    settingsGui.Add("Text", "x26 y698 w120 h20", "1 Tık:")
+    ddlAct1 := settingsGui.Add("DropDownList", "x150 y695 w200 h22 " editOpt, actionList)
     ddlAct1.Text := action1
 
-    settingsGui.Add("Text", "x26 y698 w120 h20", "2 Tık:")
-    ddlAct2 := settingsGui.Add("DropDownList", "x150 y695 w200 h22", actionList)
+    settingsGui.Add("Text", "x26 y728 w120 h20", "2 Tık:")
+    ddlAct2 := settingsGui.Add("DropDownList", "x150 y725 w200 h22 " editOpt, actionList)
     ddlAct2.Text := action2
 
-    settingsGui.Add("Text", "x26 y728 w120 h20", "3 Tık:")
-    ddlAct3 := settingsGui.Add("DropDownList", "x150 y725 w200 h22", actionList)
+    settingsGui.Add("Text", "x26 y758 w120 h20", "3 Tık:")
+    ddlAct3 := settingsGui.Add("DropDownList", "x150 y755 w200 h22 " editOpt, actionList)
     ddlAct3.Text := action3
 
-    settingsGui.Add("Text", "x26 y758 w120 h20", "4 Tık:")
-    ddlAct4 := settingsGui.Add("DropDownList", "x150 y755 w200 h22", actionList)
+    settingsGui.Add("Text", "x26 y788 w120 h20", "4 Tık:")
+    ddlAct4 := settingsGui.Add("DropDownList", "x150 y785 w200 h22 " editOpt, actionList)
     ddlAct4.Text := action4
 
     ; --- Butonlar ---
-    btnSave := settingsGui.Add("Button", "x140 y805 w110 h30 Default", "💾 Kaydet & Yenile")
+    btnSave := settingsGui.Add("Button", "x140 y835 w110 h30 Default", "💾 Kaydet & Yenile")
     btnSave.OnEvent("Click", (*) => SaveAndReload())
 
-    btnCancel := settingsGui.Add("Button", "x260 y805 w110 h30", "❌ İptal")
+    btnCancel := settingsGui.Add("Button", "x260 y835 w110 h30", "❌ İptal")
     btnCancel.OnEvent("Click", (*) => (settingsGui.Destroy(), settingsGui := 0))
 
     settingsGui.OnEvent("Close", (*) => (settingsGui.Destroy(), settingsGui := 0))
-    settingsGui.Show("w384 h850")
+
+    ; Windows Dark Mode Başlık Çubuğu & Kontrol Teması Uygula
+    SetWindowDarkMode(settingsGui.Hwnd, isDark)
+    ApplyThemeToControls(settingsGui, isDark)
+
+    settingsGui.Show("w384 h880")
 
     SaveAndReload() {
         newApp    := radSpotify.Value ? "Spotify" : "YTM"
@@ -691,7 +753,8 @@ ShowSettingsGUI(*) {
         newSpotCmd   := Trim(edtSpotCmd.Value)
         newSpotTitle := Trim(edtSpotTitle.Value)
 
-        ; OSD Ayarları
+        ; OSD & Tema Ayarları
+        newTheme    := ddlTheme.Text
         newOsdPos   := ddlPos.Text
         newOsdColor := Trim(edtOsdColor.Value)
         newOsdSize  := Integer(edtOsdSize.Value)
@@ -724,7 +787,8 @@ ShowSettingsGUI(*) {
         IniWrite(newSpotCmd,   configFile, "Settings", "SpotifyCmd")
         IniWrite(newSpotTitle, configFile, "Settings", "SpotifyWindowTitle")
 
-        ; OSD Ayarları kaydet
+        ; OSD & Tema Ayarları kaydet
+        IniWrite(newTheme,     configFile, "Settings", "Theme")
         IniWrite(newOsdPos,    configFile, "Settings", "OsdPosition")
         IniWrite(newOsdColor,  configFile, "Settings", "OsdColor")
         IniWrite(newOsdSize,   configFile, "Settings", "OsdFontSize")
@@ -780,7 +844,10 @@ CreateDefaultConfig(path) {
     SpotifyCmd=spotify:
     SpotifyWindowTitle=ahk_exe spotify.exe
 
-    ; ── OSD Bildirim Ayarları ──
+    ; ── OSD & Görünüm Ayarları ──
+
+    ; Arayüz Teması: Dark (Karanlık), Light (Aydınlık), Auto (Sistem Teması)
+    Theme=Dark
 
     ; OSD Konumu: TopLeft, TopRight, BottomLeft, BottomRight, Center
     OsdPosition=TopLeft
