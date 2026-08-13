@@ -1,0 +1,10 @@
+# Build & Compilation Artifacts
+*.exe
+*.zip
+build_zip_temp/
+update_temp/
+tools/
+Output/
+
+# User-specific / Local settings
+*.local
