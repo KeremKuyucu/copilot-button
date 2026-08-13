@@ -2,7 +2,7 @@
 #SingleInstance Force
 #UseHook
 
-global APP_VERSION := "1.0.2"
+global APP_VERSION := "1.0.3"
 
 SetTitleMatchMode 2
 
