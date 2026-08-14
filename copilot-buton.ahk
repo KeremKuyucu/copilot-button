@@ -225,6 +225,9 @@ $*<+<#f23::
 {
     global isKeyDown, holdTriggered, holdThreshold, holdAction, pttActive
 
+    ; Donanımsal olarak basılan Shift ve Win tuşlarını anında serbest bırak
+    SendInput "{Blind}{LShift up}{LWin up}{RShift up}{RWin up}"
+
     if (isKeyDown)
         return
 
@@ -244,6 +247,9 @@ $*<+<#f23::
 $*<+<#f23 Up::
 {
     global isKeyDown, doubleTapThreshold, holdTriggered, tapCount, holdAction, pttActive
+
+    ; Tuş bırakıldığında da Shift ve Win tuş durumunu hemen sıfırla
+    SendInput "{Blind}{LShift up}{LWin up}{RShift up}{RWin up}"
 
     if (!isKeyDown)
         return
@@ -280,7 +286,7 @@ CheckMultiPress() {
     tapCount := 0   ; Sayacı sıfırla
 
     ; Copilot donanımsal Win+Shift takılmasını önle
-    Send "{LWin up}{LShift up}{RWin up}{RShift up}"
+    SendInput "{Blind}{LWin up}{LShift up}{RWin up}{RShift up}"
 
     ; Tık sayısına göre atanmış eylemi çalıştır
     switch count {
@@ -301,21 +307,21 @@ RunAction(actionName) {
         case "MicMute":
             ToggleMicrophoneMute()
         case "PlayPause":
-            Send "{Media_Play_Pause}"
+            Send "{Blind}{Media_Play_Pause}"
             SetTimer(ShowPlayPauseTrackInfo, -400)
         case "NextTrack":
-            Send "{Media_Next}"
+            Send "{Blind}{Media_Next}"
             ; Kısa gecikme sonrası güncel şarkı bilgisini göster
             SetTimer(ShowNextTrackInfo, -600)
         case "PrevTrack":
-            Send "{Media_Prev}"
+            Send "{Blind}{Media_Prev}"
             SetTimer(ShowPrevTrackInfo, -600)
         case "VolumeUp":
             ShowTip("🔊 Ses Artırıldı")
-            Send "{Volume_Up 5}"
+            Send "{Blind}{Volume_Up 5}"
         case "VolumeDown":
             ShowTip("🔉 Ses Azaltıldı")
-            Send "{Volume_Down 5}"
+            Send "{Blind}{Volume_Down 5}"
         case "None":
             ; Eylem yok
         default:
@@ -508,7 +514,7 @@ CheckHoldTimer() {
 
     ; Tuş takılmalarını önle
     Critical
-    Send "{LWin up}{LShift up}{RWin up}{RShift up}"
+    SendInput "{Blind}{LWin up}{LShift up}{RWin up}{RShift up}"
     Critical False
 
     ; Push-to-Talk modu
