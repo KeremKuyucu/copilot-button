@@ -2,7 +2,7 @@
 #SingleInstance Force
 #UseHook
 
-global APP_VERSION := "1.0.4"
+global APP_VERSION := "1.0.5"
 
 SetTitleMatchMode 2
 
@@ -728,19 +728,19 @@ ShowSettingsGUI(*) {
     settingsGui.Add("GroupBox", "x20 y45 w370 h185", "⌨️ Tık Eylem Atamaları")
 
     settingsGui.Add("Text", "x35 y72 w100 h20", "1 Tık:")
-    ddlAct1 := settingsGui.Add("DropDownList", "x140 y69 w230 h22 " editOpt, actionList)
+    ddlAct1 := settingsGui.Add("DropDownList", "x140 y69 w230 r" actionList.Length " " editOpt, actionList)
     ddlAct1.Text := action1
 
     settingsGui.Add("Text", "x35 y107 w100 h20", "2 Tık:")
-    ddlAct2 := settingsGui.Add("DropDownList", "x140 y104 w230 h22 " editOpt, actionList)
+    ddlAct2 := settingsGui.Add("DropDownList", "x140 y104 w230 r" actionList.Length " " editOpt, actionList)
     ddlAct2.Text := action2
 
     settingsGui.Add("Text", "x35 y142 w100 h20", "3 Tık:")
-    ddlAct3 := settingsGui.Add("DropDownList", "x140 y139 w230 h22 " editOpt, actionList)
+    ddlAct3 := settingsGui.Add("DropDownList", "x140 y139 w230 r" actionList.Length " " editOpt, actionList)
     ddlAct3.Text := action3
 
     settingsGui.Add("Text", "x35 y177 w100 h20", "4 Tık:")
-    ddlAct4 := settingsGui.Add("DropDownList", "x140 y174 w230 h22 " editOpt, actionList)
+    ddlAct4 := settingsGui.Add("DropDownList", "x140 y174 w230 r" actionList.Length " " editOpt, actionList)
     ddlAct4.Text := action4
 
     settingsGui.Add("GroupBox", "x20 y240 w370 h170", "⏱️ Zamanlama & Başlangıç")
@@ -761,11 +761,11 @@ ShowSettingsGUI(*) {
     settingsGui.Add("GroupBox", "x20 y45 w370 h150", "🎨 Tema & Konum")
 
     settingsGui.Add("Text", "x35 y72 w120 h20", "Arayüz Teması:")
-    ddlTheme := settingsGui.Add("DropDownList", "x160 y69 w210 h22 " editOpt, ["Dark", "Light", "Auto"])
+    ddlTheme := settingsGui.Add("DropDownList", "x160 y69 w210 r3 " editOpt, ["Dark", "Light", "Auto"])
     ddlTheme.Text := themeMode
 
     settingsGui.Add("Text", "x35 y107 w120 h20", "OSD Konumu:")
-    ddlPos := settingsGui.Add("DropDownList", "x160 y104 w210 h22 " editOpt, ["TopLeft", "TopRight", "BottomLeft", "BottomRight", "Center"])
+    ddlPos := settingsGui.Add("DropDownList", "x160 y104 w210 r5 " editOpt, ["TopLeft", "TopRight", "BottomLeft", "BottomRight", "Center"])
     ddlPos.Text := osdPosition
 
     settingsGui.Add("Text", "x35 y142 w120 h20", "Metin Rengi (hex):")
@@ -807,7 +807,7 @@ ShowSettingsGUI(*) {
     settingsGui.Add("GroupBox", "x20 y240 w370 h170", "🎤 Basılı Tutma, Özel Uygulama & Ses")
 
     settingsGui.Add("Text", "x35 y265 w110 h20", "Basılı Tutma:")
-    ddlHold := settingsGui.Add("DropDownList", "x150 y262 w220 h22 " editOpt, ["MusicApp", "PushToTalk", "CustomApp"])
+    ddlHold := settingsGui.Add("DropDownList", "x150 y262 w220 r3 " editOpt, ["MusicApp", "PushToTalk", "CustomApp"])
     ddlHold.Text := holdAction
 
     settingsGui.Add("Text", "x35 y298 w110 h20", "Uygulama / URL:")
