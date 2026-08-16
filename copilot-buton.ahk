@@ -2,7 +2,7 @@
 #SingleInstance Force
 #UseHook
 
-global APP_VERSION := "1.0.5"
+global APP_VERSION := "1.0.6"
 
 SetTitleMatchMode 2
 
@@ -1189,7 +1189,7 @@ PerformExeUpdate(exeUrl, newVersion) {
         
         FileOpen(batFile, "w").Write(batContent)
 
-        ShowTip("✅ v" . newVersion . " indirildi! Yeniden başlatılıyor...", 3000)
+        ShowTip("✅ v" . newVersion . " hazır! Başlatılıyor...", 3000)
         Sleep 1500
         Run('cmd.exe /c "' . batFile . '"',, "Hide")
         ExitApp()
@@ -1245,7 +1245,7 @@ PerformZipUpdate(zipUrl, newVersion) {
             batContent := "@echo off`r`ntimeout /t 2 /nobreak > nul`r`ncopy /y `"" . foundExe . "`" `"" . targetExe . "`"`r`nstart `"`" `"" . targetExe . "`"`r`nrmdir /s /q `"" . tempDir . "`""
             
             FileOpen(batFile, "w").Write(batContent)
-            ShowTip("✅ v" . newVersion . " indirildi! Yeniden başlatılıyor...", 3000)
+            ShowTip("✅ v" . newVersion . " hazır! Başlatılıyor...", 3000)
             Sleep 1500
             Run('cmd.exe /c "' . batFile . '"',, "Hide")
             ExitApp()
@@ -1264,7 +1264,7 @@ PerformZipUpdate(zipUrl, newVersion) {
             try DirDelete(tempDir, true)
 
             if (updatedFiles > 0) {
-                ShowTip("✅ v" . newVersion . " güncellendi! Yeniden başlatılıyor...", 3000)
+                ShowTip("✅ v" . newVersion . " hazır! Başlatılıyor...", 3000)
                 Sleep 1500
                 Reload()
             } else {
