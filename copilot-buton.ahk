@@ -67,8 +67,12 @@ try trayIconMicState := Integer(IniRead(configFile, "Settings", "TrayIconMicStat
 catch
     trayIconMicState := 1
 
+try soundFxEnabled := Integer(IniRead(configFile, "Settings", "SoundFxEnabled", 1))
+catch
+    soundFxEnabled := 1
+
 global doubleTapThreshold, holdThreshold, autoStart
-global osdFontSize, osdDurationMs, osdFadeEnabled, trayIconMicState, themeMode
+global osdFontSize, osdDurationMs, osdFadeEnabled, trayIconMicState, themeMode, soundFxEnabled
 global isKeyDown      := false
 global holdTriggered  := false   ; Basılı tutma eyleminin tetiklenip tetiklenmediği
 global tapCount       := 0       ; Arka arkaya tıklama sayısı
@@ -100,8 +104,9 @@ A_TrayMenu.Add("❌ Çıkış",            (*) => ExitApp())
 
 global tipGui          := 0       ; Anlık bildirim OSD penceresi
 
-; Başlangıçta mikrofon kapalıysa bildirim göster
+; Başlangıçta ve düzenli aralıklarla mikrofon durumunu kontrol et (arka plan eşzamanlama)
 CheckInitialMicState()
+SetTimer(CheckInitialMicState, 2000)
 
 ; Başlangıç bildirimi
 holdLabel := (holdAction = "PushToTalk") ? "Push-to-Talk" : activeAppName
@@ -226,7 +231,7 @@ $*<+<#f23::
     global isKeyDown, holdTriggered, holdThreshold, holdAction, pttActive
 
     ; Donanımsal olarak basılan Shift ve Win tuşlarını anında serbest bırak
-    SendInput "{Blind}{LShift up}{LWin up}{RShift up}{RWin up}"
+    SendInput "{LShift up}{LWin up}{RShift up}{RWin up}"
 
     if (isKeyDown)
         return
@@ -249,7 +254,7 @@ $*<+<#f23 Up::
     global isKeyDown, doubleTapThreshold, holdTriggered, tapCount, holdAction, pttActive
 
     ; Tuş bırakıldığında da Shift ve Win tuş durumunu hemen sıfırla
-    SendInput "{Blind}{LShift up}{LWin up}{RShift up}{RWin up}"
+    SendInput "{LShift up}{LWin up}{RShift up}{RWin up}"
 
     if (!isKeyDown)
         return
@@ -286,7 +291,7 @@ CheckMultiPress() {
     tapCount := 0   ; Sayacı sıfırla
 
     ; Copilot donanımsal Win+Shift takılmasını önle
-    SendInput "{Blind}{LWin up}{LShift up}{RWin up}{RShift up}"
+    SendInput "{LWin up}{LShift up}{RWin up}{RShift up}"
 
     ; Tık sayısına göre atanmış eylemi çalıştır
     switch count {
@@ -306,6 +311,22 @@ RunAction(actionName) {
     switch actionName {
         case "MicMute":
             ToggleMicrophoneMute()
+        case "MasterMute":
+            ToggleMasterMute()
+        case "ToggleDeafen":
+            ToggleDeafen()
+        case "VoiceTyping":
+            ShowTip("🎙️ Sesle Yazma Açılıyor...")
+            Send "#h"
+        case "Screenshot":
+            ShowTip("✂️ Ekran Alıntısı")
+            Send "#+s"
+        case "TaskView":
+            Send "#{Tab}"
+        case "LockScreen":
+            ShowTip("🔒 Bilgisayar Kilitleniyor...")
+            Sleep 200
+            DllCall("LockWorkStation")
         case "PlayPause":
             Send "{Blind}{Media_Play_Pause}"
             SetTimer(ShowPlayPauseTrackInfo, -400)
@@ -327,6 +348,48 @@ RunAction(actionName) {
         default:
             ShowTip("⚠️ Bilinmeyen eylem: " actionName)
     }
+}
+
+ToggleMasterMute() {
+    try {
+        SoundSetMute(-1)
+        isMuted := SoundGetMute()
+        if isMuted
+            ShowTip("🔇 Sistem Sesi Kapatıldı (MUTE)")
+        else
+            ShowTip("🔊 Sistem Sesi Açıldı (UNMUTE)")
+    } catch as err {
+        ShowTip("⚠️ Ses erişim hatası: " . err.Message, 2000)
+    }
+}
+
+ToggleDeafen() {
+    isMicMuted := false
+    isMasterMuted := false
+    try {
+        SoundSetMute(-1, , "Microphone")
+        isMicMuted := SoundGetMute(, "Microphone")
+    } catch {
+        try {
+            SoundSetMute(-1, "Master", "Capture")
+            isMicMuted := SoundGetMute("Master", "Capture")
+        }
+    }
+    try {
+        SoundSetMute(-1)
+        isMasterMuted := SoundGetMute()
+    }
+
+    PlayMicSound(isMicMuted)
+    UpdateMicOverlay(isMicMuted)
+    UpdateTrayIcon(isMicMuted)
+
+    if (isMicMuted && isMasterMuted)
+        ShowTip("🔕 Sağırlaştırıldı (Ses & Mic Kapalı)")
+    else if (!isMicMuted && !isMasterMuted)
+        ShowTip("🔔 Sağırlaştırma Kaldırıldı (Ses & Mic Açık)")
+    else
+        ShowTip("🔕 Ses & Mikrofon Değiştirildi")
 }
 
 ShowPlayPauseTrackInfo() {
@@ -416,6 +479,10 @@ ToggleMicrophoneMute() {
 }
 
 PlayMicSound(isMuted) {
+    global soundFxEnabled
+    if (!soundFxEnabled)
+        return
+
     if isMuted {
         ; Discord tarzı Mute sesi (Speech Off / Hardware Remove / Pop-up Blocked)
         if FileExist(A_WinDir "\Media\Speech Off.wav")
@@ -514,7 +581,7 @@ CheckHoldTimer() {
 
     ; Tuş takılmalarını önle
     Critical
-    SendInput "{Blind}{LWin up}{LShift up}{RWin up}{RShift up}"
+    SendInput "{LWin up}{LShift up}{RWin up}{RShift up}"
     Critical False
 
     ; Push-to-Talk modu
@@ -624,7 +691,7 @@ ApplyThemeToControls(guiObj, isDark) {
 ;  GÖRSEL AYARLAR PENCERESİ (AHK GUI)
 ; ══════════════════════════════════════════
 ShowSettingsGUI(*) {
-    global settingsGui, configFile, doubleTapThreshold, holdThreshold, musicApp, autoStart, ytmUrl, ytmTitle, spotifyCmd, spotifyTitle, osdPosition, osdColor, osdFontSize, osdDurationMs, osdFadeEnabled, holdAction, action1, action2, action3, action4, trayIconMicState, customAppPath, themeMode
+    global settingsGui, configFile, doubleTapThreshold, holdThreshold, musicApp, autoStart, ytmUrl, ytmTitle, spotifyCmd, spotifyTitle, osdPosition, osdColor, osdFontSize, osdDurationMs, osdFadeEnabled, holdAction, action1, action2, action3, action4, trayIconMicState, customAppPath, themeMode, soundFxEnabled
 
     if (IsObject(settingsGui)) {
         settingsGui.Show()
@@ -649,96 +716,116 @@ ShowSettingsGUI(*) {
     settingsGui.BackColor := bgColor
     settingsGui.SetFont("s9 c" textColor, "Segoe UI")
 
-    ; --- Müzik Uygulaması Seçimi ---
-    settingsGui.Add("GroupBox", "x12 y10 w360 h60", "🎵 Hedef Müzik Uygulaması")
-    radYtm     := settingsGui.Add("Radio", "x26 y32 w150 h20 Checked" (musicApp = "YTM" ? "1" : "0"), "YouTube Music")
-    radSpotify := settingsGui.Add("Radio", "x180 y32 w150 h20 Checked" (musicApp = "Spotify" ? "1" : "0"), "Spotify")
+    ; --- Sekmeli Ana Panel ---
+    tab := settingsGui.Add("Tab3", "x10 y10 w390 h415", ["🎮 Eylemler", "💬 OSD & Görünüm", "🎵 Medya & PTT"])
 
-    ; --- Tıklama & Başlangıç Ayarları ---
-    settingsGui.Add("GroupBox", "x12 y75 w360 h120", "⏱️ Zamanlama & Başlangıç Ayarları")
-    settingsGui.Add("Text",     "x26 y95 w180 h20", "Tıklama Bekleme Süresi (ms):")
-    edtDoubleTap := settingsGui.Add("Edit", "x210 y92 w140 h22 Number " editOpt, doubleTapThreshold)
-    
-    settingsGui.Add("Text",     "x26 y130 w180 h20", "Basılı Tutma Eşik Süresi (ms):")
-    edtHold := settingsGui.Add("Edit", "x210 y127 w140 h22 Number " editOpt, holdThreshold)
+    ; ══════════════════════════════════════════
+    ;  SEKME 1: Eylemler & Zamanlama
+    ; ══════════════════════════════════════════
+    tab.UseTab(1)
+    actionList := ["MicMute", "PlayPause", "NextTrack", "PrevTrack", "VolumeUp", "VolumeDown", "MasterMute", "ToggleDeafen", "VoiceTyping", "Screenshot", "TaskView", "LockScreen", "None"]
 
-    chkAuto := settingsGui.Add("Checkbox", "x26 y162 w320 h20 Checked" (autoStart ? "1" : "0"), "Windows açıldığında otomatik başlat")
+    settingsGui.Add("GroupBox", "x20 y45 w370 h185", "⌨️ Tık Eylem Atamaları")
 
-    ; --- Uygulama Özel Ayarları ---
-    settingsGui.Add("GroupBox", "x12 y200 w360 h150", "⚙️ Uygulama Başlık & Komut Ayarları")
-    
-    settingsGui.Add("Text",     "x26 y225 w120 h20", "YTM URL / Komut:")
-    edtYtmUrl := settingsGui.Add("Edit", "x150 y222 w200 h22 " editOpt, ytmUrl)
-
-    settingsGui.Add("Text",     "x26 y255 w120 h20", "YTM Başlık:")
-    edtYtmTitle := settingsGui.Add("Edit", "x150 y252 w200 h22 " editOpt, ytmTitle)
-
-    settingsGui.Add("Text",     "x26 y285 w120 h20", "Spotify Komut:")
-    edtSpotCmd := settingsGui.Add("Edit", "x150 y282 w200 h22 " editOpt, spotifyCmd)
-
-    settingsGui.Add("Text",     "x26 y315 w120 h20", "Spotify Başlık:")
-    edtSpotTitle := settingsGui.Add("Edit", "x150 y312 w200 h22 " editOpt, spotifyTitle)
-
-    ; --- OSD Bildirim & Tema Ayarları ---
-    settingsGui.Add("GroupBox", "x12 y355 w360 h205", "💬 OSD & Görünüm Ayarları")
-
-    settingsGui.Add("Text", "x26 y378 w120 h20", "Arayüz Teması:")
-    ddlTheme := settingsGui.Add("DropDownList", "x150 y375 w200 h22 " editOpt, ["Dark", "Light", "Auto"])
-    ddlTheme.Text := themeMode
-
-    settingsGui.Add("Text", "x26 y408 w120 h20", "OSD Konumu:")
-    ddlPos := settingsGui.Add("DropDownList", "x150 y405 w200 h22 " editOpt, ["TopLeft", "TopRight", "BottomLeft", "BottomRight", "Center"])
-    ddlPos.Text := osdPosition
-
-    settingsGui.Add("Text", "x26 y438 w120 h20", "Metin Rengi (hex):")
-    edtOsdColor := settingsGui.Add("Edit", "x150 y435 w200 h22 " editOpt, osdColor)
-
-    settingsGui.Add("Text", "x26 y468 w120 h20", "Font Boyutu:")
-    edtOsdSize := settingsGui.Add("Edit", "x150 y465 w200 h22 Number " editOpt, osdFontSize)
-
-    settingsGui.Add("Text", "x26 y498 w120 h20", "Gösterim Süresi (ms):")
-    edtOsdDur := settingsGui.Add("Edit", "x150 y495 w200 h22 Number " editOpt, osdDurationMs)
-
-    chkFade := settingsGui.Add("Checkbox", "x26 y528 w320 h20 Checked" (osdFadeEnabled ? "1" : "0"), "Fade (solma) animasyonu kullan")
-
-    ; --- Basılı Tutma & Tray İkonu ---
-    settingsGui.Add("GroupBox", "x12 y565 w360 h105", "🎤 Basılı Tutma & Tray İkonu")
-
-    settingsGui.Add("Text", "x26 y588 w120 h20", "Basılı Tutma:")
-    ddlHold := settingsGui.Add("DropDownList", "x150 y585 w200 h22 " editOpt, ["MusicApp", "PushToTalk", "CustomApp"])
-    ddlHold.Text := holdAction
-
-    settingsGui.Add("Text", "x26 y618 w120 h20", "Uygulama / URL:")
-    edtCustomApp := settingsGui.Add("Edit", "x150 y615 w200 h22 " editOpt, customAppPath)
-
-    chkTrayMic := settingsGui.Add("Checkbox", "x26 y645 w320 h20 Checked" (trayIconMicState ? "1" : "0"), "Mikrofon durumuna göre tray ikonu değiştir")
-
-    ; --- Eylem Atamaları ---
-    actionList := ["MicMute", "PlayPause", "NextTrack", "PrevTrack", "VolumeUp", "VolumeDown", "None"]
-
-    settingsGui.Add("GroupBox", "x12 y675 w360 h145", "⌨️ Tık Eylem Atamaları")
-
-    settingsGui.Add("Text", "x26 y698 w120 h20", "1 Tık:")
-    ddlAct1 := settingsGui.Add("DropDownList", "x150 y695 w200 h22 " editOpt, actionList)
+    settingsGui.Add("Text", "x35 y72 w100 h20", "1 Tık:")
+    ddlAct1 := settingsGui.Add("DropDownList", "x140 y69 w230 h22 " editOpt, actionList)
     ddlAct1.Text := action1
 
-    settingsGui.Add("Text", "x26 y728 w120 h20", "2 Tık:")
-    ddlAct2 := settingsGui.Add("DropDownList", "x150 y725 w200 h22 " editOpt, actionList)
+    settingsGui.Add("Text", "x35 y107 w100 h20", "2 Tık:")
+    ddlAct2 := settingsGui.Add("DropDownList", "x140 y104 w230 h22 " editOpt, actionList)
     ddlAct2.Text := action2
 
-    settingsGui.Add("Text", "x26 y758 w120 h20", "3 Tık:")
-    ddlAct3 := settingsGui.Add("DropDownList", "x150 y755 w200 h22 " editOpt, actionList)
+    settingsGui.Add("Text", "x35 y142 w100 h20", "3 Tık:")
+    ddlAct3 := settingsGui.Add("DropDownList", "x140 y139 w230 h22 " editOpt, actionList)
     ddlAct3.Text := action3
 
-    settingsGui.Add("Text", "x26 y788 w120 h20", "4 Tık:")
-    ddlAct4 := settingsGui.Add("DropDownList", "x150 y785 w200 h22 " editOpt, actionList)
+    settingsGui.Add("Text", "x35 y177 w100 h20", "4 Tık:")
+    ddlAct4 := settingsGui.Add("DropDownList", "x140 y174 w230 h22 " editOpt, actionList)
     ddlAct4.Text := action4
 
-    ; --- Butonlar ---
-    btnSave := settingsGui.Add("Button", "x140 y835 w110 h30 Default", "💾 Kaydet & Yenile")
+    settingsGui.Add("GroupBox", "x20 y240 w370 h170", "⏱️ Zamanlama & Başlangıç")
+
+    settingsGui.Add("Text", "x35 y267 w190 h20", "Tıklama Bekleme Süresi (ms):")
+    edtDoubleTap := settingsGui.Add("Edit", "x230 y264 w140 h22 Number " editOpt, doubleTapThreshold)
+
+    settingsGui.Add("Text", "x35 y302 w190 h20", "Basılı Tutma Eşik Süresi (ms):")
+    edtHold := settingsGui.Add("Edit", "x230 y299 w140 h22 Number " editOpt, holdThreshold)
+
+    chkAuto := settingsGui.Add("Checkbox", "x35 y337 w335 h20 Checked" (autoStart ? "1" : "0"), "Windows açıldığında otomatik başlat")
+
+    ; ══════════════════════════════════════════
+    ;  SEKME 2: OSD & Görünüm
+    ; ══════════════════════════════════════════
+    tab.UseTab(2)
+
+    settingsGui.Add("GroupBox", "x20 y45 w370 h150", "🎨 Tema & Konum")
+
+    settingsGui.Add("Text", "x35 y72 w120 h20", "Arayüz Teması:")
+    ddlTheme := settingsGui.Add("DropDownList", "x160 y69 w210 h22 " editOpt, ["Dark", "Light", "Auto"])
+    ddlTheme.Text := themeMode
+
+    settingsGui.Add("Text", "x35 y107 w120 h20", "OSD Konumu:")
+    ddlPos := settingsGui.Add("DropDownList", "x160 y104 w210 h22 " editOpt, ["TopLeft", "TopRight", "BottomLeft", "BottomRight", "Center"])
+    ddlPos.Text := osdPosition
+
+    settingsGui.Add("Text", "x35 y142 w120 h20", "Metin Rengi (hex):")
+    edtOsdColor := settingsGui.Add("Edit", "x160 y139 w210 h22 " editOpt, osdColor)
+
+    settingsGui.Add("GroupBox", "x20 y205 w370 h205", "💬 OSD Boyut & Animasyon")
+
+    settingsGui.Add("Text", "x35 y232 w120 h20", "Font Boyutu:")
+    edtOsdSize := settingsGui.Add("Edit", "x160 y229 w210 h22 Number " editOpt, osdFontSize)
+
+    settingsGui.Add("Text", "x35 y267 w120 h20", "Gösterim Süresi (ms):")
+    edtOsdDur := settingsGui.Add("Edit", "x160 y264 w210 h22 Number " editOpt, osdDurationMs)
+
+    chkFade := settingsGui.Add("Checkbox", "x35 y302 w335 h20 Checked" (osdFadeEnabled ? "1" : "0"), "Fade (solma) animasyonu kullan")
+
+    chkTrayMic := settingsGui.Add("Checkbox", "x35 y332 w335 h20 Checked" (trayIconMicState ? "1" : "0"), "Mikrofon durumuna göre tray ikonu değiştir")
+
+    ; ══════════════════════════════════════════
+    ;  SEKME 3: Medya, PTT & Özel Uygulama
+    ; ══════════════════════════════════════════
+    tab.UseTab(3)
+
+    settingsGui.Add("GroupBox", "x20 y45 w370 h185", "🎵 Hedef Müzik Uygulaması")
+    radYtm     := settingsGui.Add("Radio", "x35 y70 w150 h20 Checked" (musicApp = "YTM" ? "1" : "0"), "YouTube Music")
+    radSpotify := settingsGui.Add("Radio", "x195 y70 w150 h20 Checked" (musicApp = "Spotify" ? "1" : "0"), "Spotify")
+
+    settingsGui.Add("Text", "x35 y100 w110 h20", "YTM URL / Komut:")
+    edtYtmUrl := settingsGui.Add("Edit", "x150 y97 w220 h22 " editOpt, ytmUrl)
+
+    settingsGui.Add("Text", "x35 y130 w110 h20", "YTM Başlık:")
+    edtYtmTitle := settingsGui.Add("Edit", "x150 y127 w220 h22 " editOpt, ytmTitle)
+
+    settingsGui.Add("Text", "x35 y160 w110 h20", "Spotify Komut:")
+    edtSpotCmd := settingsGui.Add("Edit", "x150 y157 w220 h22 " editOpt, spotifyCmd)
+
+    settingsGui.Add("Text", "x35 y190 w110 h20", "Spotify Başlık:")
+    edtSpotTitle := settingsGui.Add("Edit", "x150 y187 w220 h22 " editOpt, spotifyTitle)
+
+    settingsGui.Add("GroupBox", "x20 y240 w370 h170", "🎤 Basılı Tutma, Özel Uygulama & Ses")
+
+    settingsGui.Add("Text", "x35 y265 w110 h20", "Basılı Tutma:")
+    ddlHold := settingsGui.Add("DropDownList", "x150 y262 w220 h22 " editOpt, ["MusicApp", "PushToTalk", "CustomApp"])
+    ddlHold.Text := holdAction
+
+    settingsGui.Add("Text", "x35 y298 w110 h20", "Uygulama / URL:")
+    edtCustomApp := settingsGui.Add("Edit", "x35 y320 w265 h24 " editOpt, customAppPath)
+    btnBrowse := settingsGui.Add("Button", "x305 y320 w65 h24", "📁 Gözat")
+    btnBrowse.OnEvent("Click", (*) => BrowseCustomApp(edtCustomApp))
+
+    chkSoundFx := settingsGui.Add("Checkbox", "x35 y355 w335 h20 Checked" (soundFxEnabled ? "1" : "0"), "Mikrofon susturma/açma ses efektlerini çal")
+
+    ; ══════════════════════════════════════════
+    ;  TAB DIŞI: Butonlar
+    ; ══════════════════════════════════════════
+    tab.UseTab()
+
+    btnSave := settingsGui.Add("Button", "x170 y435 w110 h32 Default", "💾 Kaydet & Yenile")
     btnSave.OnEvent("Click", (*) => SaveAndReload())
 
-    btnCancel := settingsGui.Add("Button", "x260 y835 w110 h30", "❌ İptal")
+    btnCancel := settingsGui.Add("Button", "x290 y435 w110 h32", "❌ İptal")
     btnCancel.OnEvent("Click", (*) => (settingsGui.Destroy(), settingsGui := 0))
 
     settingsGui.OnEvent("Close", (*) => (settingsGui.Destroy(), settingsGui := 0))
@@ -747,7 +834,13 @@ ShowSettingsGUI(*) {
     SetWindowDarkMode(settingsGui.Hwnd, isDark)
     ApplyThemeToControls(settingsGui, isDark)
 
-    settingsGui.Show("w384 h880")
+    settingsGui.Show("w410 h480")
+
+    BrowseCustomApp(editCtrl) {
+        selectedFile := FileSelect(3, , "Çalıştırılacak Uygulama veya Dosyayı Seçin", "Programlar (*.exe; *.bat; *.cmd; *.lnk; *.vbs; *.ps1; *.*)")
+        if (selectedFile != "")
+            editCtrl.Value := selectedFile
+    }
 
     SaveAndReload() {
         newApp    := radSpotify.Value ? "Spotify" : "YTM"
@@ -801,10 +894,11 @@ ShowSettingsGUI(*) {
         IniWrite(newOsdDur,    configFile, "Settings", "OsdDurationMs")
         IniWrite(newFade,      configFile, "Settings", "OsdFadeEnabled")
 
-        ; Basılı Tutma & Tray İkonu kaydet
+        ; Basılı Tutma & Tray İkonu & Ses Efektleri kaydet
         IniWrite(ddlHold.Text,              configFile, "Settings", "HoldAction")
         IniWrite(Trim(edtCustomApp.Value),  configFile, "Settings", "CustomAppPath")
         IniWrite(chkTrayMic.Value ? 1 : 0,  configFile, "Settings", "TrayIconMicState")
+        IniWrite(chkSoundFx.Value ? 1 : 0,  configFile, "Settings", "SoundFxEnabled")
 
         ; Eylem Atamaları kaydet
         IniWrite(ddlAct1.Text, configFile, "Settings", "Action1")
@@ -880,7 +974,7 @@ CreateDefaultConfig(path) {
     CustomAppPath=
 
     ; ── Tık Eylem Atamaları ──
-    ; Seçenekler: MicMute, PlayPause, NextTrack, PrevTrack, VolumeUp, VolumeDown, None
+    ; Seçenekler: MicMute, PlayPause, NextTrack, PrevTrack, VolumeUp, VolumeDown, MasterMute, ToggleDeafen, VoiceTyping, Screenshot, TaskView, LockScreen, None
 
     ; 1 Tık Eylemi
     Action1=MicMute
@@ -892,12 +986,15 @@ CreateDefaultConfig(path) {
     Action3=NextTrack
 
     ; 4 Tık Eylemi
-    Action4=PrevTrack
+    Action4=None
 
-    ; ── Tray İkonu ──
+    ; ── Tray İkonu & Ses Efektleri ──
 
     ; Mikrofon durumuna göre tray ikonu değiştir (1 = Açık, 0 = Kapalı)
     TrayIconMicState=1
+
+    ; Mikrofon susturma/açma ses efektlerini çal (1 = Açık, 0 = Kapalı)
+    SoundFxEnabled=1
     )"
 
     try FileAppend(defaultConfig, path)

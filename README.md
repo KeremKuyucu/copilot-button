@@ -27,7 +27,9 @@ Windows 11 klavyelerindeki **Copilot tuşunu (`Win + Shift + F23`)** gelişmiş 
   - **Renk & Font:** Özelleştirilebilir Hex renk kodu ve font boyutu.
   - **Fade Animasyonu:** Yumuşak beliriş ve kayboluş (Fade-in / Fade-out) animasyonu.
 - 🎨 **Karanlık Tema (Dark Mode) Desteği:** Windows 10/11 uyumlu modern koyu başlık çubuğu ve koyu tema arayüzü (Karanlık, Aydınlık veya Sistem Teması).
-- ⚙️ **Görsel Ayarlar Menüsü (GUI):** Tüm zamanlama, eylem atamaları, tema ve OSD ayarlarını grafiksel arayüzden kolayca yönetin.
+- ⚙️ **Modern Sekmeli Ayarlar Menüsü (GUI):** Tüm zamanlama, eylem atamaları, tema, ses efektleri ve OSD ayarlarını 3 sekmeli kompakt ve modern arayüzden kolayca yönetin.
+- 📁 **Özel Uygulama Seçici (Gözat):** `CustomApp` modu için dosya seçici penceresi ile `.exe` veya script dosyalarını kolayca seçin.
+- 🔊 **Ses Efekti Yönetimi:** Mikrofon susturma/açma ses efektlerini tek tıkla açıp kapatın.
 - 🔄 **Otomatik Güncelleme Sistemi:** Yeni sürümleri GitHub Releases üzerinden otomatik kontrol eder ve tek tıkla kendini günceller.
 - 📁 **Sıfır Bağımlılık & Otomatik Kurulum:** Tek bir `.exe` çalıştırıldığında kendini `%LocalAppData%\CopilotButton` klasörüne kopyalar, simgeleri ve konfigürasyonu otomatik üretir.
 
@@ -47,17 +49,25 @@ Windows 11 klavyelerindeki **Copilot tuşunu (`Win + Shift + F23`)** gelişmiş 
 
 ---
 
-## ⚙️ Varsayılan Tıklama Kombinasyonları
+## ⚙️ Tıklama Eylem Seçenekleri
 
-| Tetikleyici | Varsayılan Eylem | Açıklama |
-|---|---|---|
-| **1 Tık** | `MicMute` | Mikrofonu Sustur / Aç |
-| **2 Tık** | `PlayPause` | Şarkıyı Durdur / Oynat + Now Playing OSD |
-| **3 Tık** | `NextTrack` | Sonraki Şarkı + Şarkı İsmi OSD |
-| **4 Tık** | `PrevTrack` | Önceki Şarkı |
-| **Basılı Tutma** | `MusicApp` | Spotify / YouTube Music Aç veya Öne Getir |
+| Eylem Adı | Açıklama |
+|---|---|
+| `MicMute` | Mikrofonu Sustur / Aç *(Varsayılan 1 Tık)* |
+| `PlayPause` | Şarkıyı Durdur / Oynat + Now Playing OSD *(Varsayılan 2 Tık)* |
+| `NextTrack` | Sonraki Şarkı + Şarkı İsmi OSD *(Varsayılan 3 Tık)* |
+| `PrevTrack` | Önceki Şarkı |
+| `VolumeUp` | Sistem Sesini 5 Birim Artır |
+| `VolumeDown` | Sistem Sesini 5 Birim Azalt |
+| `MasterMute` | Sistem Genel Sesini Kapat / Aç |
+| `ToggleDeafen` | Hem Sistem Sesini Hem Mikrofonu Aynı Anda Sustur / Aç |
+| `VoiceTyping` | Windows 11 Sesle Yazma / Dikte Aracını Aç (`Win + H`) |
+| `Screenshot` | Windows Ekran Alıntısı Aracını Başlat (`Win + Shift + S`) |
+| `TaskView` | Görev Görünümünü Aç (`Win + Tab`) |
+| `LockScreen` | Bilgisayarı Kilitle |
+| `None` | Eylem Yok *(Varsayılan 4 Tık)* |
 
-*Tüm bu eylemler Ayarlar menüsünden (`⚙️ Ayarlar`) veya `config.ini` dosyasından değiştirilebilir.*
+*Tüm bu eylemler Ayarlar menüsünden (`⚙️ Ayarlar`) veya `config.ini` dosyasından 1, 2, 3 ve 4 tık için ayrı ayrı atanabilir.*
 
 ---
 
@@ -75,7 +85,7 @@ DoubleTapMs=250
 HoldMs=250
 
 ; Müzik Uygulaması Seçimi: YTM veya Spotify
-MusicApp=YTM
+MusicApp=Spotify
 
 ; Windows başlangıcında otomatik çalıştır (1 = Açık, 0 = Kapalı)
 AutoStart=1
@@ -102,14 +112,15 @@ HoldAction=MusicApp
 CustomAppPath=
 
 ; ── Tık Eylem Atamaları ──
-; Options: MicMute, PlayPause, NextTrack, PrevTrack, VolumeUp, VolumeDown, None
+; Options: MicMute, PlayPause, NextTrack, PrevTrack, VolumeUp, VolumeDown, MasterMute, ToggleDeafen, VoiceTyping, Screenshot, TaskView, LockScreen, None
 Action1=MicMute
 Action2=PlayPause
 Action3=NextTrack
-Action4=PrevTrack
+Action4=None
 
-; ── Tray İkonu ──
+; ── Tray İkonu & Ses Efektleri ──
 TrayIconMicState=1
+SoundFxEnabled=1
 ```
 
 ---
