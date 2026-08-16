@@ -11,6 +11,7 @@ Windows 11 klavyelerindeki **Copilot tuşunu (`Win + Shift + F23`)** gelişmiş 
 
 ## ✨ Öne Çıkan Özellikler
 
+- 🛡️ **Oyun & Uygulama Koruması (Anti-Modifier Leak Hook):** Donanımsal Copilot tuşunun gönderdiği `Shift` ve `Win` tuşlarını kanca seviyesinde tamamen yakalar ve bastırır. Oyun oynarken veya tam ekran uygulamalarda Copilot tuşuna basıldığında oyunların Shift (koşma/çömelme) veya Windows tuşunu (başlat menüsü) algılayıp takılması kesin olarak engellenir.
 - 🎙️ **1 Tık — Mikrofon Kontrolü:** Sistem mikrofonunu anında açar / susturur. 
   - Discord tarzı ses efekti çalar.
   - Sol üstte mikrofon durumunu gösteren özel OSD açılır.

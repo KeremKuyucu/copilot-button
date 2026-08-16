@@ -1,8 +1,10 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Force
-#UseHook
+#UseHook true
+InstallKeybdHook()
+A_MenuMaskKey := "vkE8"
 
-global APP_VERSION := "1.0.6"
+global APP_VERSION := "1.0.7"
 
 SetTitleMatchMode 2
 
@@ -73,14 +75,21 @@ catch
 
 global doubleTapThreshold, holdThreshold, autoStart
 global osdFontSize, osdDurationMs, osdFadeEnabled, trayIconMicState, themeMode, soundFxEnabled
-global isKeyDown      := false
-global holdTriggered  := false   ; Basılı tutma eyleminin tetiklenip tetiklenmediği
-global tapCount       := 0       ; Arka arkaya tıklama sayısı
-global settingsGui    := 0       ; GUI pencere nesnesi
-global micOverlayGui  := 0       ; Mikrofon kapalı OSD penceresi
-global fadeTimer      := 0       ; Fade animasyon zamanlayıcısı
-global fadeAlpha      := 0       ; Mevcut saydamlık değeri (0-255)
-global pttActive      := false   ; Push-to-Talk aktif mi
+global isKeyDown            := false
+global holdTriggered        := false   ; Basılı tutma eyleminin tetiklenip tetiklenmediği
+global tapCount             := 0       ; Arka arkaya tıklama sayısı
+global settingsGui          := 0       ; GUI pencere nesnesi
+global micOverlayGui        := 0       ; Mikrofon kapalı OSD penceresi
+global fadeTimer            := 0       ; Fade animasyon zamanlayıcısı
+global fadeAlpha            := 0       ; Mevcut saydamlık değeri (0-255)
+global pttActive            := false   ; Push-to-Talk aktif mi
+
+; 3-State Anti-Leak Hook Değişkenleri
+global copilotState         := "idle"  ; "idle", "waiting", "copilot", "passed"
+global shiftState           := "idle"  ; "idle", "waiting", "passed"
+global shiftSuppressed      := false   ; LShift/RShift bastırıldı mı
+global winSuppressed        := false   ; LWin/RWin bastırıldı mı
+global copilotJustReleased  := 0       ; Bırakma zamanı damgası (trailing modifier bastırma)
 
 ; Windows Başlangıç Kısayolu Ayarla
 SetStartupShortcut(autoStart)
@@ -224,14 +233,138 @@ HideTipGui() {
 }
 
 ; ══════════════════════════════════════════
-;  TUŞA BASILMA ANI (Down)
+;  COPILOT TUŞ YAKALAMA & MODİFİER BASTIRMA (3-State Anti-Leak Hook)
 ; ══════════════════════════════════════════
-$*<+<#f23::
-{
-    global isKeyDown, holdTriggered, holdThreshold, holdAction, pttActive
 
-    ; Donanımsal olarak basılan Shift ve Win tuşlarını anında serbest bırak
-    SendInput "{LShift up}{LWin up}{RShift up}{RWin up}"
+; --- Windows Tuşu Yakalama (LWin / RWin) ---
+$*LWin::
+$*RWin::
+{
+    global copilotState, winSuppressed, shiftState
+    if (copilotState = "copilot") {
+        ; Copilot basılıyken donanımın tekrarladığı Win sinyalini tamamen yut
+        return
+    }
+
+    copilotState := "waiting"
+    winSuppressed := true
+    SetTimer(PassModifiers, -25)
+}
+
+$*LWin Up::
+$*RWin Up::
+{
+    global copilotState, winSuppressed, shiftSuppressed, copilotJustReleased
+    
+    ; Copilot henüz bırakıldıysa trailing Win Up sinyalini tamamen yut
+    if (copilotState = "copilot" || A_TickCount < copilotJustReleased) {
+        winSuppressed := false
+        return
+    }
+
+    if (copilotState = "waiting") {
+        SetTimer(PassModifiers, 0)
+        copilotState := "idle"
+        if (shiftSuppressed) {
+            shiftSuppressed := false
+            winSuppressed := false
+            SendInput "{Blind}{LWin Down}{LShift Down}{LShift Up}{LWin Up}"
+        } else {
+            winSuppressed := false
+            SendInput "{Blind}{LWin Down}{LWin Up}"
+        }
+    } else if (copilotState = "passed") {
+        copilotState := "idle"
+        winSuppressed := false
+        SendInput "{Blind}{LWin Up}"
+    }
+}
+
+; --- Shift Tuşu Yakalama (LShift / RShift) ---
+$*LShift::
+$*RShift::
+{
+    global copilotState, shiftState, shiftSuppressed
+    if (copilotState = "copilot") {
+        ; Copilot basılıyken donanımın tekrarladığı Shift sinyalini tamamen yut
+        return
+    }
+    if (copilotState = "waiting") {
+        ; Win tuşundan hemen sonra Shift geldi -> bu Copilot tuş dizisidir, bastır!
+        shiftSuppressed := true
+        return
+    }
+
+    ; Bağımsız Shift basımı: Çok kısa (15ms) bekle (arkasından Win+F23 gelebilir mi?)
+    shiftState := "waiting"
+    SetTimer(PassShiftOnly, -15)
+}
+
+$*LShift Up::
+$*RShift Up::
+{
+    global copilotState, shiftState, shiftSuppressed, copilotJustReleased
+    
+    ; Copilot basılıyken veya yeni bırakıldıysa trailing Shift Up sinyalini tamamen yut
+    if (copilotState = "copilot" || A_TickCount < copilotJustReleased) {
+        shiftSuppressed := false
+        return
+    }
+    if (shiftSuppressed) {
+        shiftSuppressed := false
+        return
+    }
+    if (shiftState = "waiting") {
+        SetTimer(PassShiftOnly, 0)
+        shiftState := "idle"
+        SendInput "{Blind}{LShift Down}{LShift Up}"
+        return
+    }
+    if (shiftState = "passed") {
+        shiftState := "idle"
+        SendInput "{Blind}{LShift Up}"
+    }
+}
+
+PassShiftOnly() {
+    global shiftState, copilotState
+    if (shiftState = "waiting" && copilotState != "copilot") {
+        shiftState := "passed"
+        SendInput "{Blind}{LShift Down}"
+    }
+}
+
+PassModifiers() {
+    global copilotState, shiftState, shiftSuppressed, winSuppressed
+    if (copilotState = "waiting") {
+        copilotState := "passed"
+        if (shiftSuppressed || shiftState = "waiting") {
+            shiftSuppressed := false
+            shiftState := "passed"
+            SendInput "{Blind}{LWin Down}{LShift Down}"
+        } else {
+            SendInput "{Blind}{LWin Down}"
+        }
+    }
+}
+
+; ══════════════════════════════════════════
+;  COPILOT TUŞU TETİKLEME (F23 / SC06E / Launch_App1)
+; ══════════════════════════════════════════
+$*SC06E::
+$*vk86::
+$*vkB6::
+{
+    global copilotState, shiftState, shiftSuppressed, winSuppressed
+    global isKeyDown, holdTriggered, holdThreshold, pttActive
+
+    ; Zamanlayıcıları hemen durdur ve tamponları temizle (Shift/Win tamamen yok edilir)
+    SetTimer(PassModifiers, 0)
+    SetTimer(PassShiftOnly, 0)
+    copilotState := "copilot"
+    shiftState := "idle"
+    shiftSuppressed := false
+    winSuppressed := false
 
     if (isKeyDown)
         return
@@ -246,15 +379,15 @@ $*<+<#f23::
     SetTimer(CheckHoldTimer, -holdThreshold)
 }
 
-; ══════════════════════════════════════════
-;  TUŞUN BIRAKILMA ANI (Up)
-; ══════════════════════════════════════════
-$*<+<#f23 Up::
+$*SC06E Up::
+$*vk86 Up::
+$*vkB6 Up::
 {
-    global isKeyDown, doubleTapThreshold, holdTriggered, tapCount, holdAction, pttActive
+    global copilotState, shiftState, isKeyDown, doubleTapThreshold, holdTriggered, tapCount, pttActive, copilotJustReleased
 
-    ; Tuş bırakıldığında da Shift ve Win tuş durumunu hemen sıfırla
-    SendInput "{LShift up}{LWin up}{RShift up}{RWin up}"
+    copilotState := "idle"
+    shiftState := "idle"
+    copilotJustReleased := A_TickCount + 80  ; 80ms boyunca ardışık Win Up/Shift Up sinyallerini bastır
 
     if (!isKeyDown)
         return
@@ -289,9 +422,6 @@ CheckMultiPress() {
 
     count := tapCount
     tapCount := 0   ; Sayacı sıfırla
-
-    ; Copilot donanımsal Win+Shift takılmasını önle
-    SendInput "{LWin up}{LShift up}{RWin up}{RShift up}"
 
     ; Tık sayısına göre atanmış eylemi çalıştır
     switch count {
@@ -578,11 +708,6 @@ CheckHoldTimer() {
 
     holdTriggered := true
     SetTimer(CheckHoldTimer, 0)
-
-    ; Tuş takılmalarını önle
-    Critical
-    SendInput "{LWin up}{LShift up}{RWin up}{RShift up}"
-    Critical False
 
     ; Push-to-Talk modu
     if (holdAction = "PushToTalk") {
