@@ -1309,7 +1309,7 @@ PerformExeUpdate(exeUrl, newVersion) {
         }
 
         ; Dijital imza ve sertifika parmak izi (Thumbprint) doğrulaması
-        psVerify := 'powershell -NoProfile -ExecutionPolicy Bypass -Command "$s = Get-AuthenticodeSignature -LiteralPath `"' . tempExe . '`"; if ($s.SignerCertificate -and $s.SignerCertificate.Thumbprint -eq ''' . EXPECTED_CERT_THUMBPRINT . ''' -and $s.Status -ne ''HashMismatch'') { exit 0 } else { exit 1 }"'
+        psVerify := 'powershell -NoProfile -ExecutionPolicy Bypass -Command "$s = Get-AuthenticodeSignature -LiteralPath `'' . tempExe . '`'; if ($s.SignerCertificate -and $s.SignerCertificate.Thumbprint -eq `'' . EXPECTED_CERT_THUMBPRINT . '`' -and $s.Status -ne `'HashMismatch`') { exit 0 } else { exit 1 }"'
         verifyExit := RunWait(psVerify,, "Hide")
         if (verifyExit != 0) {
             ShowTip("⚠️ İndirilen dosyanın dijital imzası veya sertifika hash'i doğrulanamadı!", 3500)
@@ -1377,7 +1377,7 @@ PerformZipUpdate(zipUrl, newVersion) {
 
         if (foundExe != "") {
             ; Dijital imza ve sertifika parmak izi (Thumbprint) doğrulaması
-            psVerify := 'powershell -NoProfile -ExecutionPolicy Bypass -Command "$s = Get-AuthenticodeSignature -LiteralPath `"' . foundExe . '`"; if ($s.SignerCertificate -and $s.SignerCertificate.Thumbprint -eq ''' . EXPECTED_CERT_THUMBPRINT . ''' -and $s.Status -ne ''HashMismatch'') { exit 0 } else { exit 1 }"'
+            psVerify := 'powershell -NoProfile -ExecutionPolicy Bypass -Command "$s = Get-AuthenticodeSignature -LiteralPath `'' . foundExe . '`'; if ($s.SignerCertificate -and $s.SignerCertificate.Thumbprint -eq `'' . EXPECTED_CERT_THUMBPRINT . '`' -and $s.Status -ne `'HashMismatch`') { exit 0 } else { exit 1 }"'
             verifyExit := RunWait(psVerify,, "Hide")
             if (verifyExit != 0) {
                 ShowTip("⚠️ İndirilen paketteki EXE'nin dijital imzası veya sertifika hash'i doğrulanamadı!", 3500)
