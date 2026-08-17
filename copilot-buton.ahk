@@ -4,7 +4,8 @@
 InstallKeybdHook()
 A_MenuMaskKey := "vkE8"
 
-global APP_VERSION := "1.0.7"
+global APP_VERSION := "1.0.8"
+global EXPECTED_CERT_THUMBPRINT := "037728AEA36D0BB09D2D1EE111C70A2D423CC6B4"
 
 SetTitleMatchMode 2
 
@@ -18,21 +19,17 @@ EnsureInstalledLocation()
 ; ══════════════════════════════════════════
 global configFile := A_ScriptDir "\config.ini"
 
-; Config dosyası yoksa varsayılan değerlerle oluştur
-if (!FileExist(configFile))
-    CreateDefaultConfig(configFile)
+ReadConfigInt(section, key, defaultVal) {
+    global configFile
+    try
+        return Integer(IniRead(configFile, section, key, defaultVal))
+    catch
+        return defaultVal
+}
 
-try doubleTapThreshold := Integer(IniRead(configFile, "Settings", "DoubleTapMs", 250))
-catch
-    doubleTapThreshold := 250
-
-try holdThreshold := Integer(IniRead(configFile, "Settings", "HoldMs", 250))
-catch
-    holdThreshold := 250
-
-try autoStart := Integer(IniRead(configFile, "Settings", "AutoStart", 1))
-catch
-    autoStart := 1
+global doubleTapThreshold := ReadConfigInt("Settings", "DoubleTapMs", 250)
+global holdThreshold      := ReadConfigInt("Settings", "HoldMs", 250)
+global autoStart          := ReadConfigInt("Settings", "AutoStart", 1)
 
 global musicApp     := IniRead(configFile, "Settings", "MusicApp", "YTM")
 global ytmUrl       := IniRead(configFile, "Settings", "YtmURL", "https://music.youtube.com")
@@ -44,37 +41,19 @@ global spotifyTitle := IniRead(configFile, "Settings", "SpotifyWindowTitle", "ah
 global themeMode      := IniRead(configFile, "Settings", "Theme", "Dark")
 global osdPosition    := IniRead(configFile, "Settings", "OsdPosition", "TopLeft")
 global osdColor       := IniRead(configFile, "Settings", "OsdColor", "00E5FF")
-
-try osdFontSize := Integer(IniRead(configFile, "Settings", "OsdFontSize", 10))
-catch
-    osdFontSize := 10
-
-try osdDurationMs := Integer(IniRead(configFile, "Settings", "OsdDurationMs", 1500))
-catch
-    osdDurationMs := 1500
-
-try osdFadeEnabled := Integer(IniRead(configFile, "Settings", "OsdFadeEnabled", 1))
-catch
-    osdFadeEnabled := 1
+global osdFontSize    := ReadConfigInt("Settings", "OsdFontSize", 10)
+global osdDurationMs  := ReadConfigInt("Settings", "OsdDurationMs", 1500)
+global osdFadeEnabled := ReadConfigInt("Settings", "OsdFadeEnabled", 1)
 
 ; Basılı Tutma & Eylem Ayarları
-global holdAction     := IniRead(configFile, "Settings", "HoldAction", "MusicApp")
-global customAppPath  := IniRead(configFile, "Settings", "CustomAppPath", "")
-global action1        := IniRead(configFile, "Settings", "Action1", "MicMute")
-global action2        := IniRead(configFile, "Settings", "Action2", "PlayPause")
-global action3        := IniRead(configFile, "Settings", "Action3", "NextTrack")
-global action4        := IniRead(configFile, "Settings", "Action4", "PrevTrack")
-
-try trayIconMicState := Integer(IniRead(configFile, "Settings", "TrayIconMicState", 1))
-catch
-    trayIconMicState := 1
-
-try soundFxEnabled := Integer(IniRead(configFile, "Settings", "SoundFxEnabled", 1))
-catch
-    soundFxEnabled := 1
-
-global doubleTapThreshold, holdThreshold, autoStart
-global osdFontSize, osdDurationMs, osdFadeEnabled, trayIconMicState, themeMode, soundFxEnabled
+global holdAction        := IniRead(configFile, "Settings", "HoldAction", "MusicApp")
+global customAppPath     := IniRead(configFile, "Settings", "CustomAppPath", "")
+global action1           := IniRead(configFile, "Settings", "Action1", "MicMute")
+global action2           := IniRead(configFile, "Settings", "Action2", "PlayPause")
+global action3           := IniRead(configFile, "Settings", "Action3", "NextTrack")
+global action4           := IniRead(configFile, "Settings", "Action4", "PrevTrack")
+global trayIconMicState  := ReadConfigInt("Settings", "TrayIconMicState", 1)
+global soundFxEnabled    := ReadConfigInt("Settings", "SoundFxEnabled", 1)
 global isKeyDown            := false
 global holdTriggered        := false   ; Basılı tutma eyleminin tetiklenip tetiklenmediği
 global tapCount             := 0       ; Arka arkaya tıklama sayısı
@@ -1129,6 +1108,10 @@ CreateDefaultConfig(path) {
 ;  ÖZEL KLASÖR KURULUM FONKSİYONU
 ; ══════════════════════════════════════════
 EnsureInstalledLocation() {
+    ; Geliştirme modunda (derlenmemiş script) özel klasöre taşıma yapma
+    if (!A_IsCompiled)
+        return
+
     localAppData := EnvGet("LOCALAPPDATA")
     if (localAppData = "")
         localAppData := A_AppData "\..\Local"
@@ -1193,12 +1176,14 @@ SaveBase64ToFile(b64, filePath) {
     if FileExist(filePath)
         return
     try {
-        buf := Buffer(StrLen(b64))
         size := 0
-        if DllCall("crypt32\CryptStringToBinaryW", "Str", b64, "UInt", 0, "UInt", 1, "Ptr", buf, "UInt*", &size := buf.Size, "Ptr", 0, "Ptr", 0) {
-            file := FileOpen(filePath, "w")
-            file.RawWrite(buf, size)
-            file.Close()
+        if DllCall("crypt32\CryptStringToBinaryW", "Str", b64, "UInt", 0, "UInt", 1, "Ptr", 0, "UInt*", &size, "Ptr", 0, "Ptr", 0) {
+            buf := Buffer(size)
+            if DllCall("crypt32\CryptStringToBinaryW", "Str", b64, "UInt", 0, "UInt", 1, "Ptr", buf, "UInt*", &size, "Ptr", 0, "Ptr", 0) {
+                file := FileOpen(filePath, "w")
+                file.RawWrite(buf, size)
+                file.Close()
+            }
         }
     }
 }
@@ -1208,6 +1193,21 @@ SaveBase64ToFile(b64, filePath) {
 ; ══════════════════════════════════════════
 StartupUpdateCheck() {
     CheckForUpdates(true)
+}
+
+CompareVersions(v1, v2) {
+    p1 := StrSplit(v1, ".")
+    p2 := StrSplit(v2, ".")
+    maxLen := Max(p1.Length, p2.Length)
+    loop maxLen {
+        num1 := (A_Index <= p1.Length && IsInteger(p1[A_Index])) ? Integer(p1[A_Index]) : 0
+        num2 := (A_Index <= p2.Length && IsInteger(p2[A_Index])) ? Integer(p2[A_Index]) : 0
+        if (num1 > num2)
+            return 1
+        if (num1 < num2)
+            return -1
+    }
+    return 0
 }
 
 CheckForUpdates(silent := true) {
@@ -1240,7 +1240,7 @@ CheckForUpdates(silent := true) {
         latestVersion := RegExReplace(tagMatch[1], "^v", "")
         currentVersion := RegExReplace(APP_VERSION, "^v", "")
 
-        if (latestVersion = currentVersion) {
+        if (CompareVersions(latestVersion, currentVersion) <= 0) {
             if (!silent)
                 ShowTip("✅ Zaten güncel sürümdesiniz (v" . currentVersion . ")")
             return
@@ -1308,11 +1308,22 @@ PerformExeUpdate(exeUrl, newVersion) {
             return
         }
 
+        ; Dijital imza ve sertifika parmak izi (Thumbprint) doğrulaması
+        psVerify := 'powershell -NoProfile -ExecutionPolicy Bypass -Command "$s = Get-AuthenticodeSignature -LiteralPath `"' . tempExe . '`"; if ($s.SignerCertificate -and $s.SignerCertificate.Thumbprint -eq ''' . EXPECTED_CERT_THUMBPRINT . ''' -and $s.Status -ne ''HashMismatch'') { exit 0 } else { exit 1 }"'
+        verifyExit := RunWait(psVerify,, "Hide")
+        if (verifyExit != 0) {
+            ShowTip("⚠️ İndirilen dosyanın dijital imzası veya sertifika hash'i doğrulanamadı!", 3500)
+            try DirDelete(tempDir, true)
+            return
+        }
+
         ; Batch updater betiği oluştur
         batFile := tempDir "\update.bat"
         batContent := "@echo off`r`ntimeout /t 2 /nobreak > nul`r`ncopy /y `"" . tempExe . "`" `"" . targetExe . "`"`r`nstart `"`" `"" . targetExe . "`"`r`nrmdir /s /q `"" . tempDir . "`""
         
-        FileOpen(batFile, "w").Write(batContent)
+        f := FileOpen(batFile, "w")
+        f.Write(batContent)
+        f.Close()
 
         ShowTip("✅ v" . newVersion . " hazır! Başlatılıyor...", 3000)
         Sleep 1500
@@ -1365,11 +1376,23 @@ PerformZipUpdate(zipUrl, newVersion) {
         }
 
         if (foundExe != "") {
+            ; Dijital imza ve sertifika parmak izi (Thumbprint) doğrulaması
+            psVerify := 'powershell -NoProfile -ExecutionPolicy Bypass -Command "$s = Get-AuthenticodeSignature -LiteralPath `"' . foundExe . '`"; if ($s.SignerCertificate -and $s.SignerCertificate.Thumbprint -eq ''' . EXPECTED_CERT_THUMBPRINT . ''' -and $s.Status -ne ''HashMismatch'') { exit 0 } else { exit 1 }"'
+            verifyExit := RunWait(psVerify,, "Hide")
+            if (verifyExit != 0) {
+                ShowTip("⚠️ İndirilen paketteki EXE'nin dijital imzası veya sertifika hash'i doğrulanamadı!", 3500)
+                try DirDelete(tempDir, true)
+                return
+            }
+
             targetExe := A_ScriptFullPath
             batFile := tempDir "\update.bat"
             batContent := "@echo off`r`ntimeout /t 2 /nobreak > nul`r`ncopy /y `"" . foundExe . "`" `"" . targetExe . "`"`r`nstart `"`" `"" . targetExe . "`"`r`nrmdir /s /q `"" . tempDir . "`""
             
-            FileOpen(batFile, "w").Write(batContent)
+            f := FileOpen(batFile, "w")
+            f.Write(batContent)
+            f.Close()
+
             ShowTip("✅ v" . newVersion . " hazır! Başlatılıyor...", 3000)
             Sleep 1500
             Run('cmd.exe /c "' . batFile . '"',, "Hide")

@@ -463,9 +463,16 @@ try {
     if ($shouldCreateRelease) {
         $releaseFiles = @()
 
-        # GitHub'a sadece cikti klasorundeki derlenen EXE dosyasi yuklenir
+        # GitHub'a yuklenecek dosyalar
         if (Test-Path $outputExePath) {
             $releaseFiles += $outputExePath
+
+            # Otomatik SHA256 checksum dosyasi olustur
+            $sha256 = (Get-FileHash -Path $outputExePath -Algorithm SHA256).Hash.ToLower()
+            $sha256File = "$outputExePath.sha256"
+            "$sha256  $outputExeName" | Set-Content -Path $sha256File -Encoding ascii
+            $releaseFiles += $sha256File
+            Write-Info "SHA256 checksum olusturuldu: $sha256"
         }
 
         if ($releaseFiles.Count -eq 0) {
@@ -507,7 +514,7 @@ try {
                     catch { $releaseExists = $false }
 
                     if ($releaseExists) {
-                        Write-Step "Mevcut GitHub Release'e EXE yukleniyor: $tagName"
+                        Write-Step "Mevcut GitHub Release'e dosyalar yukleniyor: $tagName"
 
                         # Eger release notu dosyasi varsa release aciklamasini da guncelle
                         if ($releaseNotesFile) {
@@ -519,7 +526,7 @@ try {
                             Write-Info "Yukleniyor: $(Split-Path $file -Leaf)"
                             Run-Exe -FilePath "gh" -ArgumentList @("release", "upload", $tagName, $file, "--clobber") -WorkingDirectory $projectRoot
                         }
-                        Write-Ok "EXE mevcut release'e yuklendi: $tagName"
+                        Write-Ok "Dosyalar mevcut release'e yuklendi: $tagName"
                         $stepResults["GitHub Release"] = [pscustomobject]@{
                             Elapsed = [TimeSpan]::Zero
                             Success = $true
@@ -538,12 +545,14 @@ try {
                         else {
                             $releaseNotesContent = $ReleaseNotes
                             if ([string]::IsNullOrWhiteSpace($releaseNotesContent) -and -not [Console]::IsInputRedirected -and -not $NoPrompt) {
-                                $releaseNotesContent = Read-Host "   Release notlari (bos birakilirsa otomatik tarihli not atanir)"
+                                $releaseNotesContent = Read-Host "   Release notlari (bos birakilirsa GitHub otomatik uretir)"
                             }
                             if ([string]::IsNullOrWhiteSpace($releaseNotesContent)) {
-                                $releaseNotesContent = "Copilot Button v$currentVersion - $(Get-Date -Format 'yyyy-MM-dd')"
+                                $ghArgs += @("--generate-notes")
                             }
-                            $ghArgs += @("--notes", $releaseNotesContent)
+                            else {
+                                $ghArgs += @("--notes", $releaseNotesContent)
+                            }
                         }
 
                         foreach ($file in $releaseFiles) {
