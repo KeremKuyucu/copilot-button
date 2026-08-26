@@ -78,6 +78,8 @@ SetStartupShortcut(autoStart)
 ; ══════════════════════════════════════════
 if FileExist(A_ScriptDir "\logo.ico")
     TraySetIcon A_ScriptDir "\logo.ico"
+else if A_IsCompiled
+    TraySetIcon A_ScriptFullPath
 
 activeAppName := (musicApp = "Spotify") ? "Spotify" : "YouTube Music"
 
@@ -636,9 +638,13 @@ UpdateTrayIcon(isMuted) {
     if (isMuted) {
         if FileExist(A_ScriptDir "\logo_muted.ico")
             TraySetIcon A_ScriptDir "\logo_muted.ico"
+        else if A_IsCompiled
+            TraySetIcon A_ScriptFullPath  ; EXE'nin gömülü ikonunu kullan
     } else {
         if FileExist(A_ScriptDir "\logo.ico")
             TraySetIcon A_ScriptDir "\logo.ico"
+        else if A_IsCompiled
+            TraySetIcon A_ScriptFullPath  ; EXE'nin gömülü ikonunu kullan
     }
 }
 
@@ -752,6 +758,28 @@ SetStartupShortcut(enable := true) {
             try FileDelete(shortcutPath)
         }
     }
+}
+
+; ══════════════════════════════════════════
+;  BAŞLAT MENÜSÜ KISAYOLU
+; ══════════════════════════════════════════
+CreateStartMenuShortcut(targetPath := "") {
+    if (targetPath = "")
+        targetPath := A_ScriptFullPath
+    startMenuPath := A_Programs "\CopilotButton.lnk"
+    try {
+        iconPath := A_ScriptDir "\logo.ico"
+        if FileExist(iconPath)
+            FileCreateShortcut(targetPath, startMenuPath, A_ScriptDir, , "Copilot Tuşu — Medya & Mikrofon Kontrolü", iconPath)
+        else
+            FileCreateShortcut(targetPath, startMenuPath, A_ScriptDir, , "Copilot Tuşu — Medya & Mikrofon Kontrolü")
+    }
+}
+
+RemoveStartMenuShortcut() {
+    startMenuPath := A_Programs "\CopilotButton.lnk"
+    if FileExist(startMenuPath)
+        try FileDelete(startMenuPath)
 }
 
 ; ══════════════════════════════════════════
@@ -926,11 +954,14 @@ ShowSettingsGUI(*) {
     ; ══════════════════════════════════════════
     tab.UseTab()
 
-    btnSave := settingsGui.Add("Button", "x170 y435 w110 h32 Default", "💾 Kaydet & Yenile")
+    btnSave := settingsGui.Add("Button", "x120 y435 w110 h32 Default", "💾 Kaydet & Yenile")
     btnSave.OnEvent("Click", (*) => SaveAndReload())
 
-    btnCancel := settingsGui.Add("Button", "x290 y435 w110 h32", "❌ İptal")
+    btnCancel := settingsGui.Add("Button", "x240 y435 w110 h32", "❌ İptal")
     btnCancel.OnEvent("Click", (*) => (settingsGui.Destroy(), settingsGui := 0))
+
+    btnUninstall := settingsGui.Add("Button", "x20 y478 w380 h30", "🗑️ Uygulamayı Tamamen Sil")
+    btnUninstall.OnEvent("Click", (*) => UninstallApp())
 
     settingsGui.OnEvent("Close", (*) => (settingsGui.Destroy(), settingsGui := 0))
 
@@ -938,7 +969,7 @@ ShowSettingsGUI(*) {
     SetWindowDarkMode(settingsGui.Hwnd, isDark)
     ApplyThemeToControls(settingsGui, isDark)
 
-    settingsGui.Show("w410 h480")
+    settingsGui.Show("w410 h520")
 
     BrowseCustomApp(editCtrl) {
         selectedFile := FileSelect(3, , "Çalıştırılacak Uygulama veya Dosyayı Seçin", "Programlar (*.exe; *.bat; *.cmd; *.lnk; *.vbs; *.ps1; *.*)")
@@ -1018,6 +1049,71 @@ ShowSettingsGUI(*) {
         Sleep 500
         Reload()
     }
+}
+
+; ══════════════════════════════════════════
+;  UYGULAMAYI TAMAMEN SİLME (UNINSTALL)
+; ══════════════════════════════════════════
+UninstallApp() {
+    global settingsGui
+
+    result := MsgBox(
+        "Copilot Button uygulaması tamamen silinecek!`n`n"
+        . "Bu işlem şunları yapacak:`n"
+        . "• Windows başlangıç kısayolunu silecek`n"
+        . "• Başlat Menüsü kısayolunu silecek`n"
+        . "• Ayar dosyasını (config.ini) silecek`n"
+        . "• İkon dosyalarını silecek`n"
+        . "• Uygulamanın kendisini silecek`n`n"
+        . "Bu işlem geri alınamaz! Devam etmek istiyor musunuz?",
+        "🗑️ Uygulamayı Sil — Copilot Button",
+        "YesNo Icon! Default2"
+    )
+
+    if (result != "Yes")
+        return
+
+    ; Ayarlar penceresini kapat
+    if (IsObject(settingsGui)) {
+        settingsGui.Destroy()
+        settingsGui := 0
+    }
+
+    ; 1) Startup kısayolunu sil
+    try SetStartupShortcut(false)
+
+    ; 2) Başlat Menüsü kısayolunu sil
+    try RemoveStartMenuShortcut()
+
+    installDir := A_ScriptDir
+
+    ; 3) Config dosyasını sil
+    if FileExist(installDir "\config.ini")
+        try FileDelete(installDir "\config.ini")
+
+    ; 4) İkon dosyalarını sil
+    if FileExist(installDir "\logo.ico")
+        try FileDelete(installDir "\logo.ico")
+    if FileExist(installDir "\logo_muted.ico")
+        try FileDelete(installDir "\logo_muted.ico")
+
+    ; 5) EXE'yi silmek için batch script oluştur (çalışan dosya kendini silemez)
+    if (A_IsCompiled) {
+        tempBat := A_Temp "\copilot_button_uninstall.bat"
+        batContent := "@echo off`r`n"
+            . "timeout /t 2 /nobreak > nul`r`n"
+            . 'del /f /q "' . A_ScriptFullPath . '"' . "`r`n"
+            . 'rmdir /s /q "' . installDir . '" 2>nul' . "`r`n"
+            . 'del /f /q "%~f0"' . "`r`n"
+
+        f := FileOpen(tempBat, "w")
+        f.Write(batContent)
+        f.Close()
+
+        Run('cmd.exe /c "' . tempBat . '"',, "Hide")
+    }
+
+    ExitApp()
 }
 
 ; ══════════════════════════════════════════
@@ -1117,9 +1213,12 @@ EnsureInstalledLocation() {
         localAppData := A_AppData "\..\Local"
     installDir := localAppData "\CopilotButton"
     
-    ; Zaten özel klasördeyse ikonları kontrol et ve çık
+    ; Zaten özel klasördeyse ikonları ve kısayolları kontrol et ve çık
     if (StrLower(A_ScriptDir) = StrLower(installDir)) {
         EnsureDefaultIcons(installDir)
+        ; Başlat Menüsü kısayolu yoksa oluştur
+        if !FileExist(A_Programs "\CopilotButton.lnk")
+            CreateStartMenuShortcut()
         return
     }
 
@@ -1147,6 +1246,9 @@ EnsureInstalledLocation() {
         shortcutPath := A_Startup "\CopilotButton.lnk"
         if FileExist(shortcutPath)
             try FileCreateShortcut(targetFile, shortcutPath, installDir)
+
+        ; Başlat Menüsü kısayolunu oluştur
+        CreateStartMenuShortcut(targetFile)
 
         ; Yeni konumdan çalıştır ve mevcut örneği kapat
         Run('"' . targetFile . '"', installDir)
