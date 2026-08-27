@@ -11,7 +11,7 @@
 InstallKeybdHook()
 A_MenuMaskKey := "vkE8"
 
-global APP_VERSION := "1.0.10"
+global APP_VERSION := "1.0.11"
 global EXPECTED_CERT_THUMBPRINT := "037728AEA36D0BB09D2D1EE111C70A2D423CC6B4"
 
 SetTitleMatchMode 2
