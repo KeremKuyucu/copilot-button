@@ -1,10 +1,11 @@
 #requires -version 5.1
 <#
 .SYNOPSIS
-    Copilot Button - Otomatik Derle (AHK -> EXE), Imzala ve GitHub'a Dagit
+    Copilot Button - Otomatik Derle (AHK -> EXE), Inno Setup (Setup.exe), Imzala ve GitHub'a Dagit
 .DESCRIPTION
     AutoHotkey v2 scriptini (copilot-buton.ahk) Ahk2Exe ile C:\Users\Kerem\Projects\Outputs klasorune derler,
-    signtool ile imzalar ve GitHub Release olusturarak EXE dosyasini yukler.
+    Inno Setup 6 ile CopilotButton-Setup.exe kurulum paketini olusturur, signtool ile imzalar
+    ve GitHub Release olusturarak dosyalari yukler.
 .NOTES
     Proje kokunde calistirilmalidir.
 #>
@@ -48,6 +49,9 @@ try {
     $ahkScriptPath  = Join-Path $projectRoot $ahkScriptName
     $outputExeName  = "CopilotButton.exe"
     $outputExePath  = Join-Path $distPath $outputExeName
+    $setupExeName   = "CopilotButton-Setup.exe"
+    $setupExePath   = Join-Path $distPath $setupExeName
+    $issScriptPath  = Join-Path $projectRoot "installer.iss"
     $iconPath       = Join-Path $projectRoot "logo.ico"
 
     # Ahk2Exe Derleyici Yolu Arama
@@ -77,6 +81,22 @@ try {
     $ahkBasePath = $null
     foreach ($cand in $ahkBaseCandidates) {
         if (Test-Path $cand) { $ahkBasePath = $cand; break }
+    }
+
+    # Inno Setup Derleyici Yolu (ISCC.exe)
+    $isccCandidates = @(
+        "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+        "C:\Program Files\Inno Setup 6\ISCC.exe",
+        "C:\Program Files (x86)\Inno Setup 5\ISCC.exe",
+        "C:\Program Files\Inno Setup 5\ISCC.exe"
+    )
+    $isccPath = $null
+    foreach ($cand in $isccCandidates) {
+        if (Test-Path $cand) { $isccPath = $cand; break }
+    }
+    if (-not $isccPath) {
+        $candCmd = Get-Command "ISCC.exe" -ErrorAction SilentlyContinue
+        if ($candCmd) { $isccPath = $candCmd.Source }
     }
 
     # SignTool / PFX
@@ -226,8 +246,9 @@ try {
     # -- 2) Islem Secim Menusu -----------------------------------------------------
     function Show-ActionMenu {
         $actions = @(
-            [pscustomobject]@{ Name = "AHK Derle (Ahk2Exe -> EXE)";  Key = "Compile"; Selected = $true }
-            [pscustomobject]@{ Name = "Kod Imzalama (SignTool)";     Key = "Sign";    Selected = (Test-Path $pfxPath) }
+            [pscustomobject]@{ Name = "AHK Derle (Ahk2Exe -> EXE)";      Key = "Compile";   Selected = $true }
+            [pscustomobject]@{ Name = "Inno Setup Paketi (Setup.exe)";   Key = "InnoSetup"; Selected = ($null -ne $isccPath) }
+            [pscustomobject]@{ Name = "Kod Imzalama (SignTool)";         Key = "Sign";      Selected = (Test-Path $pfxPath) }
         )
 
         if ([Console]::IsInputRedirected -or $env:CI -eq "true") {
@@ -300,10 +321,12 @@ try {
         Write-Info "Kaynak: $ahkScriptName"
         Write-Info "Hedef: $outputExePath"
 
+        # False-positive riskini azaltmak icin /compress 0 ile derlenir
         $ahk2exeArgs = @(
             "/in", $ahkScriptPath,
             "/out", $outputExePath,
-            "/base", $ahkBasePath
+            "/base", $ahkBasePath,
+            "/compress", "0"
         )
 
         if (Test-Path $iconPath) {
@@ -341,19 +364,80 @@ try {
         }
     }
 
-    # -- 4) Kod Imzalama (SignTool + PFX) ------------------------------------------
-    if ($selectedKeys -contains "Sign") {
-        Write-Step "EXE Dosyasi Imzalaniyor..."
+    # -- 4) Inno Setup Kurulum Paketi (Setup.exe) ----------------------------------
+    if ($selectedKeys -contains "InnoSetup") {
+        Write-Step "Inno Setup Kurulum Paketi (Setup.exe) Olusturuluyor..."
         $sw = [System.Diagnostics.Stopwatch]::StartNew()
 
-        if (-not (Test-Path $outputExePath)) {
-            throw "Imzalanacak EXE bulunamadi: $outputExePath (Once derleme yapilmalidir)"
+        if (-not $isccPath -or -not (Test-Path $isccPath)) {
+            throw "Inno Setup derleyicisi (ISCC.exe) bulunamadi! Lutfen Inno Setup 6 kurulumunu kontrol edin."
         }
+        if (-not (Test-Path $issScriptPath)) {
+            throw "Inno Setup scripti bulunamadi: $issScriptPath"
+        }
+        if (-not (Test-Path $outputExePath)) {
+            throw "Setup paketi icin CopilotButton.exe bulunamadi: $outputExePath (Once derleme yapilmalidir)"
+        }
+
+        Write-Info "Inno Derleyici: $isccPath"
+        Write-Info "Inno Script: $issScriptPath"
+        Write-Info "Hedef: $setupExePath"
+
+        $isccArgs = @(
+            "/DMyAppVersion=$currentVersion",
+            "/DSourceExePath=$outputExePath",
+            "/DOutputDirPath=$distPath",
+            $issScriptPath
+        )
+
+        try {
+            Run-Exe -FilePath $isccPath -ArgumentList $isccArgs -WorkingDirectory $projectRoot
+
+            if (-not (Test-Path $setupExePath)) {
+                throw "Inno Setup derlemesi tamamlandi ancak cikti dosyasi olusmadi: $setupExePath"
+            }
+
+            $setupItem = Get-Item $setupExePath
+            $sizeMB = "{0:N2} MB" -f ($setupItem.Length / 1MB)
+            $sw.Stop()
+
+            $stepResults["Inno Setup (Setup.exe)"] = [pscustomobject]@{
+                Elapsed = $sw.Elapsed
+                Success = $true
+                Detail  = "$setupExeName ($sizeMB)"
+            }
+            Write-Ok "Setup.exe basariyla olusturuldu: $setupExePath ($sizeMB) - $(Format-Elapsed $sw.Elapsed)"
+        }
+        catch {
+            $sw.Stop()
+            $stepResults["Inno Setup (Setup.exe)"] = [pscustomobject]@{
+                Elapsed = $sw.Elapsed
+                Success = $false
+                Detail  = $_.Exception.Message
+            }
+            Write-Err "Inno Setup derleme basarisiz: $($_.Exception.Message)"
+            throw
+        }
+    }
+
+    # -- 5) Kod Imzalama (SignTool + PFX) ------------------------------------------
+    if ($selectedKeys -contains "Sign") {
+        Write-Step "Dosyalar Imzalaniyor..."
+        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+
         if (-not $signtoolPath -or -not (Test-Path $signtoolPath)) {
             throw "signtool.exe bulunamadi: $signtoolPath"
         }
         if (-not (Test-Path $pfxPath)) {
             throw "PFX sertifika dosyasi bulunamadi: $pfxPath"
+        }
+
+        $filesToSign = @()
+        if (Test-Path $outputExePath) { $filesToSign += $outputExePath }
+        if (Test-Path $setupExePath)  { $filesToSign += $setupExePath }
+
+        if ($filesToSign.Count -eq 0) {
+            throw "Imzalanacak dosya bulunamadi! Once derleme veya Setup olusturma adimi secilmelidir."
         }
 
         $pfxPassPlain = $null
@@ -380,49 +464,49 @@ try {
                 "http://timestamp.globalsign.com/scripts/timstamp.dll"
             )
 
-            $signed = $false
-            $lastSignErr = $null
+            foreach ($fileToSign in $filesToSign) {
+                $fileName = Split-Path $fileToSign -Leaf
+                Write-Info "Imzalaniyor: $fileName"
 
-            foreach ($ts in $tsServers) {
-                try {
-                    Write-Info "Zaman damgasi sunucusu deneniyor: $ts"
-                    Run-Exe -FilePath $signtoolPath -ArgumentList @(
-                        "sign", "/fd", "SHA256",
-                        "/tr", $ts, "/td", "SHA256",
-                        "/f", $pfxPath, "/p", $pfxPassPlain,
-                        $outputExePath
-                    )
-                    $signed = $true
-                    break
+                $signed = $false
+                $lastSignErr = $null
+
+                foreach ($ts in $tsServers) {
+                    try {
+                        Write-Info "  Zaman damgasi deneniyor ($ts)..."
+                        Run-Exe -FilePath $signtoolPath -ArgumentList @(
+                            "sign", "/fd", "SHA256",
+                            "/tr", $ts, "/td", "SHA256",
+                            "/f", $pfxPath, "/p", $pfxPassPlain,
+                            $fileToSign
+                        )
+                        $signed = $true
+                        break
+                    }
+                    catch {
+                        $lastSignErr = $_.Exception.Message
+                        Write-Warn "  Zaman damgasi yanit vermedi ($ts), digeri deneniyor..."
+                        Start-Sleep -Milliseconds 500
+                    }
                 }
-                catch {
-                    $lastSignErr = $_.Exception.Message
-                    Write-Warn "Zaman damgasi sunucusu yanit vermedi ($ts), digeri deneniyor..."
-                    Start-Sleep -Milliseconds 500
+
+                if (-not $signed) {
+                    throw "Imzalama basarisiz ($fileName). Son hata: $lastSignErr"
+                }
+
+                $verifyExit = Run-Exe -FilePath $signtoolPath -ArgumentList @("verify", "/pa", "/v", $fileToSign) -AllowNonZero
+                if ($verifyExit -eq 0) {
+                    Write-Ok "$fileName basariyla imzalandi ve dogrulandi."
+                } else {
+                    Write-Warn "$fileName imzalandi (Self-signed sertifika uyarisi olabilir)."
                 }
             }
 
-            if (-not $signed) {
-                throw "Imzalama basarisiz oldu. Son hata: $lastSignErr"
-            }
-
-            $verifyExit = Run-Exe -FilePath $signtoolPath -ArgumentList @("verify", "/pa", "/v", $outputExePath) -AllowNonZero
             $sw.Stop()
-
-            if ($verifyExit -eq 0) {
-                $stepResults["Imzalama"] = [pscustomobject]@{
-                    Elapsed = $sw.Elapsed
-                    Success = $true
-                    Detail  = "Imzalandi & Dogrulandi"
-                }
-                Write-Ok "EXE basariyla imzalandi ve dogrulandi - $(Format-Elapsed $sw.Elapsed)"
-            } else {
-                $stepResults["Imzalama"] = [pscustomobject]@{
-                    Elapsed = $sw.Elapsed
-                    Success = $true
-                    Detail  = "Imzalandi (Self-Signed)"
-                }
-                Write-Warn "EXE imzalandi ancak dogrulama uyarisi verdi (Self-signed sertifika olabilir)."
+            $stepResults["Imzalama"] = [pscustomobject]@{
+                Elapsed = $sw.Elapsed
+                Success = $true
+                Detail  = "$($filesToSign.Count) dosya imzalandi"
             }
         }
         catch {
@@ -440,7 +524,7 @@ try {
         }
     }
 
-    # -- 5) GitHub Release (Otomatik Aciklama Dosyasi Tespiti Ile) -----------------
+    # -- 6) GitHub Release (Otomatik Aciklama Dosyasi Tespiti Ile) -----------------
     $shouldCreateRelease = $false
     if ($CreateRelease) {
         $shouldCreateRelease = $true
@@ -463,20 +547,31 @@ try {
     if ($shouldCreateRelease) {
         $releaseFiles = @()
 
-        # GitHub'a yuklenecek dosyalar
+        # Inno Setup paketi (Ana dagitim dosyasi)
+        if (Test-Path $setupExePath) {
+            $releaseFiles += $setupExePath
+
+            # SHA256 checksum
+            $sha256Setup = (Get-FileHash -Path $setupExePath -Algorithm SHA256).Hash.ToLower()
+            $sha256SetupFile = "$setupExePath.sha256"
+            "$sha256Setup  $setupExeName" | Set-Content -Path $sha256SetupFile -Encoding ascii
+            $releaseFiles += $sha256SetupFile
+            Write-Info "SHA256 checksum olusturuldu: $sha256Setup ($setupExeName)"
+        }
+
+        # Portatif EXE (Opsiyonel)
         if (Test-Path $outputExePath) {
             $releaseFiles += $outputExePath
 
-            # Otomatik SHA256 checksum dosyasi olustur
-            $sha256 = (Get-FileHash -Path $outputExePath -Algorithm SHA256).Hash.ToLower()
-            $sha256File = "$outputExePath.sha256"
-            "$sha256  $outputExeName" | Set-Content -Path $sha256File -Encoding ascii
-            $releaseFiles += $sha256File
-            Write-Info "SHA256 checksum olusturuldu: $sha256"
+            $sha256Exe = (Get-FileHash -Path $outputExePath -Algorithm SHA256).Hash.ToLower()
+            $sha256ExeFile = "$outputExePath.sha256"
+            "$sha256Exe  $outputExeName" | Set-Content -Path $sha256ExeFile -Encoding ascii
+            $releaseFiles += $sha256ExeFile
+            Write-Info "SHA256 checksum olusturuldu: $sha256Exe ($outputExeName)"
         }
 
         if ($releaseFiles.Count -eq 0) {
-            Write-Warn "Release icin yuklenecek EXE dosyasi bulunamadi: $outputExePath"
+            Write-Warn "Release icin yuklenecek dosya bulunamadi."
         }
         else {
             $ghCheck = Get-Command "gh" -ErrorAction SilentlyContinue
@@ -489,7 +584,6 @@ try {
 
                 Push-Location $projectRoot
                 try {
-                    # Release notu dosyasini ara: RELEASE_1.0.2.md, RELEASE_v1.0.2.md, RELEASE_NOTES.md, RELEASE.md, CHANGELOG.md
                     $releaseNotesFile = $null
                     $notesCandidates = @(
                         (Join-Path $projectRoot "RELEASE_$currentVersion.md"),
@@ -516,7 +610,6 @@ try {
                     if ($releaseExists) {
                         Write-Step "Mevcut GitHub Release'e dosyalar yukleniyor: $tagName"
 
-                        # Eger release notu dosyasi varsa release aciklamasini da guncelle
                         if ($releaseNotesFile) {
                             Write-Info "Release notu dosyasi ile aciklama guncelleniyor: $(Split-Path $releaseNotesFile -Leaf)"
                             Run-Exe -FilePath "gh" -ArgumentList @("release", "edit", $tagName, "--notes-file", $releaseNotesFile) -WorkingDirectory $projectRoot
@@ -583,7 +676,7 @@ try {
         }
     }
 
-    # -- 6) Ozet Tablosu -----------------------------------------------------------
+    # -- 7) Ozet Tablosu -----------------------------------------------------------
     $scriptStopwatch.Stop()
 
     Write-Host ""
@@ -596,16 +689,18 @@ try {
         $status  = if ($r.Success) { "Basarili" } else { "HATALI" }
         $sColor  = if ($r.Success) { "Green" }    else { "Red" }
         $elapsed = if ($r.Elapsed -gt [TimeSpan]::Zero) { Format-Elapsed $r.Elapsed } else { "-" }
-        $line    = "|  {0,-20}  {1,-10}  {2,-10}  {3,-18}|" -f $name, $status, $elapsed, $r.Detail
+        $line    = "|  {0,-22}  {1,-10}  {2,-10}  {3,-18}|" -f $name, $status, $elapsed, $r.Detail
         Write-Host $line -ForegroundColor $sColor
     }
 
     # Cikti Dosyalarini Listele
-    if (Test-Path $outputExePath) {
-        $f = Get-Item $outputExePath
+    Write-Host "+-------------------------------------------------------------------+" -ForegroundColor Green
+    Write-Host "|  Uretilen Dosyalar ($distPath)" -ForegroundColor Green
+
+    $outItems = @($outputExePath, $setupExePath) | Where-Object { Test-Path $_ }
+    foreach ($itemPath in $outItems) {
+        $f = Get-Item $itemPath
         $sizeStr = if ($f.Length -ge 1MB) { "{0:N2} MB" -f ($f.Length / 1MB) } else { "{0:N0} KB" -f ($f.Length / 1KB) }
-        Write-Host "+-------------------------------------------------------------------+" -ForegroundColor Green
-        Write-Host "|  Uretilen Dosya ($distPath)" -ForegroundColor Green
         $fLine   = "|    {0,-38} {1,23}|" -f $f.Name, $sizeStr
         Write-Host $fLine -ForegroundColor White
     }

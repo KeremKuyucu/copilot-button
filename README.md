@@ -31,17 +31,17 @@ Windows 11 klavyelerindeki **Copilot tuşunu (`Win + Shift + F23`)** gelişmiş 
 - ⚙️ **Modern Sekmeli Ayarlar Menüsü (GUI):** Tüm zamanlama, eylem atamaları, tema, ses efektleri ve OSD ayarlarını 3 sekmeli kompakt ve modern arayüzden kolayca yönetin.
 - 📁 **Özel Uygulama Seçici (Gözat):** `CustomApp` modu için dosya seçici penceresi ile `.exe` veya script dosyalarını kolayca seçin.
 - 🔊 **Ses Efekti Yönetimi:** Mikrofon susturma/açma ses efektlerini tek tıkla açıp kapatın.
-- 🔄 **Otomatik Güncelleme Sistemi:** Yeni sürümleri GitHub Releases üzerinden otomatik kontrol eder ve tek tıkla kendini günceller.
-- 📁 **Sıfır Bağımlılık & Otomatik Kurulum:** Tek bir `.exe` çalıştırıldığında kendini `%LocalAppData%\CopilotButton` klasörüne kopyalar, simgeleri ve konfigürasyonu otomatik üretir.
+- 🔄 **Sessiz Otomatik Güncelleme:** Yeni sürümleri GitHub Releases üzerinden otomatik kontrol eder, Inno Setup yükleyicisi ile ayarlarınızı koruyarak arka planda sessizce günceller.
+- 📁 **Inno Setup Kurulum Paketi:** Standart Windows yükleyicisi ile tek tıkla kurulum, Başlat Menüsü ve Başlangıç kısayolları oluşturma, Denetim Masası'ndan temiz kaldırma.
 
 ---
 
 ## 🛠️ Kurulum ve Kullanım
 
-### 🚀 Hızlı Başlangıç (.exe)
-1. GitHub [Releases](https://github.com/KeremKuyucu/copilot-button/releases) sayfasından en son `copilot-buton.exe` dosyasını indirin.
-2. Dosyayı çalıştırın. 
-3. Uygulama otomatik olarak `%LocalAppData%\CopilotButton` klasörüne yerleşecek ve sistem tepsinizde (sağ alt) çalışmaya başlayacaktır.
+### 🚀 Hızlı Başlangıç (Kurulum Paketi — Önerilen)
+1. GitHub [Releases](https://github.com/KeremKuyucu/copilot-button/releases) sayfasından en son `CopilotButton-Setup.exe` dosyasını indirin.
+2. Kurulum sihirbazını çalıştırıp tamamlayın.
+3. Uygulama otomatik olarak başlayacak ve sistem tepsinizde (sağ alt) aktifleşecektir.
 
 ### 📜 Kaynak Kodu ile Çalıştırma (.ahk)
 1. Bilgisayarınızda [AutoHotkey v2](https://www.autohotkey.com/) yüklü olduğundan emin olun.

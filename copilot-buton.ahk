@@ -1,3 +1,10 @@
+;@Ahk2Exe-SetMainIcon logo.ico
+;@Ahk2Exe-SetProductName Copilot Button Controller
+;@Ahk2Exe-SetDescription Windows Copilot Key Media & Mic Controller
+;@Ahk2Exe-SetCopyright Copyright (c) 2026 Kerem Kuyucu
+;@Ahk2Exe-SetCompanyName Kerem Kuyucu
+;@Ahk2Exe-SetOrigFilename CopilotButton.exe
+
 #Requires AutoHotkey v2.0
 #SingleInstance Force
 #UseHook true
@@ -8,11 +15,6 @@ global APP_VERSION := "1.0.10"
 global EXPECTED_CERT_THUMBPRINT := "037728AEA36D0BB09D2D1EE111C70A2D423CC6B4"
 
 SetTitleMatchMode 2
-
-; ══════════════════════════════════════════
-;  ÖZEL KLASÖRE YERLEŞTİRME & KURULUM
-; ══════════════════════════════════════════
-EnsureInstalledLocation()
 
 ; ══════════════════════════════════════════
 ;  AYARLAR — config.ini'den okunur
@@ -1072,66 +1074,51 @@ ShowSettingsGUI(*) {
 }
 
 ; ══════════════════════════════════════════
-;  UYGULAMAYI TAMAMEN SİLME (UNINSTALL)
+;  UYGULAMAYI KALDIRMA (UNINSTALL)
 ; ══════════════════════════════════════════
 UninstallApp() {
-    global settingsGui
+    global settingsGui, configFile
+
+    uninstallerPath := A_ScriptDir "\unins000.exe"
+    if FileExist(uninstallerPath) {
+        result := MsgBox(
+            "Copilot Button uygulamasını sistemden tamamen kaldırmak istiyor musunuz?",
+            "🗑️ Uygulamayı Kaldır — Copilot Button",
+            "YesNo Icon? Default2"
+        )
+        if (result != "Yes")
+            return
+
+        if (IsObject(settingsGui)) {
+            settingsGui.Destroy()
+            settingsGui := 0
+        }
+
+        try Run('"' uninstallerPath '"')
+        ExitApp()
+        return
+    }
 
     result := MsgBox(
-        "Copilot Button uygulaması tamamen silinecek!`n`n"
-        . "Bu işlem şunları yapacak:`n"
-        . "• Windows başlangıç kısayolunu silecek`n"
-        . "• Başlat Menüsü kısayolunu silecek`n"
-        . "• Ayar dosyasını (config.ini) silecek`n"
-        . "• İkon dosyalarını silecek`n"
-        . "• Uygulamanın kendisini silecek`n`n"
-        . "Bu işlem geri alınamaz! Devam etmek istiyor musunuz?",
-        "🗑️ Uygulamayı Sil — Copilot Button",
+        "Copilot Button uygulaması kaldırılacak!`n`n"
+        . "Windows başlangıç kısayolu ve ayarlar silinecek.`n`n"
+        . "Devam etmek istiyor musunuz?",
+        "🗑️ Uygulamayı Kaldır — Copilot Button",
         "YesNo Icon! Default2"
     )
 
     if (result != "Yes")
         return
 
-    ; Ayarlar penceresini kapat
     if (IsObject(settingsGui)) {
         settingsGui.Destroy()
         settingsGui := 0
     }
 
-    ; 1) Startup kısayolunu sil
     try SetStartupShortcut(false)
-
-    ; 2) Başlat Menüsü kısayolunu sil
     try RemoveStartMenuShortcut()
-
-    installDir := A_ScriptDir
-
-    ; 3) Config dosyasını sil
-    if FileExist(installDir "\config.ini")
-        try FileDelete(installDir "\config.ini")
-
-    ; 4) İkon dosyalarını sil
-    if FileExist(installDir "\logo.ico")
-        try FileDelete(installDir "\logo.ico")
-    if FileExist(installDir "\logo_muted.ico")
-        try FileDelete(installDir "\logo_muted.ico")
-
-    ; 5) EXE'yi silmek için batch script oluştur (çalışan dosya kendini silemez)
-    if (A_IsCompiled) {
-        tempBat := A_Temp "\copilot_button_uninstall.bat"
-        batContent := "@echo off`r`n"
-            . "timeout /t 2 /nobreak > nul`r`n"
-            . 'del /f /q "' . A_ScriptFullPath . '"' . "`r`n"
-            . 'rmdir /s /q "' . installDir . '" 2>nul' . "`r`n"
-            . 'del /f /q "%~f0"' . "`r`n"
-
-        f := FileOpen(tempBat, "w")
-        f.Write(batContent)
-        f.Close()
-
-        Run('cmd.exe /c "' . tempBat . '"', , "Hide")
-    }
+    if FileExist(configFile)
+        try FileDelete(configFile)
 
     ExitApp()
 }
@@ -1221,88 +1208,7 @@ CreateDefaultConfig(path) {
 }
 
 ; ══════════════════════════════════════════
-;  ÖZEL KLASÖR KURULUM FONKSİYONU
-; ══════════════════════════════════════════
-EnsureInstalledLocation() {
-    ; Geliştirme modunda (derlenmemiş script) özel klasöre taşıma yapma
-    if (!A_IsCompiled)
-        return
-
-    localAppData := EnvGet("LOCALAPPDATA")
-    if (localAppData = "")
-        localAppData := A_AppData "\..\Local"
-    installDir := localAppData "\CopilotButton"
-
-    ; Zaten özel klasördeyse ikonları ve kısayolları kontrol et ve çık
-    if (StrLower(A_ScriptDir) = StrLower(installDir)) {
-        EnsureDefaultIcons(installDir)
-        ; Başlat Menüsü kısayolu yoksa oluştur
-        if !FileExist(A_Programs "\CopilotButton.lnk")
-            CreateStartMenuShortcut()
-        return
-    }
-
-    try {
-        if (!DirExist(installDir))
-            DirCreate(installDir)
-
-        targetFile := installDir "\" A_ScriptName
-
-        ; Çalışan dosyayı özel klasöre kopyala
-        FileCopy(A_ScriptFullPath, targetFile, true)
-
-        ; Varsa ikonları kopyala
-        if FileExist(A_ScriptDir "\logo.ico")
-            FileCopy(A_ScriptDir "\logo.ico", installDir "\logo.ico", true)
-        if FileExist(A_ScriptDir "\logo_muted.ico")
-            FileCopy(A_ScriptDir "\logo_muted.ico", installDir "\logo_muted.ico", true)
-        if FileExist(A_ScriptDir "\config.ini") && !FileExist(installDir "\config.ini")
-            FileCopy(A_ScriptDir "\config.ini", installDir "\config.ini", true)
-
-        ; Eksik ikonları yerleştir
-        EnsureDefaultIcons(installDir)
-
-        ; Başlangıç kısayolunu güncelle
-        shortcutPath := A_Startup "\CopilotButton.lnk"
-        if FileExist(shortcutPath)
-            try FileCreateShortcut(targetFile, shortcutPath, installDir)
-
-        ; Başlat Menüsü kısayolunu oluştur
-        CreateStartMenuShortcut(targetFile)
-
-        ; Yeni konumdan çalıştır ve mevcut örneği kapat
-        Run('"' . targetFile . '"', installDir)
-        ExitApp()
-    }
-}
-
-; ══════════════════════════════════════════
-;  İKONLARI KONTROL ETME & YERLEŞTİRME
-; ══════════════════════════════════════════
-EnsureDefaultIcons(dir) {
-    logoPath := dir "\logo.ico"
-    mutedPath := dir "\logo_muted.ico"
-
-    try {
-        if (!FileExist(logoPath) || FileGetSize(logoPath) < 50000) {
-            if (FileExist(A_ScriptDir "\logo.ico") && FileGetSize(A_ScriptDir "\logo.ico") > 50000)
-                FileCopy(A_ScriptDir "\logo.ico", logoPath, true)
-            else
-                FileInstall "logo.ico", logoPath, 1
-        }
-    }
-    try {
-        if (!FileExist(mutedPath) || FileGetSize(mutedPath) < 50000) {
-            if (FileExist(A_ScriptDir "\logo_muted.ico") && FileGetSize(A_ScriptDir "\logo_muted.ico") > 50000)
-                FileCopy(A_ScriptDir "\logo_muted.ico", mutedPath, true)
-            else
-                FileInstall "logo_muted.ico", mutedPath, 1
-        }
-    }
-}
-
-; ══════════════════════════════════════════
-;  GITHUB OTOMATİK GÜNCELLEME SİSTEMİ
+;  GITHUB OTOMATİK GÜNCELLEME SİSTEMİ (Inno Setup)
 ; ══════════════════════════════════════════
 StartupUpdateCheck() {
     CheckForUpdates(true)
@@ -1327,7 +1233,6 @@ CheckForUpdates(silent := true) {
     global APP_VERSION
 
     try {
-        ; GitHub API'den son release bilgisini çek
         whr := ComObject("WinHttp.WinHttpRequest.5.1")
         whr.Open("GET", "https://api.github.com/repos/KeremKuyucu/copilot-button/releases/latest", true)
         whr.SetRequestHeader("User-Agent", "CopilotButton-AutoUpdater")
@@ -1359,17 +1264,12 @@ CheckForUpdates(silent := true) {
             return
         }
 
-        ; Release asset'leri içinde .exe var mı kontrol et
-        exeUrl := ""
-        if RegExMatch(responseText, '"browser_download_url"\s*:\s*"([^"]+\.exe)"', &exeMatch)
-            exeUrl := exeMatch[1]
-
-        ; Zip bağlantısını kontrol et
-        zipUrl := ""
-        if RegExMatch(responseText, '"browser_download_url"\s*:\s*"([^"]+\.zip)"', &zipMatch)
-            zipUrl := zipMatch[1]
-        else if RegExMatch(responseText, '"zipball_url"\s*:\s*"([^"]+)"', &zipMatch)
-            zipUrl := zipMatch[1]
+        ; Release asset'leri içinde Setup.exe var mı kontrol et (Öncelikli)
+        setupUrl := ""
+        if RegExMatch(responseText, '"browser_download_url"\s*:\s*"([^"]+Setup\.exe)"', &setupMatch)
+            setupUrl := setupMatch[1]
+        else if RegExMatch(responseText, '"browser_download_url"\s*:\s*"([^"]+\.exe)"', &exeMatch)
+            setupUrl := exeMatch[1]
 
         ; Değişiklik notlarını çek
         releaseBody := ""
@@ -1384,14 +1284,12 @@ CheckForUpdates(silent := true) {
         if (releaseBody != "")
             updateMsg .= "`n── Değişiklikler ──`n" . releaseBody . "`n"
 
-        updateMsg .= "`nGüncellemek ister misiniz?"
+        updateMsg .= "`nOtomatik olarak güncellensin mi?"
 
         result := MsgBox(updateMsg, "🔄 Güncelleme Mevcut — v" . latestVersion, "YesNo Icon!")
         if (result = "Yes") {
-            if (exeUrl != "")
-                PerformExeUpdate(exeUrl, latestVersion)
-            else if (zipUrl != "")
-                PerformZipUpdate(zipUrl, latestVersion)
+            if (setupUrl != "")
+                PerformInstallerUpdate(setupUrl, latestVersion)
             else
                 ShowTip("⚠️ İndirme bağlantısı bulunamadı!", 2500)
         }
@@ -1402,148 +1300,31 @@ CheckForUpdates(silent := true) {
     }
 }
 
-PerformExeUpdate(exeUrl, newVersion) {
-    tempDir := A_ScriptDir "\update_temp"
-    tempExe := tempDir "\update.exe"
-    targetExe := A_ScriptFullPath
+PerformInstallerUpdate(setupUrl, newVersion) {
+    tempInstaller := A_Temp "\CopilotButton_Setup.exe"
 
-    ShowTip("⬇️ v" . newVersion . " (.exe) indiriliyor...", 5000)
+    ShowTip("⬇️ v" . newVersion . " güncellemesi indiriliyor...", 5000)
 
     try {
-        if DirExist(tempDir)
-            try DirDelete(tempDir, true)
-        DirCreate(tempDir)
+        if FileExist(tempInstaller)
+            try FileDelete(tempInstaller)
 
-        Download(exeUrl, tempExe)
+        Download(setupUrl, tempInstaller)
 
-        if !FileExist(tempExe) {
+        if !FileExist(tempInstaller) {
             ShowTip("⚠️ İndirme başarısız!", 2500)
             return
         }
 
-        ; Dijital imza ve sertifika parmak izi (Thumbprint) doğrulaması
-        psVerify :=
-            'powershell -NoProfile -ExecutionPolicy Bypass -Command "$s = Get-AuthenticodeSignature -LiteralPath `'' .
-            tempExe . '`'; if ($s.SignerCertificate -and $s.SignerCertificate.Thumbprint -eq `'' .
-            EXPECTED_CERT_THUMBPRINT . '`' -and $s.Status -ne `'HashMismatch`') { exit 0 } else { exit 1 }"'
-        verifyExit := RunWait(psVerify, , "Hide")
-        if (verifyExit != 0) {
-            ShowTip("⚠️ İndirilen dosyanın dijital imzası veya sertifika hash'i doğrulanamadı!", 3500)
-            try DirDelete(tempDir, true)
-            return
-        }
+        ShowTip("🔄 Güncelleme kuruluyor...", 2000)
+        Sleep 1000
 
-        ; Batch updater betiği oluştur
-        batFile := tempDir "\update.bat"
-        batContent := "@echo off`r`ntimeout /t 2 /nobreak > nul`r`ncopy /y `"" . tempExe . "`" `"" . targetExe .
-            "`"`r`nstart `"`" `"" . targetExe . "`"`r`nrmdir /s /q `"" . tempDir . "`""
-
-        f := FileOpen(batFile, "w")
-        f.Write(batContent)
-        f.Close()
-
-        ShowTip("✅ v" . newVersion . " hazır! Başlatılıyor...", 3000)
-        Sleep 1500
-        Run('cmd.exe /c "' . batFile . '"', , "Hide")
+        ; Inno Setup'ı sessiz modda çalıştır ve uygulamayı kapat
+        ; Inno Setup dosyaları yenileyip yeni sürümü başlatacaktır
+        Run('"' . tempInstaller . '" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS')
         ExitApp()
 
     } catch as err {
         ShowTip("⚠️ Güncelleme hatası: " . err.Message, 3000)
-        try DirDelete(tempDir, true)
-    }
-}
-
-PerformZipUpdate(zipUrl, newVersion) {
-    tempDir := A_ScriptDir "\update_temp"
-    zipFile := tempDir "\update.zip"
-    extractDir := tempDir "\extracted"
-
-    ShowTip("⬇️ v" . newVersion . " (zip) indiriliyor...", 5000)
-
-    try {
-        if DirExist(tempDir)
-            try DirDelete(tempDir, true)
-        DirCreate(tempDir)
-        DirCreate(extractDir)
-
-        Download(zipUrl, zipFile)
-
-        if !FileExist(zipFile) {
-            ShowTip("⚠️ İndirme başarısız!", 2500)
-            return
-        }
-
-        ; PowerShell ile zip'ı aç (AHK v2 dizgi birleştirme formatına uygun)
-        psCmd := 'powershell -NoProfile -Command "Expand-Archive -Path `"' . zipFile . '`" -DestinationPath `"' .
-            extractDir . '`" -Force"'
-        RunWait(psCmd, , "Hide")
-
-        innerDir := ""
-        loop files extractDir "\*", "D" {
-            innerDir := A_LoopFileFullPath
-            break
-        }
-        if (innerDir = "")
-            innerDir := extractDir
-
-        ; İçinde .exe var mı bak
-        foundExe := ""
-        loop files innerDir "\*.exe", "F" {
-            foundExe := A_LoopFileFullPath
-            break
-        }
-
-        if (foundExe != "") {
-            ; Dijital imza ve sertifika parmak izi (Thumbprint) doğrulaması
-            psVerify :=
-                'powershell -NoProfile -ExecutionPolicy Bypass -Command "$s = Get-AuthenticodeSignature -LiteralPath `'' .
-                foundExe . '`'; if ($s.SignerCertificate -and $s.SignerCertificate.Thumbprint -eq `'' .
-                EXPECTED_CERT_THUMBPRINT . '`' -and $s.Status -ne `'HashMismatch`') { exit 0 } else { exit 1 }"'
-            verifyExit := RunWait(psVerify, , "Hide")
-            if (verifyExit != 0) {
-                ShowTip("⚠️ İndirilen paketteki EXE'nin dijital imzası veya sertifika hash'i doğrulanamadı!", 3500)
-                try DirDelete(tempDir, true)
-                return
-            }
-
-            targetExe := A_ScriptFullPath
-            batFile := tempDir "\update.bat"
-            batContent := "@echo off`r`ntimeout /t 2 /nobreak > nul`r`ncopy /y `"" . foundExe . "`" `"" . targetExe .
-                "`"`r`nstart `"`" `"" . targetExe . "`"`r`nrmdir /s /q `"" . tempDir . "`""
-
-            f := FileOpen(batFile, "w")
-            f.Write(batContent)
-            f.Close()
-
-            ShowTip("✅ v" . newVersion . " hazır! Başlatılıyor...", 3000)
-            Sleep 1500
-            Run('cmd.exe /c "' . batFile . '"', , "Hide")
-            ExitApp()
-        } else {
-            updatedFiles := 0
-            loop files innerDir "\*.*", "FR" {
-                if (A_LoopFileName = "config.ini")
-                    continue
-                targetPath := A_ScriptDir "\" A_LoopFileName
-                try {
-                    FileCopy(A_LoopFileFullPath, targetPath, true)
-                    updatedFiles++
-                }
-            }
-
-            try DirDelete(tempDir, true)
-
-            if (updatedFiles > 0) {
-                ShowTip("✅ v" . newVersion . " hazır! Başlatılıyor...", 3000)
-                Sleep 1500
-                Reload()
-            } else {
-                ShowTip("⚠️ Güncellenecek dosya bulunamadı", 2500)
-            }
-        }
-
-    } catch as err {
-        ShowTip("⚠️ Güncelleme hatası: " . err.Message, 3000)
-        try DirDelete(tempDir, true)
     }
 }
