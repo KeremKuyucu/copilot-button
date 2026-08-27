@@ -3,7 +3,7 @@
 ; =====================================================================
 
 #ifndef MyAppVersion
-#define MyAppVersion "1.0.11"
+#define MyAppVersion "1.0.12"
 #endif
 
 #define MyAppName "Copilot Button"
