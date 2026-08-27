@@ -893,20 +893,20 @@ ShowSettingsGUI(*) {
         dimTextColor := "5D7699"  ; Açıklama metni
         accentBlue := "0078D4"    ; Windows Fluent Mavi (Ana Butonlar)
         darkBlueBtn := "0067C0"   ; Orta Mavi Buton
-        navInactiveBg := "182132" ; Pasif sekme arka planı
-        navInactiveTxt := "8CB8EC"; Pasif sekme yazı rengi
-        editBgColor := "182030"   ; Koyu input kutusu
-        borderClr := "233046"     ; Ayrım çizgisi
+        navInactiveBg := "182132"   ; Pasif sekme arka planı
+        navInactiveTxt := "8CB8EC"  ; Pasif sekme yazı rengi
+        editBgColor := "182030"     ; Koyu input kutusu
+        borderClr := "233046"       ; Ayrım çizgisi
     } else {
-        bgColor := "F0F4FA"       ; Açık modern gri-mavi arka plan
-        cardBgColor := "FFFFFF"   ; Beyaz kart
-        textColor := "0F172A"     ; Koyu mavi-gri metin
-        subTextColor := "334155"  ; İkincil metin
-        dimTextColor := "64748B"  ; Açıklama metni
-        accentBlue := "0078D4"    ; Windows Fluent Mavi
-        darkBlueBtn := "0067C0"   ; Orta Mavi
-        navInactiveBg := "E2EAF4" ; Pasif sekme arka planı
-        navInactiveTxt := "1E3A5F"; Pasif sekme yazı rengi
+        bgColor := "F0F4FA"         ; Açık modern gri-mavi arka plan
+        cardBgColor := "FFFFFF"     ; Beyaz kart
+        textColor := "0F172A"       ; Koyu mavi-gri metin
+        subTextColor := "334155"    ; İkincil metin
+        dimTextColor := "64748B"    ; Açıklama metni
+        accentBlue := "0078D4"      ; Windows Fluent Mavi
+        darkBlueBtn := "0067C0"     ; Orta Mavi
+        navInactiveBg := "E2EAF4"   ; Pasif sekme arka planı
+        navInactiveTxt := "1E3A5F"  ; Pasif sekme yazı rengi
         editBgColor := "FFFFFF"   ; Beyaz input kutusu
         borderClr := "CBD5E1"     ; Açık ayrım çizgisi
     }
