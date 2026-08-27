@@ -223,13 +223,19 @@ try {
     }
 
     $currentVersion = $null
-    $versionMatch = Select-String -Path $ahkScriptPath -Pattern '(?:global\s+)?APP_VERSION\s*:=\s*["'']([^"'']+)["'']'
-    if ($versionMatch) {
-        $currentVersion = $versionMatch.Matches[0].Groups[1].Value.Trim()
+    $globalsScriptPath = Join-Path $projectRoot "lib\Globals.ahk"
+    $versionSearchPaths = @($globalsScriptPath, $ahkScriptPath) | Where-Object { Test-Path $_ }
+
+    foreach ($vPath in $versionSearchPaths) {
+        $versionMatch = Select-String -Path $vPath -Pattern '(?:global\s+)?APP_VERSION\s*:=\s*["'']([^"'']+)["'']'
+        if ($versionMatch) {
+            $currentVersion = $versionMatch.Matches[0].Groups[1].Value.Trim()
+            break
+        }
     }
 
     if ([string]::IsNullOrWhiteSpace($currentVersion)) {
-        Write-Warn "Versiyon bilgisi $ahkScriptName dosyasindan alinamadi."
+        Write-Warn "Versiyon bilgisi kaynak dosyalardan alinamadi."
         $userInput = Read-Host "Lutfen versiyon numarasini girin (Orn: 1.0.1)"
         if ([string]::IsNullOrWhiteSpace($userInput)) {
             throw "HATA: Versiyon girmeden devam edilemez!"
