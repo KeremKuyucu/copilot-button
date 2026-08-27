@@ -1,0 +1,98 @@
+; ══════════════════════════════════════════
+;  CONFIG & YAPILANDIRMA MODÜLÜ
+; ══════════════════════════════════════════
+
+ReadConfigInt(section, key, defaultVal) {
+    global configFile
+    try
+        return Integer(IniRead(configFile, section, key, defaultVal))
+    catch
+        return defaultVal
+}
+
+CreateDefaultConfig(path) {
+    defaultConfig := "
+    (LTrim
+    [Settings]
+
+    ; Tıklama için maksimum bekleme süresi (milisaniye)
+    DoubleTapMs=250
+
+    ; Basılı tutma için minimum süre (milisaniye)
+    HoldMs=250
+
+    ; Müzik Uygulaması Seçimi: YTM veya Spotify
+    MusicApp=YTM
+
+    ; Windows başlangıcında otomatik çalıştır (1 = Açık, 0 = Kapalı)
+    AutoStart=1
+
+    ; YouTube Music Ayarları
+    YtmURL=https://music.youtube.com
+    YtmWindowTitle=YouTube Music
+
+    ; Spotify Ayarları
+    SpotifyCmd=spotify:
+    SpotifyWindowTitle=ahk_exe spotify.exe
+
+    ; ── OSD & Görünüm Ayarları ──
+
+    ; Arayüz Teması: Dark (Karanlık), Light (Aydınlık), Auto (Sistem Teması)
+    Theme=Dark
+
+    ; OSD Konumu: TopLeft, TopRight, BottomLeft, BottomRight, Center
+    OsdPosition=TopLeft
+
+    ; OSD Metin Rengi (hex, # olmadan)
+    OsdColor=00E5FF
+
+    ; OSD Font Boyutu (varsayılan: 10)
+    OsdFontSize=10
+
+    ; OSD Gösterim Süresi (milisaniye, varsayılan: 1500)
+    OsdDurationMs=1500
+
+    ; OSD Fade Animasyonu (1 = Açık, 0 = Kapalı)
+    OsdFadeEnabled=1
+
+    ; ── Basılı Tutma Eylemi ──
+
+    ; HoldAction: MusicApp (müzik uygulamasını aç), PushToTalk (bas-konuş), CustomApp (özel uygulama/URL)
+    HoldAction=MusicApp
+
+    ; CustomApp seçildiğinde açılacak uygulama yolu veya URL
+    ; Örnek: C:\Program Files\Discord\Discord.exe veya https://google.com
+    CustomAppPath=
+
+    ; ── Tık Eylem Atamaları ──
+    ; Seçenekler: MicMute, PlayPause, NextTrack, PrevTrack, VolumeUp, VolumeDown, MasterMute, ToggleDeafen, VoiceTyping, Screenshot, TaskView, LockScreen, None
+
+    ; 1 Tık Eylemi
+    Action1=MicMute
+
+    ; 2 Tık Eylemi
+    Action2=PlayPause
+
+    ; 3 Tık Eylemi
+    Action3=NextTrack
+
+    ; 4 Tık Eylemi
+    Action4=None
+
+    ; ── Tray İkonu & Ses Efektleri ──
+
+    ; Mikrofon durumuna göre tray ikonu değiştir (1 = Açık, 0 = Kapalı)
+    TrayIconMicState=1
+
+    ; Mikrofon susturma/açma ses efektlerini çal (1 = Açık, 0 = Kapalı)
+    SoundFxEnabled=1
+
+    ; ── Telemetri & Log ──
+    ; Telemetri & Log Gönderimi (1 = Açık, 0 = Kapalı, varsayılan: 1)
+    TelemetryEnabled=1
+    ; Benzersiz Cihaz ID (boş ise otomatik oluşturulur)
+    UID=
+    )"
+
+    try FileAppend(defaultConfig, path)
+}
