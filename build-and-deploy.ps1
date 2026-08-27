@@ -14,6 +14,8 @@ param(
     [Parameter(Mandatory = $false)][switch]$NoPrompt,
     [Parameter(Mandatory = $false)][switch]$SkipRelease,
     [Parameter(Mandatory = $false)][switch]$CreateRelease,
+    [Parameter(Mandatory = $false)][switch]$InnoSetupOnly,
+    [Parameter(Mandatory = $false)][switch]$CompileOnly,
     [Parameter(Mandatory = $false)][string]$ReleaseNotes
 )
 
@@ -295,7 +297,21 @@ try {
         return $actions | Where-Object { $_.Selected }
     }
 
-    $selectedActions = Show-ActionMenu
+    $selectedActions = $null
+    if ($InnoSetupOnly) {
+        $selectedActions = @(
+            [pscustomobject]@{ Name = "Inno Setup Paketi (Setup.exe)"; Key = "InnoSetup"; Selected = $true }
+        )
+    }
+    elseif ($CompileOnly) {
+        $selectedActions = @(
+            [pscustomobject]@{ Name = "AHK Derle (Ahk2Exe -> EXE)"; Key = "Compile"; Selected = $true }
+        )
+    }
+    else {
+        $selectedActions = Show-ActionMenu
+    }
+
     if (-not $selectedActions -or @($selectedActions).Count -eq 0) {
         Write-Warn "Hicbir adim secilmedi. Cikiliyor..."
         return
@@ -547,7 +563,7 @@ try {
     if ($shouldCreateRelease) {
         $releaseFiles = @()
 
-        # Inno Setup paketi (Ana dagitim dosyasi)
+        # Inno Setup paketi (Ana dagitim dosyasi - Sadece Setup dosyasi yuklenir)
         if (Test-Path $setupExePath) {
             $releaseFiles += $setupExePath
 
@@ -557,17 +573,6 @@ try {
             "$sha256Setup  $setupExeName" | Set-Content -Path $sha256SetupFile -Encoding ascii
             $releaseFiles += $sha256SetupFile
             Write-Info "SHA256 checksum olusturuldu: $sha256Setup ($setupExeName)"
-        }
-
-        # Portatif EXE (Opsiyonel)
-        if (Test-Path $outputExePath) {
-            $releaseFiles += $outputExePath
-
-            $sha256Exe = (Get-FileHash -Path $outputExePath -Algorithm SHA256).Hash.ToLower()
-            $sha256ExeFile = "$outputExePath.sha256"
-            "$sha256Exe  $outputExeName" | Set-Content -Path $sha256ExeFile -Encoding ascii
-            $releaseFiles += $sha256ExeFile
-            Write-Info "SHA256 checksum olusturuldu: $sha256Exe ($outputExeName)"
         }
 
         if ($releaseFiles.Count -eq 0) {
