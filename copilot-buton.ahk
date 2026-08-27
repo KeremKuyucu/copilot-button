@@ -89,14 +89,37 @@ try {
 
 activeAppName := (musicApp = "Spotify") ? "Spotify" : "YouTube Music"
 
-A_IconTip := "Copilot Tuşu — " activeAppName " & Medya Kontrolü`n• 1 tık : Mikrofon Sustur / Aç`n• 2 tık : Şarkı Durdur / Oynat`n• 3 tık : Şarkı Geç`n• Basılı : " activeAppName " Aç / Öne Al"
+A_IconTip := "Copilot Button v" APP_VERSION " — " activeAppName " & Medya Kontrolü`n"
+    . "• Sol Tık : Ayarlar Menüsünü Aç`n"
+    . "• 1 Tık   : Mikrofon Sustur / Aç`n"
+    . "• 2 Tık   : Şarkı Durdur / Oynat`n"
+    . "• 3 Tık   : Sonraki Şarkı`n"
+    . "• Basılı  : " activeAppName " Aç / Öne Getir"
 
 A_TrayMenu.Delete()
-A_TrayMenu.Add("⚙️  Ayarlar", ShowSettingsGUI)
-A_TrayMenu.Add("🔄 Güncelleme Kontrolü", (*) => CheckForUpdates(false))
-A_TrayMenu.Add("🔄 Scripti Yenile", (*) => Reload())
-A_TrayMenu.Add()                         ; Ayırıcı
-A_TrayMenu.Add("❌ Çıkış", (*) => ExitApp())
+A_TrayMenu.Add("Copilot Button v" APP_VERSION, ShowSettingsGUI)
+A_TrayMenu.Add() ; Ayırıcı
+
+; ── Hızlı Kontroller ──
+A_TrayMenu.Add("⚙️  Ayarlar & Kontrol Paneli", ShowSettingsGUI)
+A_TrayMenu.Add("🎙️  Mikrofonu Sustur / Aç", (*) => ToggleMicrophoneMute())
+A_TrayMenu.Add("⏯️  Müziği Oynat / Duraklat", (*) => (Send("{Blind}{Media_Play_Pause}"), ShowPlayPauseTrackInfo()))
+A_TrayMenu.Add("⏭️  Sonraki Şarkı", (*) => (Send("{Blind}{Media_Next}"), ShowNextTrackInfo()))
+A_TrayMenu.Add("🎵  " activeAppName " Aç / Öne Getir", (*) => OpenMusicApp())
+A_TrayMenu.Add() ; Ayırıcı
+
+; ── Görünüm & Araçlar ──
+A_TrayMenu.Add("👁️  OSD Bildirim Testi", (*) => ShowTip("✨ Copilot Tuşu v" APP_VERSION " aktif! ✨", 2000))
+A_TrayMenu.Add("🔄  Güncellemeleri Denetle", (*) => CheckForUpdates(false))
+A_TrayMenu.Add("🔄  Scripti Yeniden Başlat", (*) => Reload())
+A_TrayMenu.Add() ; Ayırıcı
+
+; ── Çıkış ──
+A_TrayMenu.Add("❌  Çıkış", (*) => ExitApp())
+
+; Sol Tıklama: Varsayılan menü öğesini (Ayarlar) açar
+A_TrayMenu.Default := "⚙️  Ayarlar & Kontrol Paneli"
+A_TrayMenu.ClickCount := 1
 
 global tipGui := 0       ; Anlık bildirim OSD penceresi
 
@@ -734,6 +757,14 @@ CheckHoldTimer() {
     }
 
     ; Müzik uygulaması modu
+    OpenMusicApp()
+}
+
+; ══════════════════════════════════════════
+;  MÜZİK UYGULAMASI AÇMA / ÖNE GETİRME
+; ══════════════════════════════════════════
+OpenMusicApp() {
+    global musicApp, spotifyTitle, spotifyCmd, ytmTitle, ytmUrl
     if (musicApp = "Spotify") {
         if WinExist(spotifyTitle) {
             WinActivate spotifyTitle
@@ -1293,7 +1324,7 @@ ShowSettingsGUI(*) {
     btnCheckUpdate := RegBtn(AddP5(settingsGui.Add("Text", "x228 y340 w220 h36 Background" darkBlueBtn " cFFFFFF Center 0x200",
         "🔄  Güncellemeleri Denetle")))
     btnReloadScript := RegBtn(AddP5(settingsGui.Add("Text", "x460 y340 w220 h36 Background" darkBlueBtn " cFFFFFF Center 0x200",
-        "🔄  Scripti Yeniden Başlat")))
+        "🔄  Uygulamayı Yeniden Başlat")))
     btnUninstall := RegBtn(AddP5(settingsGui.Add("Text", "x228 y390 w454 h36 Background8B1A1A cFFFFFF Center 0x200",
         "🗑️  Uygulamayı ve Ayarları Tamamen Kaldır")))
 
