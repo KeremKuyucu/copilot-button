@@ -9,6 +9,7 @@
 #SingleInstance Force
 #UseHook true
 InstallKeybdHook()
+A_MaxHotkeysPerInterval := 2000
 A_MenuMaskKey := "vkE8"
 SetTitleMatchMode 2
 

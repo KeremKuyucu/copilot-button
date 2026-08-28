@@ -46,7 +46,8 @@ try {
     $projectRoot = $PSScriptRoot
     Set-Location $projectRoot
 
-    $distPath       = "C:\Users\Kerem\Projects\Outputs"
+    $projectsParent = Split-Path -Parent $projectRoot
+    $distPath = if (Test-Path (Join-Path $projectsParent "Outputs")) { Join-Path $projectsParent "Outputs" } else { "C:\Users\Kerem\Projects\Outputs" }
     $ahkScriptName  = "copilot-buton.ahk"
     $ahkScriptPath  = Join-Path $projectRoot $ahkScriptName
     $outputExeName  = "CopilotButton.exe"
@@ -119,8 +120,9 @@ try {
         if ($signtoolCmd) { $signtoolPath = $signtoolCmd.Source }
     }
 
-    $pfxPath           = "C:\Users\Kerem\Projects\imza-bilgileri\KeremKuyucu.pfx"
-    $pfxPropertiesPath = "C:\Users\Kerem\Projects\imza-bilgileri\pfx.properties"
+    $imzaDir           = if (Test-Path (Join-Path $projectsParent "imza-bilgileri")) { Join-Path $projectsParent "imza-bilgileri" } else { "C:\Users\Kerem\Projects\imza-bilgileri" }
+    $pfxPath           = Join-Path $imzaDir "KeremKuyucu.pfx"
+    $pfxPropertiesPath = Join-Path $imzaDir "pfx.properties"
     $timestampUrl      = "http://timestamp.digicert.com"
 
     # -- Yardimci Fonksiyonlar -----------------------------------------------------
