@@ -63,26 +63,11 @@ CheckForUpdates(silent := true) {
         else if RegExMatch(responseText, '"browser_download_url"\s*:\s*"([^"]+\.exe)"', &exeMatch)
             setupUrl := exeMatch[1]
 
-        ; Değişiklik notlarını çek
-        releaseBody := ""
-        if RegExMatch(responseText, '"body"\s*:\s*"([^"]*?)"', &bodyMatch)
-            releaseBody := StrReplace(bodyMatch[1], "\n", "`n")
-
-        ; Kullanıcıya sor
-        updateMsg := "Yeni sürüm mevcut!`n`n"
-            . "Mevcut: v" . currentVersion . "`n"
-            . "Yeni: v" . latestVersion . "`n"
-
-        if (releaseBody != "")
-            updateMsg .= "`n── Değişiklikler ──`n" . releaseBody . "`n"
-
-        updateMsg .= "`nOtomatik olarak güncellensin mi?"
-
-        result := MsgBox(updateMsg, "🔄 Güncelleme Mevcut — v" . latestVersion, "YesNo Icon!")
-        if (result = "Yes") {
-            if (setupUrl != "")
-                PerformInstallerUpdate(setupUrl, latestVersion)
-            else
+        ; Yeni sürüm varsa kullanıcıya sormadan arka planda otomatik indir ve kur
+        if (setupUrl != "") {
+            PerformInstallerUpdate(setupUrl, latestVersion, silent)
+        } else {
+            if (!silent)
                 ShowTip("⚠️ İndirme bağlantısı bulunamadı!", 2500)
         }
 
@@ -92,10 +77,10 @@ CheckForUpdates(silent := true) {
     }
 }
 
-PerformInstallerUpdate(setupUrl, newVersion) {
+PerformInstallerUpdate(setupUrl, newVersion, silent := false) {
     tempInstaller := A_Temp "\CopilotButton_Setup.exe"
 
-    ShowTip("⬇️ v" . newVersion . " güncellemesi indiriliyor...", 5000)
+    ShowTip("⬇️ v" . newVersion . " güncellemesi arka planda indiriliyor...", 4000)
 
     try {
         if FileExist(tempInstaller)
@@ -104,19 +89,21 @@ PerformInstallerUpdate(setupUrl, newVersion) {
         Download(setupUrl, tempInstaller)
 
         if !FileExist(tempInstaller) {
-            ShowTip("⚠️ İndirme başarısız!", 2500)
+            if (!silent)
+                ShowTip("⚠️ İndirme başarısız!", 2500)
             return
         }
 
-        ShowTip("🔄 Güncelleme kuruluyor...", 2000)
+        ShowTip("🔄 v" . newVersion . " kuruluyor ve başlatılıyor...", 2000)
         Sleep 1000
 
-        ; Inno Setup'ı sessiz modda çalıştır ve uygulamayı kapat
-        ; Inno Setup dosyaları yenileyip yeni sürümü başlatacaktır
+        ; Inno Setup'ı tamamen sessiz modda çalıştır ve uygulamayı kapat
+        ; Inno Setup dosyaları güncelleyip yeni sürümü otomatik başlatacaktır
         Run('"' . tempInstaller . '" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS')
         ExitApp()
 
     } catch as err {
-        ShowTip("⚠️ Güncelleme hatası: " . err.Message, 3000)
+        if (!silent)
+            ShowTip("⚠️ Güncelleme hatası: " . err.Message, 3000)
     }
 }
