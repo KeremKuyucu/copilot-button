@@ -330,12 +330,12 @@ UpdateMicOverlay(isMuted) {
             transColor := "010101"
             micOverlayGui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x20", "MicMuteOverlay")
             micOverlayGui.BackColor := transColor
-            WinSetTransColor(transColor, micOverlayGui)
             micOverlayGui.SetFont("s11 bold cFF4444", "Segoe UI")
             micOverlayGui.Add("Text", "x0 y0", "🔴 MİKROFON KAPALI")
         }
         ; Sol üst köşede (x: 20, y: 15) arkaplansız saydam olarak göster
         micOverlayGui.Show("x20 y15 NoActivate AutoSize")
+        try WinSetTransColor("010101 255", micOverlayGui)
     } else {
         if (IsObject(micOverlayGui)) {
             micOverlayGui.Hide()

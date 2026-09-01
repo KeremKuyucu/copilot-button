@@ -264,9 +264,12 @@ ShowSettingsGUI(*) {
     ddlAct1 := AddP1(settingsGui.Add("DropDownList", "x365 y148 w315 r14 " editOpt, actionDisplayList))
     ddlAct1.Text := GetActionDisplay(action1)
     settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
-    lblMacro1 := AddP1(settingsGui.Add("Text", "x228 y175 w130 h18", "  Makro dizisi:"))
+    lblMacro1 := AddP1(settingsGui.Add("Text", "x228 y175 w95 h18", "  Makro dizisi:"))
     settingsGui.SetFont("s8 c" textColor, "Segoe UI")
-    edtMacro1 := AddP1(settingsGui.Add("Edit", "x365 y172 w315 h22 " editOpt, customMacro1))
+    edtMacro1 := AddP1(settingsGui.Add("Edit", "x325 y172 w270 h22 " editOpt, customMacro1))
+    settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
+    btnRec1 := RegBtn(AddP1(settingsGui.Add("Text", "x602 y172 w78 h22 Background" darkBlueBtn " cFFFFFF Center 0x200", "⏺️ Kaydet")))
+    btnRec1.OnEvent("Click", (*) => OpenMacroRecorder(1, edtMacro1, settingsGui))
 
     ; 2 Tık
     settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
@@ -275,9 +278,12 @@ ShowSettingsGUI(*) {
     ddlAct2 := AddP1(settingsGui.Add("DropDownList", "x365 y200 w315 r14 " editOpt, actionDisplayList))
     ddlAct2.Text := GetActionDisplay(action2)
     settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
-    lblMacro2 := AddP1(settingsGui.Add("Text", "x228 y227 w130 h18", "  Makro dizisi:"))
+    lblMacro2 := AddP1(settingsGui.Add("Text", "x228 y227 w95 h18", "  Makro dizisi:"))
     settingsGui.SetFont("s8 c" textColor, "Segoe UI")
-    edtMacro2 := AddP1(settingsGui.Add("Edit", "x365 y224 w315 h22 " editOpt, customMacro2))
+    edtMacro2 := AddP1(settingsGui.Add("Edit", "x325 y224 w270 h22 " editOpt, customMacro2))
+    settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
+    btnRec2 := RegBtn(AddP1(settingsGui.Add("Text", "x602 y224 w78 h22 Background" darkBlueBtn " cFFFFFF Center 0x200", "⏺️ Kaydet")))
+    btnRec2.OnEvent("Click", (*) => OpenMacroRecorder(2, edtMacro2, settingsGui))
 
     ; 3 Tık
     settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
@@ -286,9 +292,12 @@ ShowSettingsGUI(*) {
     ddlAct3 := AddP1(settingsGui.Add("DropDownList", "x365 y252 w315 r14 " editOpt, actionDisplayList))
     ddlAct3.Text := GetActionDisplay(action3)
     settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
-    lblMacro3 := AddP1(settingsGui.Add("Text", "x228 y279 w130 h18", "  Makro dizisi:"))
+    lblMacro3 := AddP1(settingsGui.Add("Text", "x228 y279 w95 h18", "  Makro dizisi:"))
     settingsGui.SetFont("s8 c" textColor, "Segoe UI")
-    edtMacro3 := AddP1(settingsGui.Add("Edit", "x365 y276 w315 h22 " editOpt, customMacro3))
+    edtMacro3 := AddP1(settingsGui.Add("Edit", "x325 y276 w270 h22 " editOpt, customMacro3))
+    settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
+    btnRec3 := RegBtn(AddP1(settingsGui.Add("Text", "x602 y276 w78 h22 Background" darkBlueBtn " cFFFFFF Center 0x200", "⏺️ Kaydet")))
+    btnRec3.OnEvent("Click", (*) => OpenMacroRecorder(3, edtMacro3, settingsGui))
 
     ; 4 Tık
     settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
@@ -297,34 +306,38 @@ ShowSettingsGUI(*) {
     ddlAct4 := AddP1(settingsGui.Add("DropDownList", "x365 y304 w315 r14 " editOpt, actionDisplayList))
     ddlAct4.Text := GetActionDisplay(action4)
     settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
-    lblMacro4 := AddP1(settingsGui.Add("Text", "x228 y331 w130 h18", "  Makro dizisi:"))
+    lblMacro4 := AddP1(settingsGui.Add("Text", "x228 y331 w95 h18", "  Makro dizisi:"))
     settingsGui.SetFont("s8 c" textColor, "Segoe UI")
-    edtMacro4 := AddP1(settingsGui.Add("Edit", "x365 y328 w315 h22 " editOpt, customMacro4))
+    edtMacro4 := AddP1(settingsGui.Add("Edit", "x325 y328 w270 h22 " editOpt, customMacro4))
+    settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
+    btnRec4 := RegBtn(AddP1(settingsGui.Add("Text", "x602 y328 w78 h22 Background" darkBlueBtn " cFFFFFF Center 0x200", "⏺️ Kaydet")))
+    btnRec4.OnEvent("Click", (*) => OpenMacroRecorder(4, edtMacro4, settingsGui))
 
     ; Makro alanlarının görünürlüğünü kontrol eden fonksiyon
-    UpdateMacroVisibility(ddl, lblMacro, edtMacro) {
+    UpdateMacroVisibility(ddl, lblMacro, edtMacro, btnRec) {
         isMacro := (GetActionKey(ddl.Text) = "CustomMacro")
         lblMacro.Visible := isMacro
         edtMacro.Visible := isMacro
+        btnRec.Visible := isMacro
     }
 
     ; Başlangıçta makro alanlarını güncelle
-    UpdateMacroVisibility(ddlAct1, lblMacro1, edtMacro1)
-    UpdateMacroVisibility(ddlAct2, lblMacro2, edtMacro2)
-    UpdateMacroVisibility(ddlAct3, lblMacro3, edtMacro3)
-    UpdateMacroVisibility(ddlAct4, lblMacro4, edtMacro4)
+    UpdateMacroVisibility(ddlAct1, lblMacro1, edtMacro1, btnRec1)
+    UpdateMacroVisibility(ddlAct2, lblMacro2, edtMacro2, btnRec2)
+    UpdateMacroVisibility(ddlAct3, lblMacro3, edtMacro3, btnRec3)
+    UpdateMacroVisibility(ddlAct4, lblMacro4, edtMacro4, btnRec4)
 
     ; Dropdown değiştiğinde makro alanını göster/gizle
-    ddlAct1.OnEvent("Change", (*) => UpdateMacroVisibility(ddlAct1, lblMacro1, edtMacro1))
-    ddlAct2.OnEvent("Change", (*) => UpdateMacroVisibility(ddlAct2, lblMacro2, edtMacro2))
-    ddlAct3.OnEvent("Change", (*) => UpdateMacroVisibility(ddlAct3, lblMacro3, edtMacro3))
-    ddlAct4.OnEvent("Change", (*) => UpdateMacroVisibility(ddlAct4, lblMacro4, edtMacro4))
+    ddlAct1.OnEvent("Change", (*) => UpdateMacroVisibility(ddlAct1, lblMacro1, edtMacro1, btnRec1))
+    ddlAct2.OnEvent("Change", (*) => UpdateMacroVisibility(ddlAct2, lblMacro2, edtMacro2, btnRec2))
+    ddlAct3.OnEvent("Change", (*) => UpdateMacroVisibility(ddlAct3, lblMacro3, edtMacro3, btnRec3))
+    ddlAct4.OnEvent("Change", (*) => UpdateMacroVisibility(ddlAct4, lblMacro4, edtMacro4, btnRec4))
 
     ; Açıklamalar Kartı
-    AddP1(settingsGui.Add("GroupBox", "x212 y472 w485 h55", "ℹ️ Makro Formatı"))
+    AddP1(settingsGui.Add("GroupBox", "x212 y472 w485 h55", "ℹ️ Makro Formatı & Kaydedici"))
     settingsGui.SetFont("s8.5 c" subTextColor, "Segoe UI")
-    AddP1(settingsGui.Add("Text", "x228 y492 w455 h28",
-        "AHK Send formatı:  ^c = Ctrl+C  |  !{F4} = Alt+F4  |  #+s = Win+Shift+S  |  {Enter} = Enter"))
+    AddP1(settingsGui.Add("Text", "x228 y490 w455 h32",
+        "Kısayolları '⏺️ Kaydet' butonuna basarak klavyenizden otomatik yakalayabilir veya elle yazabilirsiniz (Örn: ^c = Ctrl+C, !{F4} = Alt+F4, #+s = Win+Shift+S)."))
 
     ; ══════════════════════════════════════════
     ;  SAYFA 2: ⏱️ ZAMANLAMA & SİSTEM

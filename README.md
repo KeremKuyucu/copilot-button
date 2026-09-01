@@ -23,6 +23,7 @@ Windows 11 klavyelerindeki **Copilot tuşunu (`Win + Shift + F23`)** gelişmiş 
   - **MusicApp:** Spotify veya YouTube Music'i açar / öne getirir.
   - **PushToTalk:** Tuşa basılı tuttuğunuz sürece mikrofon açılır, bırakınca otomatik kapanır.
   - **CustomApp:** Belirlediğiniz herhangi bir `.exe` uygulamasını veya internet bağlantısını (`URL`) açar.
+- 🎹 **İnteraktif Makro Kaydedici (Key & Macro Recorder):** İstediğiniz tuş veya kısayol kombinasyonunu (`Ctrl+C`, `Alt+F4`, `Win+Shift+S`, `F11` vb.) ya da sıralı tuş dizilerini klavyenizden canlı yakalayan görsel makro kaydedici penceresi ile kolayca atayın. Elle kod yazma zorunluluğunu tamamen ortadan kaldırır.
 - 💬 **Gelişmiş OSD Bildirimleri:**
   - **Konum Seçimi:** Sol Üst, Sağ Üst, Sol Alt, Sağ Alt, Merkez.
   - **Renk & Font:** Özelleştirilebilir Hex renk kodu ve font boyutu.
@@ -66,6 +67,7 @@ Windows 11 klavyelerindeki **Copilot tuşunu (`Win + Shift + F23`)** gelişmiş 
 | `Screenshot` | Windows Ekran Alıntısı Aracını Başlat (`Win + Shift + S`) |
 | `TaskView` | Görev Görünümünü Aç (`Win + Tab`) |
 | `LockScreen` | Bilgisayarı Kilitle |
+| `CustomMacro` | Özel Tuş Makrosu (Görsel Makro Kaydedici ile) |
 | `None` | Eylem Yok *(Varsayılan 4 Tık)* |
 
 *Tüm bu eylemler Ayarlar menüsünden (`⚙️ Ayarlar`) veya `config.ini` dosyasından 1, 2, 3 ve 4 tık için ayrı ayrı atanabilir.*

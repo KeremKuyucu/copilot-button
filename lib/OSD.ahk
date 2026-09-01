@@ -11,11 +11,11 @@ GetOsdPosition() {
 
     switch osdPosition {
         case "TopRight":
-            return { x: screenW - 300, y: 45 }
+            return { x: screenW - 320, y: 45 }
         case "BottomLeft":
             return { x: 20, y: screenH - 80 }
         case "BottomRight":
-            return { x: screenW - 300, y: screenH - 80 }
+            return { x: screenW - 320, y: screenH - 80 }
         case "Center":
             return { x: (screenW // 2) - 150, y: (screenH // 2) - 20 }
         default:  ; TopLeft
@@ -30,44 +30,35 @@ ShowTip(msg, durationMs := 0) {
     if (durationMs = 0)
         durationMs := osdDurationMs
 
-    ; Önceki fade-out ve gizleme zamanlayıcılarını iptal et
+    ; Önceki tüm zamanlayıcıları kesin olarak durdur (çakışmaları engelle)
+    SetTimer(FadeInTipStep, 0)
+    SetTimer(StartFadeOut, 0)
     SetTimer(FadeOutTipStep, 0)
     SetTimer(HideTipGui, 0)
 
-    if (!IsObject(tipGui)) {
-        transColor := "010101"
-        tipGui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x20", "CopilotTipGui")
-        tipGui.BackColor := transColor
-        tipGui.SetFont("s" osdFontSize " bold c" osdColor, "Segoe UI")
-        tipGui.Add("Text", "vTipText x0 y0", msg)
-    } else {
-        tipGui["TipText"].Value := msg
+    ; Eski pencere varsa temizle (böylece font, renk ve metin uzunluğu her zaman sıfırdan hesaplanır)
+    if (IsObject(tipGui)) {
+        try tipGui.Destroy()
+        tipGui := 0
     }
+
+    transColor := "010101"
+    tipGui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x20", "CopilotTipGui")
+    tipGui.BackColor := transColor
+    tipGui.SetFont("s" osdFontSize " bold c" osdColor, "Segoe UI")
+    tipGui.Add("Text", "vTipText x0 y0", msg)
 
     pos := GetOsdPosition()
     tipGui.Show("x" pos.x " y" pos.y " NoActivate AutoSize")
 
-    ; TransColor'u Show() sonrasına taşıdık — bazı Windows sürümlerinde
-    ; pencere gösterilmeden WS_EX_LAYERED stili düzgün uygulanmaz
-    if (tipGui.HasProp("_transApplied") = false) {
-        WinSetTransColor("010101", tipGui)
-        tipGui._transApplied := true
-    }
-
-    ; Fade-in animasyonu
     if (osdFadeEnabled) {
         fadeAlpha := 0
-        try WinSetTransparent(0, tipGui)
-        SetTimer(FadeInTipStep, -10)
-    } else {
-        fadeAlpha := 255
-        try WinSetTransparent(255, tipGui)
-    }
-
-    ; Süre sonunda fade-out veya gizleme
-    if (osdFadeEnabled) {
+        try WinSetTransColor(transColor " 0", tipGui)
+        SetTimer(FadeInTipStep, -15)
         SetTimer(StartFadeOut, -durationMs)
     } else {
+        fadeAlpha := 255
+        try WinSetTransColor(transColor " 255", tipGui)
         SetTimer(HideTipGui, -durationMs)
     }
 }
@@ -76,39 +67,46 @@ FadeInTipStep() {
     global tipGui, fadeAlpha
     if (!IsObject(tipGui))
         return
-    fadeAlpha += 25
+    fadeAlpha += 35
     if (fadeAlpha >= 255) {
         fadeAlpha := 255
-        try WinSetTransparent(255, tipGui)
+        try WinSetTransColor("010101 255", tipGui)
         return
     }
-    try WinSetTransparent(fadeAlpha, tipGui)
-    SetTimer(FadeInTipStep, -10)
+    try WinSetTransColor("010101 " . fadeAlpha, tipGui)
+    SetTimer(FadeInTipStep, -15)
 }
 
 StartFadeOut() {
-    SetTimer(FadeOutTipStep, -10)
+    global osdFadeEnabled
+    if (osdFadeEnabled)
+        SetTimer(FadeOutTipStep, -15)
+    else
+        HideTipGui()
 }
 
 FadeOutTipStep() {
     global tipGui, fadeAlpha
     if (!IsObject(tipGui))
         return
-    fadeAlpha -= 20
+    fadeAlpha -= 30
     if (fadeAlpha <= 0) {
-        fadeAlpha := 0
-        tipGui.Hide()
-        try WinSetTransparent(255, tipGui)
+        HideTipGui()
         return
     }
-    try WinSetTransparent(fadeAlpha, tipGui)
+    try WinSetTransColor("010101 " . fadeAlpha, tipGui)
     SetTimer(FadeOutTipStep, -15)
 }
 
 HideTipGui() {
     global tipGui
+    SetTimer(FadeInTipStep, 0)
+    SetTimer(StartFadeOut, 0)
+    SetTimer(FadeOutTipStep, 0)
+    SetTimer(HideTipGui, 0)
     if (IsObject(tipGui)) {
-        tipGui.Hide()
-        try WinSetTransparent(255, tipGui)
+        try tipGui.Destroy()
+        tipGui := 0
     }
 }
+
