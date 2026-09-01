@@ -116,7 +116,7 @@ EnumerateCaptureDevices() {
     devices := []
     Loop 20 {
         try {
-            name := SoundGetName(, , "Capture:" A_Index)
+            name := SoundGetName(, "Capture:" A_Index)
             if (name != "")
                 devices.Push(name)
         } catch {
