@@ -40,12 +40,10 @@ try {
 
 activeAppName := (musicApp = "Spotify") ? "Spotify" : "YouTube Music"
 
-A_IconTip := "Copilot Button v" APP_VERSION " — " activeAppName " & Medya Kontrolü`n"
-    . "• Sol Tık : Ayarlar Menüsünü Aç`n"
-    . "• 1 Tık   : Mikrofon Sustur / Aç`n"
-    . "• 2 Tık   : Şarkı Durdur / Oynat`n"
-    . "• 3 Tık   : Sonraki Şarkı`n"
-    . "• Basılı  : " activeAppName " Aç / Öne Getir"
+A_IconTip := "Copilot Button v" APP_VERSION "`n"
+    . "• Sol Tık: Ayarları Aç`n"
+    . "• 1 Tık: Mic | 2 Tık: Oynat/Durdur`n"
+    . "• 3 Tık: Sonraki | Basılı: " activeAppName
 
 A_TrayMenu.Delete()
 A_TrayMenu.Add("Copilot Button v" APP_VERSION, ShowSettingsGUI)
