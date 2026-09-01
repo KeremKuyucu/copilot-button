@@ -3,7 +3,15 @@
 ; =====================================================================
 
 #ifndef MyAppVersion
-#define MyAppVersion "1.1.3"
+  #define FileHandle
+  #define FileLine
+  #define TempLine
+  #define MyAppVersion ""
+  #if FileHandle = FileOpen(AddBackslash(SourcePath) + "lib\Globals.ahk")
+    #for {FileLine = ""; !FileEof(FileHandle); FileLine = FileRead(FileHandle)} \
+      Pos("APP_VERSION :=", FileLine) ? (TempLine = Copy(FileLine, Pos('"', FileLine) + 1), MyAppVersion = Copy(TempLine, 1, Pos('"', TempLine) - 1)) : 0
+    #expr FileClose(FileHandle)
+  #endif
 #endif
 
 #define MyAppName "Copilot Button"

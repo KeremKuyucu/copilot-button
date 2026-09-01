@@ -78,7 +78,7 @@ ApplyThemeToControls(guiObj, isDark) {
 ;  EYLEM İSİMLERİ VE GÖRÜNTÜLEME EŞLEMELERİ
 ; ══════════════════════════════════════════
 global actionKeys := ["MicMute", "PlayPause", "NextTrack", "PrevTrack", "VolumeUp", "VolumeDown", "MasterMute",
-    "ToggleDeafen", "VoiceTyping", "Screenshot", "TaskView", "LockScreen", "None"]
+    "ToggleDeafen", "VoiceTyping", "Screenshot", "TaskView", "LockScreen", "CustomMacro", "None"]
 
 global actionDisplayMap := Map(
     "MicMute", "🎙️  Mikrofonu Sustur / Aç",
@@ -93,6 +93,7 @@ global actionDisplayMap := Map(
     "Screenshot", "📸  Ekran Alıntısı Aracı",
     "TaskView", "🗂️  Görev Görünümü (Win+Tab)",
     "LockScreen", "🔒  Ekranı Kilitle",
+    "CustomMacro", "🎹  Özel Tuş Makrosu",
     "None", "⛔  Hiçbir Şey Yapma"
 )
 
@@ -117,7 +118,8 @@ ShowSettingsGUI(*) {
     global settingsGui, configFile, doubleTapThreshold, holdThreshold, musicApp, autoStart, ytmUrl, ytmTitle,
         spotifyCmd, spotifyTitle, osdPosition, osdColor, osdFontSize, osdDurationMs, osdFadeEnabled, holdAction,
         action1, action2, action3, action4, trayIconMicState, customAppPath, themeMode, soundFxEnabled,
-        telemetryEnabled, actionKeys, actionDisplayMap, tipGui, APP_VERSION
+        telemetryEnabled, actionKeys, actionDisplayMap, tipGui, APP_VERSION, micDevice,
+        customMacro1, customMacro2, customMacro3, customMacro4
 
     if (IsObject(settingsGui)) {
         settingsGui.Show()
@@ -253,45 +255,76 @@ ShowSettingsGUI(*) {
         "Copilot tuşuna art arda basıldığında çalıştırılacak işlevleri belirleyin:"))
 
     settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    AddP1(settingsGui.Add("GroupBox", "x212 y124 w485 h230", "⚡ Tık Fonksiyonları"))
+    AddP1(settingsGui.Add("GroupBox", "x212 y124 w485 h340", "⚡ Tık Fonksiyonları"))
 
     ; 1 Tık
     settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
     AddP1(settingsGui.Add("Text", "x228 y152 w130 h22", "1 Tık (Tek Basım):"))
     settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    ddlAct1 := AddP1(settingsGui.Add("DropDownList", "x365 y148 w315 r13 " editOpt, actionDisplayList))
+    ddlAct1 := AddP1(settingsGui.Add("DropDownList", "x365 y148 w315 r14 " editOpt, actionDisplayList))
     ddlAct1.Text := GetActionDisplay(action1)
+    settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
+    lblMacro1 := AddP1(settingsGui.Add("Text", "x228 y175 w130 h18", "  Makro dizisi:"))
+    settingsGui.SetFont("s8 c" textColor, "Segoe UI")
+    edtMacro1 := AddP1(settingsGui.Add("Edit", "x365 y172 w315 h22 " editOpt, customMacro1))
 
     ; 2 Tık
     settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
-    AddP1(settingsGui.Add("Text", "x228 y196 w130 h22", "2 Tık (Çift Basım):"))
+    AddP1(settingsGui.Add("Text", "x228 y204 w130 h22", "2 Tık (Çift Basım):"))
     settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    ddlAct2 := AddP1(settingsGui.Add("DropDownList", "x365 y192 w315 r13 " editOpt, actionDisplayList))
+    ddlAct2 := AddP1(settingsGui.Add("DropDownList", "x365 y200 w315 r14 " editOpt, actionDisplayList))
     ddlAct2.Text := GetActionDisplay(action2)
+    settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
+    lblMacro2 := AddP1(settingsGui.Add("Text", "x228 y227 w130 h18", "  Makro dizisi:"))
+    settingsGui.SetFont("s8 c" textColor, "Segoe UI")
+    edtMacro2 := AddP1(settingsGui.Add("Edit", "x365 y224 w315 h22 " editOpt, customMacro2))
 
     ; 3 Tık
     settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
-    AddP1(settingsGui.Add("Text", "x228 y240 w130 h22", "3 Tık (Üç Basım):"))
+    AddP1(settingsGui.Add("Text", "x228 y256 w130 h22", "3 Tık (Üç Basım):"))
     settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    ddlAct3 := AddP1(settingsGui.Add("DropDownList", "x365 y236 w315 r13 " editOpt, actionDisplayList))
+    ddlAct3 := AddP1(settingsGui.Add("DropDownList", "x365 y252 w315 r14 " editOpt, actionDisplayList))
     ddlAct3.Text := GetActionDisplay(action3)
+    settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
+    lblMacro3 := AddP1(settingsGui.Add("Text", "x228 y279 w130 h18", "  Makro dizisi:"))
+    settingsGui.SetFont("s8 c" textColor, "Segoe UI")
+    edtMacro3 := AddP1(settingsGui.Add("Edit", "x365 y276 w315 h22 " editOpt, customMacro3))
 
     ; 4 Tık
     settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
-    AddP1(settingsGui.Add("Text", "x228 y284 w130 h22", "4 Tık (Dört Basım):"))
+    AddP1(settingsGui.Add("Text", "x228 y308 w130 h22", "4 Tık (Dört Basım):"))
     settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    ddlAct4 := AddP1(settingsGui.Add("DropDownList", "x365 y280 w315 r13 " editOpt, actionDisplayList))
+    ddlAct4 := AddP1(settingsGui.Add("DropDownList", "x365 y304 w315 r14 " editOpt, actionDisplayList))
     ddlAct4.Text := GetActionDisplay(action4)
+    settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
+    lblMacro4 := AddP1(settingsGui.Add("Text", "x228 y331 w130 h18", "  Makro dizisi:"))
+    settingsGui.SetFont("s8 c" textColor, "Segoe UI")
+    edtMacro4 := AddP1(settingsGui.Add("Edit", "x365 y328 w315 h22 " editOpt, customMacro4))
+
+    ; Makro alanlarının görünürlüğünü kontrol eden fonksiyon
+    UpdateMacroVisibility(ddl, lblMacro, edtMacro) {
+        isMacro := (GetActionKey(ddl.Text) = "CustomMacro")
+        lblMacro.Visible := isMacro
+        edtMacro.Visible := isMacro
+    }
+
+    ; Başlangıçta makro alanlarını güncelle
+    UpdateMacroVisibility(ddlAct1, lblMacro1, edtMacro1)
+    UpdateMacroVisibility(ddlAct2, lblMacro2, edtMacro2)
+    UpdateMacroVisibility(ddlAct3, lblMacro3, edtMacro3)
+    UpdateMacroVisibility(ddlAct4, lblMacro4, edtMacro4)
+
+    ; Dropdown değiştiğinde makro alanını göster/gizle
+    ddlAct1.OnEvent("Change", (*) => UpdateMacroVisibility(ddlAct1, lblMacro1, edtMacro1))
+    ddlAct2.OnEvent("Change", (*) => UpdateMacroVisibility(ddlAct2, lblMacro2, edtMacro2))
+    ddlAct3.OnEvent("Change", (*) => UpdateMacroVisibility(ddlAct3, lblMacro3, edtMacro3))
+    ddlAct4.OnEvent("Change", (*) => UpdateMacroVisibility(ddlAct4, lblMacro4, edtMacro4))
 
     ; Açıklamalar Kartı
-    AddP1(settingsGui.Add("GroupBox", "x212 y362 w485 h163", "ℹ️ Eylem Açıklamaları"))
+    AddP1(settingsGui.Add("GroupBox", "x212 y472 w485 h55", "ℹ️ Makro Formatı"))
     settingsGui.SetFont("s8.5 c" subTextColor, "Segoe UI")
-    AddP1(settingsGui.Add("Text", "x228 y385 w455 h130",
-        "• Mikrofon Sustur: Donanım mikrofonunu evrensel olarak susturur / açar.`n"
-        . "• Oynat / Duraklat & Şarkı Geç: Aktif medya oynatıcıyı kontrol eder.`n"
-        . "• Sağırlaştır: Kulaklık ve mikrofonu aynı anda tamamen kapatır.`n"
-        . "• Sesle Yazma: Windows sesli dikte modunu (Win+H) başlatır.`n"
-        . "• Ekran Alıntısı: Ekran yakalama aracını (Win+Shift+S) tetikler."))
+    AddP1(settingsGui.Add("Text", "x228 y492 w455 h28",
+        "AHK Send formatı:  ^c = Ctrl+C  |  !{F4} = Alt+F4  |  #+s = Win+Shift+S  |  {Enter} = Enter"))
 
     ; ══════════════════════════════════════════
     ;  SAYFA 2: ⏱️ ZAMANLAMA & SİSTEM
@@ -342,27 +375,42 @@ ShowSettingsGUI(*) {
     AddP2(settingsGui.Add("Text", "x228 y230 w450 h16",
         "Basılı tutma eyleminin tetikleneceği süredir (Varsayılan: 250 ms)."))
 
+    ; Mikrofon Cihaz Seçimi
+    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
+    AddP2(settingsGui.Add("GroupBox", "x212 y312 w485 h70", "🎙️ Mikrofon Cihaz Seçimi"))
+
+    settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
+    AddP2(settingsGui.Add("Text", "x228 y338 w130 h22", "Mikrofon Cihazı:"))
+    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
+
+    ; Capture cihazlarını listele
+    captureDevices := EnumerateCaptureDevices()
+    micDeviceList := ["🔄 Otomatik Algıla (Auto)"]
+    for _, devName in captureDevices {
+        micDeviceList.Push(devName)
+    }
+    ddlMicDevice := AddP2(settingsGui.Add("DropDownList", "x365 y334 w315 r6 " editOpt, micDeviceList))
+    ; Seçili cihazı ayarla
+    if (micDevice = "Auto" || micDevice = "")
+        ddlMicDevice.Text := "🔄 Otomatik Algıla (Auto)"
+    else
+        try ddlMicDevice.Text := micDevice
+
     ; Sistem & Bildirimler
     settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    AddP2(settingsGui.Add("GroupBox", "x212 y312 w485 h213", "⚙️ Sistem & Geri Bildirim"))
+    AddP2(settingsGui.Add("GroupBox", "x212 y390 w485 h135", "⚙️ Sistem & Geri Bildirim"))
 
-    chkAuto := AddP2(settingsGui.Add("Checkbox", "x228 y336 w455 h22 Checked" (autoStart ? "1" : "0"),
+    chkAuto := AddP2(settingsGui.Add("Checkbox", "x228 y414 w455 h22 Checked" (autoStart ? "1" : "0"),
     "🚀  Windows açıldığında otomatik olarak başlat"))
 
-    chkTrayMic := AddP2(settingsGui.Add("Checkbox", "x228 y364 w455 h22 Checked" (trayIconMicState ? "1" : "0"),
+    chkTrayMic := AddP2(settingsGui.Add("Checkbox", "x228 y440 w455 h22 Checked" (trayIconMicState ? "1" : "0"),
     "🎙️  Mikrofon durumuna göre görev çubuğu simgesini değiştir (Mute ikonu)"))
 
-    chkSoundFx := AddP2(settingsGui.Add("Checkbox", "x228 y392 w455 h22 Checked" (soundFxEnabled ? "1" : "0"),
+    chkSoundFx := AddP2(settingsGui.Add("Checkbox", "x228 y466 w455 h22 Checked" (soundFxEnabled ? "1" : "0"),
     "🔊  Mikrofon susturulduğunda / açıldığında hafif ses efekti çal"))
 
-    chkTelemetry := AddP2(settingsGui.Add("Checkbox", "x228 y420 w455 h22 Checked" (telemetryEnabled ? "1" : "0"),
+    chkTelemetry := AddP2(settingsGui.Add("Checkbox", "x228 y492 w455 h22 Checked" (telemetryEnabled ? "1" : "0"),
     "📊  Anonim açılış telemetri ve kullanım loglarını gönder"))
-
-    settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
-    AddP2(settingsGui.Add("Text", "x248 y452 w435 h60",
-        "• Ses efektleri mikrofon durumunuzu ekran dışındayken de duymanızı sağlar.`n"
-        . "• Telemetri, uygulamanın geliştirilmesine katkı sağlamak amacıyla anonim olarak açılış bilgisi iletir."
-    ))
 
     ; ══════════════════════════════════════════
     ;  SAYFA 3: 🎨 OSD & GÖRÜNÜM
@@ -761,6 +809,19 @@ ShowSettingsGUI(*) {
         IniWrite(GetActionKey(ddlAct2.Text), configFile, "Settings", "Action2")
         IniWrite(GetActionKey(ddlAct3.Text), configFile, "Settings", "Action3")
         IniWrite(GetActionKey(ddlAct4.Text), configFile, "Settings", "Action4")
+
+        ; Özel Makro dizileri kaydet
+        IniWrite(Trim(edtMacro1.Value), configFile, "Settings", "CustomMacro1")
+        IniWrite(Trim(edtMacro2.Value), configFile, "Settings", "CustomMacro2")
+        IniWrite(Trim(edtMacro3.Value), configFile, "Settings", "CustomMacro3")
+        IniWrite(Trim(edtMacro4.Value), configFile, "Settings", "CustomMacro4")
+
+        ; Mikrofon cihaz seçimi kaydet
+        selectedMic := ddlMicDevice.Text
+        if (selectedMic = "🔄 Otomatik Algıla (Auto)")
+            IniWrite("Auto", configFile, "Settings", "MicDevice")
+        else
+            IniWrite(selectedMic, configFile, "Settings", "MicDevice")
 
         SetStartupShortcut(newAuto)
 

@@ -38,7 +38,6 @@ ShowTip(msg, durationMs := 0) {
         transColor := "010101"
         tipGui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x20", "CopilotTipGui")
         tipGui.BackColor := transColor
-        WinSetTransColor(transColor, tipGui)
         tipGui.SetFont("s" osdFontSize " bold c" osdColor, "Segoe UI")
         tipGui.Add("Text", "vTipText x0 y0", msg)
     } else {
@@ -47,6 +46,13 @@ ShowTip(msg, durationMs := 0) {
 
     pos := GetOsdPosition()
     tipGui.Show("x" pos.x " y" pos.y " NoActivate AutoSize")
+
+    ; TransColor'u Show() sonrasına taşıdık — bazı Windows sürümlerinde
+    ; pencere gösterilmeden WS_EX_LAYERED stili düzgün uygulanmaz
+    if (tipGui.HasProp("_transApplied") = false) {
+        WinSetTransColor("010101", tipGui)
+        tipGui._transApplied := true
+    }
 
     ; Fade-in animasyonu
     if (osdFadeEnabled) {

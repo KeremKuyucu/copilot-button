@@ -2,7 +2,7 @@
 ;  EYLEM DİSPATCH & MEDYA / MİKROFON KONTROLLERİ
 ; ══════════════════════════════════════════
 
-RunAction(actionName) {
+RunAction(actionName, tapIndex := 0) {
     switch actionName {
         case "MicMute":
             ToggleMicrophoneMute()
@@ -38,11 +38,85 @@ RunAction(actionName) {
         case "VolumeDown":
             ShowTip("🔉 Ses Azaltıldı")
             Send "{Blind}{Volume_Down 5}"
+        case "CustomMacro":
+            RunCustomMacro(tapIndex)
         case "None":
             ; Eylem yok
         default:
             ShowTip("⚠️ Bilinmeyen eylem: " actionName)
     }
+}
+
+; ══════════════════════════════════════════
+;  ÖZEL MAKRO ÇALIŞTIRMA
+; ══════════════════════════════════════════
+RunCustomMacro(tapIndex) {
+    global customMacro1, customMacro2, customMacro3, customMacro4
+
+    macro := ""
+    switch tapIndex {
+        case 1: macro := customMacro1
+        case 2: macro := customMacro2
+        case 3: macro := customMacro3
+        case 4: macro := customMacro4
+    }
+
+    if (macro = "") {
+        ShowTip("⚠️ Makro tanımlı değil! Ayarlardan makro girin.", 2500)
+        return
+    }
+
+    try {
+        Send macro
+        ShowTip("🎹 Makro gönderildi: " macro)
+    } catch as err {
+        ShowTip("⚠️ Makro hatası: " err.Message, 2500)
+    }
+}
+
+; ══════════════════════════════════════════
+;  MİKROFON CİHAZ ÇÖZÜMLEME
+; ══════════════════════════════════════════
+; Kullanıcının seçtiği veya otomatik algılanan mikrofon cihazını döndürür.
+; Dönen değer: { device: "CihazAdı", component: "" } veya { device: "Capture", component: "Master" }
+; Bulunamadıysa boş string döner.
+GetMicDeviceId() {
+    global micDevice
+
+    ; Kullanıcı belirli bir cihaz seçtiyse direkt onu kullan
+    if (micDevice != "Auto" && micDevice != "") {
+        try {
+            SoundGetMute(, micDevice)
+            return { device: micDevice, component: "" }
+        } catch {
+            ; Seçili cihaz bulunamadı, otomatik algılamaya düş
+        }
+    }
+
+    ; Otomatik algılama: Çoklu strateji
+    ; Strateji 1: Varsayılan capture cihazı
+    try {
+        SoundGetMute(, "Capture:1")
+        return { device: "Capture:1", component: "" }
+    }
+
+    ; Strateji 2: Bilinen cihaz adları
+    micNames := ["Microphone", "Mikrofon", "Microphone Array", "Mikrofon Dizisi",
+                  "Internal Microphone", "Headset Microphone"]
+    for _, micName in micNames {
+        try {
+            SoundGetMute(, micName)
+            return { device: micName, component: "" }
+        }
+    }
+
+    ; Strateji 3: Master + Capture
+    try {
+        SoundGetMute("Master", "Capture")
+        return { device: "Capture", component: "Master" }
+    }
+
+    return ""
 }
 
 ToggleMasterMute() {
@@ -61,15 +135,22 @@ ToggleMasterMute() {
 ToggleDeafen() {
     isMicMuted := false
     isMasterMuted := false
-    try {
-        SoundSetMute(-1, , "Microphone")
-        isMicMuted := SoundGetMute(, "Microphone")
-    } catch {
+
+    mic := GetMicDeviceId()
+    if (mic != "") {
         try {
-            SoundSetMute(-1, "Master", "Capture")
-            isMicMuted := SoundGetMute("Master", "Capture")
+            if (mic.component != "")
+                SoundSetMute(-1, mic.component, mic.device)
+            else
+                SoundSetMute(-1, , mic.device)
+
+            if (mic.component != "")
+                isMicMuted := SoundGetMute(mic.component, mic.device)
+            else
+                isMicMuted := SoundGetMute(, mic.device)
         }
     }
+
     try {
         SoundSetMute(-1)
         isMasterMuted := SoundGetMute()
@@ -146,18 +227,26 @@ GetNowPlaying() {
 ;  MİKROFON SUSTURMA / AÇMA
 ; ══════════════════════════════════════════
 ToggleMicrophoneMute() {
+    mic := GetMicDeviceId()
+    if (mic = "") {
+        ShowTip("⚠️ Mikrofon cihazı bulunamadı! Ayarlardan cihaz seçin.", 3000)
+        return
+    }
+
     isMuted := false
     try {
-        SoundSetMute(-1, , "Microphone")
-        isMuted := SoundGetMute(, "Microphone")
-    } catch {
-        try {
-            SoundSetMute(-1, "Master", "Capture")
-            isMuted := SoundGetMute("Master", "Capture")
-        } catch as err {
-            ShowTip("⚠️ Mikrofon erişim hatası: " . err.Message, 2000)
-            return
-        }
+        if (mic.component != "")
+            SoundSetMute(-1, mic.component, mic.device)
+        else
+            SoundSetMute(-1, , mic.device)
+
+        if (mic.component != "")
+            isMuted := SoundGetMute(mic.component, mic.device)
+        else
+            isMuted := SoundGetMute(, mic.device)
+    } catch as err {
+        ShowTip("⚠️ Mikrofon erişim hatası: " . err.Message, 2000)
+        return
     }
 
     ; Discord benzeri yumuşak ses efekti
@@ -220,11 +309,13 @@ UpdateTrayIcon(isMuted) {
 }
 
 SetMicMute(muteState) {
-    try {
-        SoundSetMute(muteState, , "Microphone")
-    } catch {
+    mic := GetMicDeviceId()
+    if (mic != "") {
         try {
-            SoundSetMute(muteState, "Master", "Capture")
+            if (mic.component != "")
+                SoundSetMute(muteState, mic.component, mic.device)
+            else
+                SoundSetMute(muteState, , mic.device)
         }
     }
     UpdateMicOverlay(muteState)

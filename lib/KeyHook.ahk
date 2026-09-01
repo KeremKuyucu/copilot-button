@@ -189,10 +189,10 @@ CheckMultiPress() {
 
     ; Tık sayısına göre atanmış eylemi çalıştır
     switch count {
-        case 1: RunAction(action1)
-        case 2: RunAction(action2)
-        case 3: RunAction(action3)
-        case 4: RunAction(action4)
+        case 1: RunAction(action1, 1)
+        case 2: RunAction(action2, 2)
+        case 3: RunAction(action3, 3)
+        case 4: RunAction(action4, 4)
         default:
             ShowTip("⚠️ " count " Tık (Atanmış eylem yok)")
     }

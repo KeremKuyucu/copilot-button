@@ -65,7 +65,7 @@ CreateDefaultConfig(path) {
     CustomAppPath=
 
     ; ── Tık Eylem Atamaları ──
-    ; Seçenekler: MicMute, PlayPause, NextTrack, PrevTrack, VolumeUp, VolumeDown, MasterMute, ToggleDeafen, VoiceTyping, Screenshot, TaskView, LockScreen, None
+    ; Seçenekler: MicMute, PlayPause, NextTrack, PrevTrack, VolumeUp, VolumeDown, MasterMute, ToggleDeafen, VoiceTyping, Screenshot, TaskView, LockScreen, CustomMacro, None
 
     ; 1 Tık Eylemi
     Action1=MicMute
@@ -78,6 +78,18 @@ CreateDefaultConfig(path) {
 
     ; 4 Tık Eylemi
     Action4=None
+
+    ; ── Özel Makro Tuş Dizileri ──
+    ; CustomMacro seçildiğinde gönderilecek tuş dizisi (AHK Send formatı)
+    ; Örnekler: ^c (Ctrl+C), !{F4} (Alt+F4), #+s (Win+Shift+S), {Volume_Up 5}
+    CustomMacro1=
+    CustomMacro2=
+    CustomMacro3=
+    CustomMacro4=
+
+    ; ── Mikrofon Cihaz Seçimi ──
+    ; Auto = otomatik algıla, veya tam cihaz adı (ör. Microphone, Mikrofon, Headset Microphone)
+    MicDevice=Auto
 
     ; ── Tray İkonu & Ses Efektleri ──
 
@@ -96,3 +108,21 @@ CreateDefaultConfig(path) {
 
     try FileAppend(defaultConfig, path)
 }
+
+; ══════════════════════════════════════════
+;  SES CİHAZI NUMARALANDIRMA
+; ══════════════════════════════════════════
+EnumerateCaptureDevices() {
+    devices := []
+    Loop 20 {
+        try {
+            name := SoundGetName(, , "Capture:" A_Index)
+            if (name != "")
+                devices.Push(name)
+        } catch {
+            break
+        }
+    }
+    return devices
+}
+
