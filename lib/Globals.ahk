@@ -3,7 +3,7 @@
 ; ══════════════════════════════════════════
 
 ; ── Uygulama Bilgileri & Sabitler ──
-global APP_VERSION := "1.1.7"
+global APP_VERSION := "1.1.8"
 global EXPECTED_CERT_THUMBPRINT := "037728AEA36D0BB09D2D1EE111C70A2D423CC6B4"
 global configFile := A_ScriptDir "\config.ini"
 
@@ -50,6 +50,7 @@ global customMacro1 := IniRead(configFile, "Settings", "CustomMacro1", "")
 global customMacro2 := IniRead(configFile, "Settings", "CustomMacro2", "")
 global customMacro3 := IniRead(configFile, "Settings", "CustomMacro3", "")
 global customMacro4 := IniRead(configFile, "Settings", "CustomMacro4", "")
+global customMacroHold := IniRead(configFile, "Settings", "CustomMacroHold", "")
 
 ; ── Çalışma Zamanı (Runtime) Durum Değişkenleri ──
 global isKeyDown := false

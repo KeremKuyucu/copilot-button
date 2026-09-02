@@ -200,7 +200,7 @@ CheckMultiPress() {
 
 CheckHoldTimer() {
     global holdTriggered, holdAction, pttActive
-    global musicApp, ytmUrl, ytmTitle, spotifyCmd, spotifyTitle, customAppPath
+    global musicApp, ytmUrl, ytmTitle, spotifyCmd, spotifyTitle, customAppPath, customMacroHold
 
     holdTriggered := true
     SetTimer(CheckHoldTimer, 0)
@@ -229,6 +229,21 @@ CheckHoldTimer() {
             }
         } else {
             ShowTip("⚠️ Özel uygulama yolu ayarlanmamış!", 2500)
+        }
+        return
+    }
+
+    ; Özel Makro modu
+    if (holdAction = "CustomMacro") {
+        if (customMacroHold != "") {
+            try {
+                Send customMacroHold
+                ShowTip("🎹 Makro gönderildi: " customMacroHold)
+            } catch as err {
+                ShowTip("⚠️ Makro hatası: " err.Message, 2500)
+            }
+        } else {
+            ShowTip("⚠️ Basılı tutma makrosu tanımlı değil! Ayarlardan makro girin.", 2500)
         }
         return
     }

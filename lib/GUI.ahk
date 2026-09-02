@@ -264,11 +264,11 @@ ShowSettingsGUI(*) {
     ddlAct1 := AddP1(settingsGui.Add("DropDownList", "x365 y148 w315 r14 " editOpt, actionDisplayList))
     ddlAct1.Text := GetActionDisplay(action1)
     settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
-    lblMacro1 := AddP1(settingsGui.Add("Text", "x228 y175 w95 h18", "  Makro dizisi:"))
+    lblMacro1 := AddP1(settingsGui.Add("Text", "x228 y175 w95 h18 Hidden", "  Makro dizisi:"))
     settingsGui.SetFont("s8 c" textColor, "Segoe UI")
-    edtMacro1 := AddP1(settingsGui.Add("Edit", "x325 y172 w270 h22 " editOpt, customMacro1))
+    edtMacro1 := AddP1(settingsGui.Add("Edit", "x325 y172 w270 h22 Hidden " editOpt, customMacro1))
     settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
-    btnRec1 := RegBtn(AddP1(settingsGui.Add("Text", "x602 y172 w78 h22 Background" darkBlueBtn " cFFFFFF Center 0x200", "⏺️ Kaydet")))
+    btnRec1 := RegBtn(AddP1(settingsGui.Add("Text", "x602 y172 w78 h22 Hidden Background" darkBlueBtn " cFFFFFF Center 0x200", "⏺️ Kaydet")))
     btnRec1.OnEvent("Click", (*) => OpenMacroRecorder(1, edtMacro1, settingsGui))
 
     ; 2 Tık
@@ -278,11 +278,11 @@ ShowSettingsGUI(*) {
     ddlAct2 := AddP1(settingsGui.Add("DropDownList", "x365 y200 w315 r14 " editOpt, actionDisplayList))
     ddlAct2.Text := GetActionDisplay(action2)
     settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
-    lblMacro2 := AddP1(settingsGui.Add("Text", "x228 y227 w95 h18", "  Makro dizisi:"))
+    lblMacro2 := AddP1(settingsGui.Add("Text", "x228 y227 w95 h18 Hidden", "  Makro dizisi:"))
     settingsGui.SetFont("s8 c" textColor, "Segoe UI")
-    edtMacro2 := AddP1(settingsGui.Add("Edit", "x325 y224 w270 h22 " editOpt, customMacro2))
+    edtMacro2 := AddP1(settingsGui.Add("Edit", "x325 y224 w270 h22 Hidden " editOpt, customMacro2))
     settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
-    btnRec2 := RegBtn(AddP1(settingsGui.Add("Text", "x602 y224 w78 h22 Background" darkBlueBtn " cFFFFFF Center 0x200", "⏺️ Kaydet")))
+    btnRec2 := RegBtn(AddP1(settingsGui.Add("Text", "x602 y224 w78 h22 Hidden Background" darkBlueBtn " cFFFFFF Center 0x200", "⏺️ Kaydet")))
     btnRec2.OnEvent("Click", (*) => OpenMacroRecorder(2, edtMacro2, settingsGui))
 
     ; 3 Tık
@@ -292,11 +292,11 @@ ShowSettingsGUI(*) {
     ddlAct3 := AddP1(settingsGui.Add("DropDownList", "x365 y252 w315 r14 " editOpt, actionDisplayList))
     ddlAct3.Text := GetActionDisplay(action3)
     settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
-    lblMacro3 := AddP1(settingsGui.Add("Text", "x228 y279 w95 h18", "  Makro dizisi:"))
+    lblMacro3 := AddP1(settingsGui.Add("Text", "x228 y279 w95 h18 Hidden", "  Makro dizisi:"))
     settingsGui.SetFont("s8 c" textColor, "Segoe UI")
-    edtMacro3 := AddP1(settingsGui.Add("Edit", "x325 y276 w270 h22 " editOpt, customMacro3))
+    edtMacro3 := AddP1(settingsGui.Add("Edit", "x325 y276 w270 h22 Hidden " editOpt, customMacro3))
     settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
-    btnRec3 := RegBtn(AddP1(settingsGui.Add("Text", "x602 y276 w78 h22 Background" darkBlueBtn " cFFFFFF Center 0x200", "⏺️ Kaydet")))
+    btnRec3 := RegBtn(AddP1(settingsGui.Add("Text", "x602 y276 w78 h22 Hidden Background" darkBlueBtn " cFFFFFF Center 0x200", "⏺️ Kaydet")))
     btnRec3.OnEvent("Click", (*) => OpenMacroRecorder(3, edtMacro3, settingsGui))
 
     ; 4 Tık
@@ -306,11 +306,11 @@ ShowSettingsGUI(*) {
     ddlAct4 := AddP1(settingsGui.Add("DropDownList", "x365 y304 w315 r14 " editOpt, actionDisplayList))
     ddlAct4.Text := GetActionDisplay(action4)
     settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
-    lblMacro4 := AddP1(settingsGui.Add("Text", "x228 y331 w95 h18", "  Makro dizisi:"))
+    lblMacro4 := AddP1(settingsGui.Add("Text", "x228 y331 w95 h18 Hidden", "  Makro dizisi:"))
     settingsGui.SetFont("s8 c" textColor, "Segoe UI")
-    edtMacro4 := AddP1(settingsGui.Add("Edit", "x325 y328 w270 h22 " editOpt, customMacro4))
+    edtMacro4 := AddP1(settingsGui.Add("Edit", "x325 y328 w270 h22 Hidden " editOpt, customMacro4))
     settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
-    btnRec4 := RegBtn(AddP1(settingsGui.Add("Text", "x602 y328 w78 h22 Background" darkBlueBtn " cFFFFFF Center 0x200", "⏺️ Kaydet")))
+    btnRec4 := RegBtn(AddP1(settingsGui.Add("Text", "x602 y328 w78 h22 Hidden Background" darkBlueBtn " cFFFFFF Center 0x200", "⏺️ Kaydet")))
     btnRec4.OnEvent("Click", (*) => OpenMacroRecorder(4, edtMacro4, settingsGui))
 
     ; Makro alanlarının görünürlüğünü kontrol eden fonksiyon
@@ -551,22 +551,48 @@ ShowSettingsGUI(*) {
     settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
     AddP4(settingsGui.Add("Text", "x228 y346 w130 h22", "Basılı Tutma Modu:"))
     settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    ddlHold := AddP4(settingsGui.Add("DropDownList", "x365 y342 w315 r3 " editOpt, ["MusicApp", "PushToTalk",
-        "CustomApp"]))
+    ddlHold := AddP4(settingsGui.Add("DropDownList", "x365 y342 w315 r4 " editOpt, ["MusicApp", "PushToTalk",
+        "CustomApp", "CustomMacro"]))
     ddlHold.Text := holdAction
 
     settingsGui.SetFont("s8.5 bold c" textColor, "Segoe UI")
-    AddP4(settingsGui.Add("Text", "x228 y380 w450 h18", "Özel Uygulama Yolu veya Web URL (CustomApp seçildiğinde):"))
+    lblCustomApp := AddP4(settingsGui.Add("Text", "x228 y380 w450 h18", "Özel Uygulama Yolu veya Web URL (CustomApp seçildiğinde):"))
     edtCustomApp := AddP4(settingsGui.Add("Edit", "x228 y402 w370 h26 " editOpt, customAppPath))
     settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
     btnBrowse := RegBtn(AddP4(settingsGui.Add("Text", "x604 y402 w78 h26 Background" darkBlueBtn " cFFFFFF Center 0x200",
         "📁 Gözat")))
 
+    ; Özel Makro alanları (CustomMacro seçildiğinde görünür)
+    settingsGui.SetFont("s8.5 bold c" textColor, "Segoe UI")
+    lblHoldMacro := AddP4(settingsGui.Add("Text", "x228 y380 w450 h18 Hidden", "Basılı Tutma Makro Dizisi (CustomMacro seçildiğinde):"))
+    settingsGui.SetFont("s8.5 c" textColor, "Segoe UI")
+    edtHoldMacro := AddP4(settingsGui.Add("Edit", "x228 y402 w370 h26 Hidden " editOpt, customMacroHold))
+    settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
+    btnRecHold := RegBtn(AddP4(settingsGui.Add("Text", "x604 y402 w78 h26 Hidden Background" darkBlueBtn " cFFFFFF Center 0x200",
+        "⏺️ Kaydet")))
+    btnRecHold.OnEvent("Click", (*) => OpenMacroRecorder(0, edtHoldMacro, settingsGui))
+
+    ; Basılı tutma moduna göre CustomApp / CustomMacro alanlarını göster/gizle
+    UpdateHoldVisibility(*) {
+        mode := ddlHold.Text
+        isCustomApp := (mode = "CustomApp")
+        isCustomMacro := (mode = "CustomMacro")
+        lblCustomApp.Visible := isCustomApp
+        edtCustomApp.Visible := isCustomApp
+        btnBrowse.Visible := isCustomApp
+        lblHoldMacro.Visible := isCustomMacro
+        edtHoldMacro.Visible := isCustomMacro
+        btnRecHold.Visible := isCustomMacro
+    }
+    UpdateHoldVisibility()
+    ddlHold.OnEvent("Change", UpdateHoldVisibility)
+
     settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
     AddP4(settingsGui.Add("Text", "x228 y438 w454 h70",
         "• MusicApp: Basılı tutulduğunda Spotify veya YouTube Music'i açar veya öne getirir.`n"
         . "• PushToTalk: Tuşa basılı tuttuğunuz sürece mikrofon açılır, bırakınca susturulur.`n"
-        . "• CustomApp: Belirttiğiniz programı (Discord, Slack, vb.) veya web sayfasını açar."))
+        . "• CustomApp: Belirttiğiniz programı (Discord, Slack, vb.) veya web sayfasını açar.`n"
+        . "• CustomMacro: Belirttiğiniz makro tuş dizisini gönderir."))
 
     ; ══════════════════════════════════════════
     ;  SAYFA 5: ℹ️ HAKKINDA & BAKIM
@@ -813,6 +839,7 @@ ShowSettingsGUI(*) {
         ; Basılı Tutma & Tray İkonu & Ses Efektleri kaydet
         IniWrite(ddlHold.Text, configFile, "Settings", "HoldAction")
         IniWrite(Trim(edtCustomApp.Value), configFile, "Settings", "CustomAppPath")
+        IniWrite(Trim(edtHoldMacro.Value), configFile, "Settings", "CustomMacroHold")
         IniWrite(chkTrayMic.Value ? 1 : 0, configFile, "Settings", "TrayIconMicState")
         IniWrite(chkSoundFx.Value ? 1 : 0, configFile, "Settings", "SoundFxEnabled")
         IniWrite(chkTelemetry.Value ? 1 : 0, configFile, "Settings", "TelemetryEnabled")
