@@ -3,18 +3,8 @@
 ; ══════════════════════════════════════════
 
 ; ══════════════════════════════════════════
-;  WINDOWS BAŞLANGIÇ & BAŞLAT MENÜSÜ KISAYOLLARI
+;  BAŞLAT MENÜSÜ KISAYOL İŞLEMLERİ
 ; ══════════════════════════════════════════
-SetStartupShortcut(enable := true) {
-    shortcutPath := A_Startup "\CopilotButton.lnk"
-    if enable {
-        try FileCreateShortcut(A_ScriptFullPath, shortcutPath, A_ScriptDir)
-    } else {
-        if FileExist(shortcutPath) {
-            try FileDelete(shortcutPath)
-        }
-    }
-}
 
 CreateStartMenuShortcut(targetPath := "") {
     if (targetPath = "")
@@ -23,10 +13,9 @@ CreateStartMenuShortcut(targetPath := "") {
     try {
         iconPath := A_ScriptDir "\logo.ico"
         if FileExist(iconPath)
-            FileCreateShortcut(targetPath, startMenuPath, A_ScriptDir, , "Copilot Tuşu — Medya & Mikrofon Kontrolü",
-                iconPath)
+            FileCreateShortcut(targetPath, startMenuPath, A_ScriptDir, , "CopilotButton Media & Mic Control", iconPath)
         else
-            FileCreateShortcut(targetPath, startMenuPath, A_ScriptDir, , "Copilot Tuşu — Medya & Mikrofon Kontrolü")
+            FileCreateShortcut(targetPath, startMenuPath, A_ScriptDir, , "CopilotButton Media & Mic Control")
     }
 }
 
@@ -268,7 +257,8 @@ ShowSettingsGUI(*) {
     settingsGui.SetFont("s8 c" textColor, "Segoe UI")
     edtMacro1 := AddP1(settingsGui.Add("Edit", "x325 y172 w270 h22 Hidden " editOpt, customMacro1))
     settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
-    btnRec1 := RegBtn(AddP1(settingsGui.Add("Text", "x602 y172 w78 h22 Hidden Background" darkBlueBtn " cFFFFFF Center 0x200", "⏺️ Kaydet")))
+    btnRec1 := RegBtn(AddP1(settingsGui.Add("Text", "x602 y172 w78 h22 Hidden Background" darkBlueBtn " cFFFFFF Center 0x200",
+        "⏺️ Kaydet")))
     btnRec1.OnEvent("Click", (*) => OpenMacroRecorder(1, edtMacro1, settingsGui))
 
     ; 2 Tık
@@ -282,7 +272,8 @@ ShowSettingsGUI(*) {
     settingsGui.SetFont("s8 c" textColor, "Segoe UI")
     edtMacro2 := AddP1(settingsGui.Add("Edit", "x325 y224 w270 h22 Hidden " editOpt, customMacro2))
     settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
-    btnRec2 := RegBtn(AddP1(settingsGui.Add("Text", "x602 y224 w78 h22 Hidden Background" darkBlueBtn " cFFFFFF Center 0x200", "⏺️ Kaydet")))
+    btnRec2 := RegBtn(AddP1(settingsGui.Add("Text", "x602 y224 w78 h22 Hidden Background" darkBlueBtn " cFFFFFF Center 0x200",
+        "⏺️ Kaydet")))
     btnRec2.OnEvent("Click", (*) => OpenMacroRecorder(2, edtMacro2, settingsGui))
 
     ; 3 Tık
@@ -296,7 +287,8 @@ ShowSettingsGUI(*) {
     settingsGui.SetFont("s8 c" textColor, "Segoe UI")
     edtMacro3 := AddP1(settingsGui.Add("Edit", "x325 y276 w270 h22 Hidden " editOpt, customMacro3))
     settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
-    btnRec3 := RegBtn(AddP1(settingsGui.Add("Text", "x602 y276 w78 h22 Hidden Background" darkBlueBtn " cFFFFFF Center 0x200", "⏺️ Kaydet")))
+    btnRec3 := RegBtn(AddP1(settingsGui.Add("Text", "x602 y276 w78 h22 Hidden Background" darkBlueBtn " cFFFFFF Center 0x200",
+        "⏺️ Kaydet")))
     btnRec3.OnEvent("Click", (*) => OpenMacroRecorder(3, edtMacro3, settingsGui))
 
     ; 4 Tık
@@ -310,7 +302,8 @@ ShowSettingsGUI(*) {
     settingsGui.SetFont("s8 c" textColor, "Segoe UI")
     edtMacro4 := AddP1(settingsGui.Add("Edit", "x325 y328 w270 h22 Hidden " editOpt, customMacro4))
     settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
-    btnRec4 := RegBtn(AddP1(settingsGui.Add("Text", "x602 y328 w78 h22 Hidden Background" darkBlueBtn " cFFFFFF Center 0x200", "⏺️ Kaydet")))
+    btnRec4 := RegBtn(AddP1(settingsGui.Add("Text", "x602 y328 w78 h22 Hidden Background" darkBlueBtn " cFFFFFF Center 0x200",
+        "⏺️ Kaydet")))
     btnRec4.OnEvent("Click", (*) => OpenMacroRecorder(4, edtMacro4, settingsGui))
 
     ; Makro alanlarının görünürlüğünü kontrol eden fonksiyon
@@ -337,7 +330,8 @@ ShowSettingsGUI(*) {
     AddP1(settingsGui.Add("GroupBox", "x212 y472 w485 h55", "ℹ️ Makro Formatı & Kaydedici"))
     settingsGui.SetFont("s8.5 c" subTextColor, "Segoe UI")
     AddP1(settingsGui.Add("Text", "x228 y490 w455 h32",
-        "Kısayolları '⏺️ Kaydet' butonuna basarak klavyenizden otomatik yakalayabilir veya elle yazabilirsiniz (Örn: ^c = Ctrl+C, !{F4} = Alt+F4, #+s = Win+Shift+S)."))
+        "Kısayolları '⏺️ Kaydet' butonuna basarak klavyenizden otomatik yakalayabilir veya elle yazabilirsiniz (Örn: ^c = Ctrl+C, !{F4} = Alt+F4, #+s = Win+Shift+S)."
+    ))
 
     ; ══════════════════════════════════════════
     ;  SAYFA 2: ⏱️ ZAMANLAMA & SİSTEM
@@ -411,19 +405,16 @@ ShowSettingsGUI(*) {
 
     ; Sistem & Bildirimler
     settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    AddP2(settingsGui.Add("GroupBox", "x212 y390 w485 h135", "⚙️ Sistem & Geri Bildirim"))
+    AddP2(settingsGui.Add("GroupBox", "x212 y395 w485 h115", "⚙️ Sistem & Geri Bildirim"))
 
-    chkAuto := AddP2(settingsGui.Add("Checkbox", "x228 y414 w455 h22 Checked" (autoStart ? "1" : "0"),
-    "🚀  Windows açıldığında otomatik olarak başlat"))
+    chkTrayMic := AddP2(settingsGui.Add("Checkbox", "x228 y420 w455 h22 Checked" (trayIconMicState ? "1" : "0"),
+        "🎙️  Mikrofon durumuna göre görev çubuğu simgesini değiştir (Mute ikonu)"))
 
-    chkTrayMic := AddP2(settingsGui.Add("Checkbox", "x228 y440 w455 h22 Checked" (trayIconMicState ? "1" : "0"),
-    "🎙️  Mikrofon durumuna göre görev çubuğu simgesini değiştir (Mute ikonu)"))
+    chkSoundFx := AddP2(settingsGui.Add("Checkbox", "x228 y448 w455 h22 Checked" (soundFxEnabled ? "1" : "0"),
+        "🔊  Mikrofon susturulduğunda / açıldığında hafif ses efekti çal"))
 
-    chkSoundFx := AddP2(settingsGui.Add("Checkbox", "x228 y466 w455 h22 Checked" (soundFxEnabled ? "1" : "0"),
-    "🔊  Mikrofon susturulduğunda / açıldığında hafif ses efekti çal"))
-
-    chkTelemetry := AddP2(settingsGui.Add("Checkbox", "x228 y492 w455 h22 Checked" (telemetryEnabled ? "1" : "0"),
-    "📊  Anonim açılış telemetri ve kullanım loglarını gönder"))
+    chkTelemetry := AddP2(settingsGui.Add("Checkbox", "x228 y476 w455 h22 Checked" (telemetryEnabled ? "1" : "0"),
+        "📊  Anonim açılış telemetri ve kullanım loglarını gönder"))
 
     ; ══════════════════════════════════════════
     ;  SAYFA 3: 🎨 OSD & GÖRÜNÜM
@@ -556,7 +547,8 @@ ShowSettingsGUI(*) {
     ddlHold.Text := holdAction
 
     settingsGui.SetFont("s8.5 bold c" textColor, "Segoe UI")
-    lblCustomApp := AddP4(settingsGui.Add("Text", "x228 y380 w450 h18", "Özel Uygulama Yolu veya Web URL (CustomApp seçildiğinde):"))
+    lblCustomApp := AddP4(settingsGui.Add("Text", "x228 y380 w450 h18",
+        "Özel Uygulama Yolu veya Web URL (CustomApp seçildiğinde):"))
     edtCustomApp := AddP4(settingsGui.Add("Edit", "x228 y402 w370 h26 " editOpt, customAppPath))
     settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
     btnBrowse := RegBtn(AddP4(settingsGui.Add("Text", "x604 y402 w78 h26 Background" darkBlueBtn " cFFFFFF Center 0x200",
@@ -564,7 +556,8 @@ ShowSettingsGUI(*) {
 
     ; Özel Makro alanları (CustomMacro seçildiğinde görünür)
     settingsGui.SetFont("s8.5 bold c" textColor, "Segoe UI")
-    lblHoldMacro := AddP4(settingsGui.Add("Text", "x228 y380 w450 h18 Hidden", "Basılı Tutma Makro Dizisi (CustomMacro seçildiğinde):"))
+    lblHoldMacro := AddP4(settingsGui.Add("Text", "x228 y380 w450 h18 Hidden",
+        "Basılı Tutma Makro Dizisi (CustomMacro seçildiğinde):"))
     settingsGui.SetFont("s8.5 c" textColor, "Segoe UI")
     edtHoldMacro := AddP4(settingsGui.Add("Edit", "x228 y402 w370 h26 Hidden " editOpt, customMacroHold))
     settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
@@ -620,20 +613,13 @@ ShowSettingsGUI(*) {
 
     ; Hızlı Araçlar Mavi Butonlar
     settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    AddP5(settingsGui.Add("GroupBox", "x212 y312 w485 h213", "🛠️ Sistem ve Bakım Araçları"))
+    AddP5(settingsGui.Add("GroupBox", "x212 y312 w485 h100", "🛠️ Sistem ve Bakım Araçları"))
 
     settingsGui.SetFont("s9 bold cFFFFFF", "Segoe UI")
-    btnCheckUpdate := RegBtn(AddP5(settingsGui.Add("Text", "x228 y340 w220 h36 Background" darkBlueBtn " cFFFFFF Center 0x200",
+    btnCheckUpdate := RegBtn(AddP5(settingsGui.Add("Text", "x228 y342 w220 h40 Background" darkBlueBtn " cFFFFFF Center 0x200",
         "🔄  Güncellemeleri Denetle")))
-    btnReloadScript := RegBtn(AddP5(settingsGui.Add("Text", "x460 y340 w220 h36 Background" darkBlueBtn " cFFFFFF Center 0x200",
+    btnReloadScript := RegBtn(AddP5(settingsGui.Add("Text", "x460 y342 w220 h40 Background" darkBlueBtn " cFFFFFF Center 0x200",
         "🔄  Uygulamayı Yeniden Başlat")))
-    btnUninstall := RegBtn(AddP5(settingsGui.Add("Text", "x228 y390 w454 h36 Background8B1A1A cFFFFFF Center 0x200",
-        "🗑️  Uygulamayı ve Ayarları Tamamen Kaldır")))
-
-    settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
-    AddP5(settingsGui.Add("Text", "x228 y440 w454 h65",
-        "Kaldırma işlemi uygulamanın başlangıç kısayolunu, kayıtlı ayarlarını ve Inno Setup kurulum dosyalarını sistemden temizler."
-    ))
 
     ; ══════════════════════════════════════════
     ;  ALT FOOTER BAR (MAVİ KAYDET & İPTAL)
@@ -705,7 +691,6 @@ ShowSettingsGUI(*) {
     btnBrowse.OnEvent("Click", (*) => BrowseCustomApp(edtCustomApp))
     btnCheckUpdate.OnEvent("Click", (*) => CheckForUpdates(false))
     btnReloadScript.OnEvent("Click", (*) => Reload())
-    btnUninstall.OnEvent("Click", (*) => UninstallApp())
 
     ; Mouse Hover Hand Cursor (WM_MOUSEMOVE)
     GuiMouseMove(wParam, lParam, msg, hwnd) {
@@ -788,7 +773,6 @@ ShowSettingsGUI(*) {
         newApp := radSpotify.Value ? "Spotify" : "YTM"
         newDouble := Integer(edtDoubleTap.Value)
         newHold := Integer(edtHold.Value)
-        newAuto := chkAuto.Value ? 1 : 0
         newYtmUrl := Trim(edtYtmUrl.Value)
         newYtmTitle := Trim(edtYtmTitle.Value)
         newSpotCmd := Trim(edtSpotCmd.Value)
@@ -822,7 +806,6 @@ ShowSettingsGUI(*) {
         IniWrite(newApp, configFile, "Settings", "MusicApp")
         IniWrite(newDouble, configFile, "Settings", "DoubleTapMs")
         IniWrite(newHold, configFile, "Settings", "HoldMs")
-        IniWrite(newAuto, configFile, "Settings", "AutoStart")
         IniWrite(newYtmUrl, configFile, "Settings", "YtmURL")
         IniWrite(newYtmTitle, configFile, "Settings", "YtmWindowTitle")
         IniWrite(newSpotCmd, configFile, "Settings", "SpotifyCmd")
@@ -863,8 +846,6 @@ ShowSettingsGUI(*) {
         else
             IniWrite(selectedMic, configFile, "Settings", "MicDevice")
 
-        SetStartupShortcut(newAuto)
-
         settingsGui.Destroy()
         settingsGui := 0
         ShowTip("✅ Ayarlar kaydedildi! Yenileniyor...")
@@ -873,52 +854,4 @@ ShowSettingsGUI(*) {
     }
 }
 
-; ══════════════════════════════════════════
-;  UYGULAMAYI KALDIRMA (UNINSTALL)
-; ══════════════════════════════════════════
-UninstallApp() {
-    global settingsGui, configFile
 
-    uninstallerPath := A_ScriptDir "\unins000.exe"
-    if FileExist(uninstallerPath) {
-        result := MsgBox(
-            "Copilot Button uygulamasını sistemden tamamen kaldırmak istiyor musunuz?",
-            "🗑️ Uygulamayı Kaldır — Copilot Button",
-            "YesNo Icon? Default2"
-        )
-        if (result != "Yes")
-            return
-
-        if (IsObject(settingsGui)) {
-            settingsGui.Destroy()
-            settingsGui := 0
-        }
-
-        try Run('"' uninstallerPath '"')
-        ExitApp()
-        return
-    }
-
-    result := MsgBox(
-        "Copilot Button uygulaması kaldırılacak!`n`n"
-        . "Windows başlangıç kısayolu ve ayarlar silinecek.`n`n"
-        . "Devam etmek istiyor musunuz?",
-        "🗑️ Uygulamayı Kaldır — Copilot Button",
-        "YesNo Icon! Default2"
-    )
-
-    if (result != "Yes")
-        return
-
-    if (IsObject(settingsGui)) {
-        settingsGui.Destroy()
-        settingsGui := 0
-    }
-
-    try SetStartupShortcut(false)
-    try RemoveStartMenuShortcut()
-    if FileExist(configFile)
-        try FileDelete(configFile)
-
-    ExitApp()
-}
