@@ -75,48 +75,102 @@ RunCustomMacro(tapIndex) {
 }
 
 ; ══════════════════════════════════════════
-;  MİKROFON CİHAZ ÇÖZÜMLEME
+;  MİKROFON KONTROLLERİ & CORE AUDIO COM
 ; ══════════════════════════════════════════
-; Kullanıcının seçtiği veya otomatik algılanan mikrofon cihazını döndürür.
-; Dönen değer: { device: "CihazAdı", component: "" } veya { device: "Capture", component: "Master" }
-; Bulunamadıysa boş string döner.
-GetMicDeviceId() {
+
+GetDefaultCaptureEndpointVolume() {
+    CLSID_MMDeviceEnumerator := "{BCDE0395-E52F-467C-8E3D-C4579291692E}"
+    IID_IMMDeviceEnumerator  := "{A95664D2-9614-4F35-A746-DE8DB63617E6}"
+    IID_IAudioEndpointVolume := "{5CDF2C82-841E-4546-9722-0CF74078229A}"
+
+    try {
+        devEnum := ComObject(CLSID_MMDeviceEnumerator, IID_IMMDeviceEnumerator)
+        ; GetDefaultAudioEndpoint: dataFlow=1 (eCapture), role=0 (eConsole)
+        ComCall(4, devEnum, "int", 1, "int", 0, "ptr*", &pDevice := 0)
+        if (!pDevice)
+            return 0
+        device := ComValue(13, pDevice)
+
+        pEndpointVolume := 0
+        IID_IAudioEndpointVolume_GUID := Buffer(16)
+        DllCall("ole32\CLSIDFromString", "wstr", IID_IAudioEndpointVolume, "ptr", IID_IAudioEndpointVolume_GUID)
+        ComCall(3, device, "ptr", IID_IAudioEndpointVolume_GUID, "uint", 23, "ptr", 0, "ptr*", &pEndpointVolume)
+        if (!pEndpointVolume)
+            return 0
+
+        return ComValue(13, pEndpointVolume)
+    }
+    return 0
+}
+
+GetMicMuteState() {
     global micDevice
 
-    ; Kullanıcı belirli bir cihaz seçtiyse direkt onu kullan
+    ; Kullanıcı belirli bir cihaz seçtiyse doğrudan o cihazı kontrol et
     if (micDevice != "Auto" && micDevice != "") {
         try {
-            SoundGetMute(, micDevice)
-            return { device: micDevice, component: "" }
-        } catch {
-            ; Seçili cihaz bulunamadı, otomatik algılamaya düş
+            return (SoundGetMute(, micDevice) != 0)
         }
     }
 
-    ; Otomatik algılama: Çoklu strateji
-    ; Strateji 1: Varsayılan capture cihazı
+    ; Windows Varsayılan Kayıt Cihazı (Core Audio COM)
     try {
-        SoundGetMute(, "Capture:1")
-        return { device: "Capture:1", component: "" }
+        epv := GetDefaultCaptureEndpointVolume()
+        if (epv) {
+            ComCall(15, epv, "int*", &isMuted := 0) ; IAudioEndpointVolume::GetMute
+            return (isMuted != 0)
+        }
     }
 
-    ; Strateji 2: Bilinen cihaz adları
-    micNames := ["Microphone", "Mikrofon", "Microphone Array", "Mikrofon Dizisi",
-                  "Internal Microphone", "Headset Microphone"]
-    for _, micName in micNames {
+    ; Yedek Strateji: Bilinen cihaz adları
+    micNames := ["Microphone", "Mikrofon", "Microphone Array", "Mikrofon Dizisi", "Headset Microphone"]
+    for _, name in micNames {
         try {
-            SoundGetMute(, micName)
-            return { device: micName, component: "" }
+            return (SoundGetMute(, name) != 0)
         }
     }
 
-    ; Strateji 3: Master + Capture
-    try {
-        SoundGetMute("Master", "Capture")
-        return { device: "Capture", component: "Master" }
+    return false
+}
+
+SetMicMuteState(muteState) {
+    global micDevice
+    success := false
+
+    val := muteState ? 1 : 0
+
+    ; Kullanıcı belirli bir cihaz seçtiyse
+    if (micDevice != "Auto" && micDevice != "") {
+        try {
+            SoundSetMute(val, , micDevice)
+            success := true
+        }
     }
 
-    return ""
+    ; Windows Varsayılan Kayıt Cihazı (Core Audio COM)
+    if (!success) {
+        try {
+            epv := GetDefaultCaptureEndpointVolume()
+            if (epv) {
+                ComCall(14, epv, "int", val, "ptr", 0) ; IAudioEndpointVolume::SetMute
+                success := true
+            }
+        }
+    }
+
+    ; Yedek Strateji
+    if (!success) {
+        micNames := ["Microphone", "Mikrofon", "Microphone Array", "Mikrofon Dizisi", "Headset Microphone"]
+        for _, name in micNames {
+            try {
+                SoundSetMute(val, , name)
+                success := true
+                break
+            }
+        }
+    }
+
+    return success
 }
 
 ToggleMasterMute() {
@@ -133,23 +187,14 @@ ToggleMasterMute() {
 }
 
 ToggleDeafen() {
-    isMicMuted := false
+    global lastKnownMicMute
     isMasterMuted := false
 
-    mic := GetMicDeviceId()
-    if (mic != "") {
-        try {
-            if (mic.component != "")
-                SoundSetMute(-1, mic.component, mic.device)
-            else
-                SoundSetMute(-1, , mic.device)
-
-            if (mic.component != "")
-                isMicMuted := SoundGetMute(mic.component, mic.device)
-            else
-                isMicMuted := SoundGetMute(, mic.device)
-        }
-    }
+    ; Mikrofon durumunu tersine çevir
+    curMic := GetMicMuteState()
+    newMic := !curMic
+    SetMicMuteState(newMic)
+    isMicMuted := GetMicMuteState()
 
     try {
         SoundSetMute(-1)
@@ -159,6 +204,7 @@ ToggleDeafen() {
     PlayMicSound(isMicMuted)
     UpdateMicOverlay(isMicMuted)
     UpdateTrayIcon(isMicMuted)
+    lastKnownMicMute := isMicMuted
 
     if (isMicMuted && isMasterMuted)
         ShowTip("🔕 Sağırlaştırıldı (Ses & Mic Kapalı)")
@@ -227,31 +273,19 @@ GetNowPlaying() {
 ;  MİKROFON SUSTURMA / AÇMA
 ; ══════════════════════════════════════════
 ToggleMicrophoneMute() {
-    mic := GetMicDeviceId()
-    if (mic = "") {
-        ShowTip("⚠️ Mikrofon cihazı bulunamadı! Ayarlardan cihaz seçin.", 3000)
-        return
-    }
+    global lastKnownMicMute
 
-    isMuted := false
-    try {
-        if (mic.component != "")
-            SoundSetMute(-1, mic.component, mic.device)
-        else
-            SoundSetMute(-1, , mic.device)
+    curState := GetMicMuteState()
+    newState := !curState
+    SetMicMuteState(newState)
 
-        if (mic.component != "")
-            isMuted := SoundGetMute(mic.component, mic.device)
-        else
-            isMuted := SoundGetMute(, mic.device)
-    } catch as err {
-        ShowTip("⚠️ Mikrofon erişim hatası: " . err.Message, 2000)
-        return
-    }
+    ; Güncel durumu doğrula
+    isMuted := GetMicMuteState()
 
     ; Discord benzeri yumuşak ses efekti
     PlayMicSound(isMuted)
 
+    ; Ekranda bildirim göster
     if isMuted {
         ShowTip("🎙️ Mikrofon Susturuldu (MUTE)")
     } else {
@@ -260,6 +294,7 @@ ToggleMicrophoneMute() {
 
     UpdateMicOverlay(isMuted)
     UpdateTrayIcon(isMuted)
+    lastKnownMicMute := isMuted
 }
 
 PlayMicSound(isMuted) {
@@ -309,37 +344,64 @@ UpdateTrayIcon(isMuted) {
 }
 
 SetMicMute(muteState) {
-    mic := GetMicDeviceId()
-    if (mic != "") {
-        try {
-            if (mic.component != "")
-                SoundSetMute(muteState, mic.component, mic.device)
-            else
-                SoundSetMute(muteState, , mic.device)
-        }
-    }
-    UpdateMicOverlay(muteState)
-    UpdateTrayIcon(muteState)
+    global lastKnownMicMute
+    SetMicMuteState(muteState)
+    isMuted := GetMicMuteState()
+    UpdateMicOverlay(isMuted)
+    UpdateTrayIcon(isMuted)
+    lastKnownMicMute := isMuted
 }
 
 UpdateMicOverlay(isMuted) {
     global micOverlayGui
 
     if (isMuted) {
+        ; Overlay yoksa oluştur; varsa sadece göster
         if (!IsObject(micOverlayGui)) {
+            try {
+                if (IsObject(micOverlayGui))
+                    micOverlayGui.Destroy()
+            }
+            micOverlayGui := 0
+
             transColor := "010101"
             micOverlayGui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x20", "MicMuteOverlay")
             micOverlayGui.BackColor := transColor
             micOverlayGui.SetFont("s11 bold cFF4444", "Segoe UI")
-            micOverlayGui.Add("Text", "x0 y0", "🔴 MİKROFON KAPALI")
+            micOverlayGui.Add("Text", "x0 y0", "🔴 MİKROFON SUSTURULDU")
         }
-        ; Sol üst köşede (x: 20, y: 15) arkaplansız saydam olarak göster
         micOverlayGui.Show("x20 y15 NoActivate AutoSize")
         try WinSetTransColor("010101 255", micOverlayGui)
     } else {
         if (IsObject(micOverlayGui)) {
             micOverlayGui.Hide()
         }
+    }
+}
+
+SyncMicState() {
+    global lastKnownMicMute
+
+    currentMute := GetMicMuteState()
+
+    ; İlk çalışma senkronizasyonu
+    if (lastKnownMicMute == -1) {
+        lastKnownMicMute := currentMute
+        UpdateMicOverlay(currentMute)
+        UpdateTrayIcon(currentMute)
+        return
+    }
+
+    ; Durum dışarıdan (Windows/kulaklık/donanım düğmesi) değiştiyse
+    if (currentMute != lastKnownMicMute) {
+        lastKnownMicMute := currentMute
+        UpdateMicOverlay(currentMute)
+        UpdateTrayIcon(currentMute)
+        PlayMicSound(currentMute)
+        if (currentMute)
+            ShowTip("🎙️ Mikrofon Susturuldu (MUTE)")
+        else
+            ShowTip("🎙️ Mikrofon Açıldı (UNMUTE)")
     }
 }
 

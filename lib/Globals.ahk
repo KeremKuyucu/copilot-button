@@ -3,7 +3,7 @@
 ; ══════════════════════════════════════════
 
 ; ── Uygulama Bilgileri & Sabitler ──
-global APP_VERSION := "1.1.6"
+global APP_VERSION := "1.1.7"
 global EXPECTED_CERT_THUMBPRINT := "037728AEA36D0BB09D2D1EE111C70A2D423CC6B4"
 global configFile := A_ScriptDir "\config.ini"
 
@@ -61,6 +61,7 @@ global fadeTimer := 0           ; Fade animasyon zamanlayıcısı
 global fadeAlpha := 0           ; Mevcut saydamlık değeri (0-255)
 global pttActive := false       ; Push-to-Talk aktif mi
 global tipGui := 0              ; Anlık bildirim OSD penceresi
+global lastKnownMicMute := -1     ; Son bilinen mikrofon susturma durumu
 
 ; ── 3-State Anti-Leak Hook Değişkenleri ──
 global copilotState := "idle"   ; "idle", "waiting", "copilot", "passed"

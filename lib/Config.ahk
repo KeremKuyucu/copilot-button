@@ -114,13 +114,41 @@ CreateDefaultConfig(path) {
 ; ══════════════════════════════════════════
 EnumerateCaptureDevices() {
     devices := []
-    Loop 20 {
-        try {
-            name := SoundGetName(, "Capture:" A_Index)
+    try {
+        CLSID_MMDeviceEnumerator := "{BCDE0395-E52F-467C-8E3D-C4579291692E}"
+        IID_IMMDeviceEnumerator  := "{A95664D2-9614-4F35-A746-DE8DB63617E6}"
+        
+        devEnum := ComObject(CLSID_MMDeviceEnumerator, IID_IMMDeviceEnumerator)
+        ; EnumAudioEndpoints: dataFlow=1 (eCapture), dwStateMask=1 (DEVICE_STATE_ACTIVE)
+        ComCall(3, devEnum, "int", 1, "uint", 1, "ptr*", &pCollection := 0)
+        collection := ComValue(13, pCollection)
+        
+        ; IMMDeviceCollection: GetCount (index 3)
+        count := 0
+        ComCall(3, collection, "uint*", &count)
+        
+        propKey := Buffer(20, 0)
+        DllCall("ole32\CLSIDFromString", "wstr", "{A45C254E-DF1C-4EFD-8020-67D146A850E0}", "ptr", propKey)
+        NumPut("uint", 14, propKey, 16) ; pid = 14
+
+        Loop count {
+            idx := A_Index - 1
+            ; Item (index 4)
+            pDev := 0
+            ComCall(4, collection, "uint", idx, "ptr*", &pDev)
+            dev := ComValue(13, pDev)
+            
+            ; OpenPropertyStore (index 4)
+            pStore := 0
+            ComCall(4, dev, "uint", 0, "ptr*", &pStore)
+            store := ComValue(13, pStore)
+            
+            ; GetValue (index 5)
+            propVar := Buffer(24, 0)
+            ComCall(5, store, "ptr", propKey, "ptr", propVar)
+            name := StrGet(NumGet(propVar, 8, "ptr"), "UTF-16")
             if (name != "")
                 devices.Push(name)
-        } catch {
-            break
         }
     }
     return devices
