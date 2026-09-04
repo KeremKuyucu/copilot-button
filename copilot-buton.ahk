@@ -23,6 +23,7 @@ SetTitleMatchMode 2
 #Include "lib\KeyHook.ahk"
 #Include "lib\GUI.ahk"
 #Include "lib\MacroRecorder.ahk"
+#Include "lib\AppPicker.ahk"
 #Include "lib\Updater.ahk"
 #Include "lib\Telemetry.ahk"
 

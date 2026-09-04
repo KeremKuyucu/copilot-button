@@ -549,9 +549,11 @@ ShowSettingsGUI(*) {
     settingsGui.SetFont("s8.5 bold c" textColor, "Segoe UI")
     lblCustomApp := AddP4(settingsGui.Add("Text", "x228 y380 w450 h18",
         "Özel Uygulama Yolu veya Web URL (CustomApp seçildiğinde):"))
-    edtCustomApp := AddP4(settingsGui.Add("Edit", "x228 y402 w370 h26 " editOpt, customAppPath))
+    edtCustomApp := AddP4(settingsGui.Add("Edit", "x228 y402 w270 h26 " editOpt, customAppPath))
     settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
-    btnBrowse := RegBtn(AddP4(settingsGui.Add("Text", "x604 y402 w78 h26 Background" darkBlueBtn " cFFFFFF Center 0x200",
+    btnPickApp := RegBtn(AddP4(settingsGui.Add("Text", "x504 y402 w104 h26 Background" accentBlue " cFFFFFF Center 0x200",
+        "🚀 Uygulama Seç")))
+    btnBrowse := RegBtn(AddP4(settingsGui.Add("Text", "x614 y402 w68 h26 Background" darkBlueBtn " cFFFFFF Center 0x200",
         "📁 Gözat")))
 
     ; Özel Makro alanları (CustomMacro seçildiğinde görünür)
@@ -572,6 +574,7 @@ ShowSettingsGUI(*) {
         isCustomMacro := (mode = "CustomMacro")
         lblCustomApp.Visible := isCustomApp
         edtCustomApp.Visible := isCustomApp
+        btnPickApp.Visible := isCustomApp
         btnBrowse.Visible := isCustomApp
         lblHoldMacro.Visible := isCustomMacro
         edtHoldMacro.Visible := isCustomMacro
@@ -688,6 +691,7 @@ ShowSettingsGUI(*) {
     btnTestOsd.OnEvent("Click", ShowTestOsd)
 
     ; Sayfa 4 ve 5 Buton Olayları
+    btnPickApp.OnEvent("Click", (*) => OpenAppPicker(edtCustomApp, settingsGui))
     btnBrowse.OnEvent("Click", (*) => BrowseCustomApp(edtCustomApp))
     btnCheckUpdate.OnEvent("Click", (*) => CheckForUpdates(false))
     btnReloadScript.OnEvent("Click", (*) => Reload())
@@ -702,6 +706,7 @@ ShowSettingsGUI(*) {
 
     CleanAndClose() {
         try OnMessage(0x0200, GuiMouseMove, 0)
+        try CloseAppPicker()
         if (IsObject(settingsGui)) {
             settingsGui.Destroy()
             settingsGui := 0

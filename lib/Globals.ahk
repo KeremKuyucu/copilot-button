@@ -3,7 +3,7 @@
 ; ══════════════════════════════════════════
 
 ; ── Uygulama Bilgileri & Sabitler ──
-global APP_VERSION := "1.1.9"
+global APP_VERSION := "1.2.0"
 global EXPECTED_CERT_THUMBPRINT := "037728AEA36D0BB09D2D1EE111C70A2D423CC6B4"
 global configFile := A_ScriptDir "\config.ini"
 
