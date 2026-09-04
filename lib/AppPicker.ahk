@@ -207,7 +207,6 @@ OpenAppPicker(targetEditCtrl, parentGui := 0) {
 
     ; ── AÇIK PENCERELERİ TARA ──
     RefreshOpenWindows(*) {
-        nonlocal allRunningWindows
         allRunningWindows := []
         seen := Map()
 
@@ -262,7 +261,6 @@ OpenAppPicker(targetEditCtrl, parentGui := 0) {
 
     ; ── YÜKLÜ PROGRAMLARI TARA (BAŞLAT MENÜSÜ) ──
     ScanInstalledApps() {
-        nonlocal allInstalledApps
         allInstalledApps := []
         seen := Map()
 
@@ -453,11 +451,6 @@ OpenAppPicker(targetEditCtrl, parentGui := 0) {
     btnCancel.OnEvent("Click", (*) => CloseAppPicker())
 
     ; Mouse Hover Hand Cursor (WM_MOUSEMOVE)
-    PickerMouseMove(wParam, lParam, msg, hwnd) {
-        if (pickerBtnHwnds.Has(hwnd)) {
-            DllCall("SetCursor", "Ptr", DllCall("LoadCursor", "Ptr", 0, "Int", 32649, "Ptr"))
-        }
-    }
     OnMessage(0x0200, PickerMouseMove)
 
     pickerGui.OnEvent("Close", (*) => CloseAppPicker())
@@ -473,6 +466,16 @@ OpenAppPicker(targetEditCtrl, parentGui := 0) {
 
     ; Göster
     pickerGui.Show("w646 h540")
+}
+
+; ══════════════════════════════════════════
+;  FARE İMLECİ (HOVER HAND CURSOR)
+; ══════════════════════════════════════════
+PickerMouseMove(wParam, lParam, msg, hwnd) {
+    global pickerBtnHwnds
+    if (pickerBtnHwnds.Has(hwnd)) {
+        DllCall("SetCursor", "Ptr", DllCall("LoadCursor", "Ptr", 0, "Int", 32649, "Ptr"))
+    }
 }
 
 ; ══════════════════════════════════════════
