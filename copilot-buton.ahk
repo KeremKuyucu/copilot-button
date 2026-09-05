@@ -61,7 +61,6 @@ A_TrayMenu.Add() ; Ayırıcı
 ; ── Görünüm & Araçlar ──
 A_TrayMenu.Add("👁️  OSD Bildirim Testi", (*) => ShowTip("✨ Copilot Tuşu v" APP_VERSION " aktif! ✨", 2000))
 A_TrayMenu.Add("🔄  Güncellemeleri Denetle", (*) => CheckForUpdates(false))
-A_TrayMenu.Add("🔄  Scripti Yeniden Başlat", (*) => Reload())
 A_TrayMenu.Add() ; Ayırıcı
 
 ; ── Çıkış ──
