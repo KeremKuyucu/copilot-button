@@ -188,17 +188,24 @@ ToggleMasterMute() {
 
 ToggleDeafen() {
     global lastKnownMicMute
-    isMasterMuted := false
 
-    ; Mikrofon durumunu tersine çevir
     curMic := GetMicMuteState()
-    newMic := !curMic
-    SetMicMuteState(newMic)
+    curMaster := false
+    try {
+        curMaster := (SoundGetMute() != 0)
+    }
+
+    ; Herhangi biri açıksa ikisini de sustur (Deafen); ikisi de zaten susturulmuşsa aç (Undeafen)
+    shouldMute := (!curMic || !curMaster) ? true : false
+
+    SetMicMuteState(shouldMute)
     isMicMuted := GetMicMuteState()
 
     try {
-        SoundSetMute(-1)
-        isMasterMuted := SoundGetMute()
+        SoundSetMute(shouldMute ? 1 : 0)
+        isMasterMuted := (SoundGetMute() != 0)
+    } catch {
+        isMasterMuted := shouldMute
     }
 
     PlayMicSound(isMicMuted)
@@ -211,7 +218,7 @@ ToggleDeafen() {
     else if (!isMicMuted && !isMasterMuted)
         ShowTip("🔔 Sağırlaştırma Kaldırıldı (Ses & Mic Açık)")
     else
-        ShowTip("🔕 Ses & Mikrofon Değiştirildi")
+        ShowTip("🔕 Ses & Mikrofon Güncellendi")
 }
 
 ShowPlayPauseTrackInfo() {
@@ -258,8 +265,8 @@ GetNowPlaying() {
                     return ""
                 return fullTitle
             } else {
-                ; YTM: Sondaki " - YouTube Music" kısmını kaldır
-                cleaned := RegExReplace(fullTitle, "\s*-\s*YouTube Music$", "")
+                ; YTM: Sondaki " - YouTube Music" ve olası tarayıcı eklerini (örn. " - Google Chrome") kaldır
+                cleaned := RegExReplace(fullTitle, "\s*-\s*YouTube Music(?:\s*-\s*.*)?$", "")
                 if (cleaned = "" || cleaned = "YouTube Music")
                     return ""
                 return cleaned
@@ -379,7 +386,7 @@ UpdateMicOverlay(isMuted) {
     }
 }
 
-SyncMicState() {
+SyncMicState(silent := true) {
     global lastKnownMicMute
 
     currentMute := GetMicMuteState()
@@ -397,11 +404,13 @@ SyncMicState() {
         lastKnownMicMute := currentMute
         UpdateMicOverlay(currentMute)
         UpdateTrayIcon(currentMute)
-        PlayMicSound(currentMute)
-        if (currentMute)
-            ShowTip("🎙️ Mikrofon Susturuldu (MUTE)")
-        else
-            ShowTip("🎙️ Mikrofon Açıldı (UNMUTE)")
+        if (!silent) {
+            PlayMicSound(currentMute)
+            if (currentMute)
+                ShowTip("🎙️ Mikrofon Susturuldu (MUTE)")
+            else
+                ShowTip("🎙️ Mikrofon Açıldı (UNMUTE)")
+        }
     }
 }
 

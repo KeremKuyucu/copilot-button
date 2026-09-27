@@ -3,26 +3,17 @@
 ; ══════════════════════════════════════════
 
 ; ══════════════════════════════════════════
-;  BAŞLAT MENÜSÜ KISAYOL İŞLEMLERİ
+;  BAŞLANGIÇ KAYIT DEFTERİ (REGISTRY) İŞLEMLERİ
 ; ══════════════════════════════════════════
-
-CreateStartMenuShortcut(targetPath := "") {
-    if (targetPath = "")
-        targetPath := A_ScriptFullPath
-    startMenuPath := A_Programs "\CopilotButton.lnk"
-    try {
-        iconPath := A_ScriptDir "\logo.ico"
-        if FileExist(iconPath)
-            FileCreateShortcut(targetPath, startMenuPath, A_ScriptDir, , "CopilotButton Media & Mic Control", iconPath)
-        else
-            FileCreateShortcut(targetPath, startMenuPath, A_ScriptDir, , "CopilotButton Media & Mic Control")
+SetAutoStartRegistry(enable) {
+    regKey := "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run"
+    regName := "CopilotButton"
+    exePath := A_IsCompiled ? A_ScriptFullPath : '"' . A_AhkPath . '" "' . A_ScriptFullPath . '"'
+    if (enable) {
+        try RegWrite('"' . exePath . '"', "REG_SZ", regKey, regName)
+    } else {
+        try RegDelete(regKey, regName)
     }
-}
-
-RemoveStartMenuShortcut() {
-    startMenuPath := A_Programs "\CopilotButton.lnk"
-    if FileExist(startMenuPath)
-        try FileDelete(startMenuPath)
 }
 
 ; ══════════════════════════════════════════
@@ -419,14 +410,16 @@ ShowSettingsGUI(*) {
         try ddlMicDevice.Text := micDevice
 
     settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    AddP2(settingsGui.Add("GroupBox", "x248 y489 w625 h101", "Sistem & Geri Bildirim"))
+    AddP2(settingsGui.Add("GroupBox", "x248 y475 w625 h120", "Sistem & Geri Bildirim"))
 
-    chkTrayMic := AddP2(settingsGui.Add("Checkbox", "x268 y514 w570 h22 Checked" (trayIconMicState ? "1" : "0"),
-    "🎙  Mikrofon durumuna göre görev çubuğu simgesini değiştir"))
-    chkSoundFx := AddP2(settingsGui.Add("Checkbox", "x268 y540 w570 h22 Checked" (soundFxEnabled ? "1" : "0"),
-    "🔊  Mikrofon açma / kapamada hafif ses efekti çal"))
-    chkTelemetry := AddP2(settingsGui.Add("Checkbox", "x268 y566 w570 h22 Checked" (telemetryEnabled ? "1" : "0"),
-    "📊  Anonim açılış telemetrisi ve kullanım loglarını gönder"))
+    chkAutoStart := AddP2(settingsGui.Add("Checkbox", "x268 y498 w570 h22 Checked" (autoStart ? "1" : "0"),
+        "🚀  Windows ile birlikte otomatik başlat"))
+    chkTrayMic := AddP2(settingsGui.Add("Checkbox", "x268 y522 w570 h22 Checked" (trayIconMicState ? "1" : "0"),
+        "🎙  Mikrofon durumuna göre görev çubuğu simgesini değiştir"))
+    chkSoundFx := AddP2(settingsGui.Add("Checkbox", "x268 y546 w570 h22 Checked" (soundFxEnabled ? "1" : "0"),
+        "🔊  Mikrofon açma / kapamada hafif ses efekti çal"))
+    chkTelemetry := AddP2(settingsGui.Add("Checkbox", "x268 y570 w570 h22 Checked" (telemetryEnabled ? "1" : "0"),
+        "📊  Anonim açılış telemetrisi ve kullanım loglarını gönder"))
 
     ; ═════════════════════════════════════════════════════════════
     ;  PAGE 3 — OSD / APPEARANCE
@@ -856,6 +849,9 @@ ShowSettingsGUI(*) {
         IniWrite(ddlHold.Text, configFile, "Settings", "HoldAction")
         IniWrite(Trim(edtCustomApp.Value), configFile, "Settings", "CustomAppPath")
         IniWrite(Trim(edtHoldMacro.Value), configFile, "Settings", "CustomMacroHold")
+        newAutoStart := chkAutoStart.Value ? 1 : 0
+        IniWrite(newAutoStart, configFile, "Settings", "AutoStart")
+        SetAutoStartRegistry(newAutoStart)
         IniWrite(chkTrayMic.Value ? 1 : 0, configFile, "Settings", "TrayIconMicState")
         IniWrite(chkSoundFx.Value ? 1 : 0, configFile, "Settings", "SoundFxEnabled")
         IniWrite(chkTelemetry.Value ? 1 : 0, configFile, "Settings", "TelemetryEnabled")

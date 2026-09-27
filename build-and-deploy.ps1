@@ -3,7 +3,7 @@
 .SYNOPSIS
     Copilot Button - Otomatik Derle (AHK -> EXE), Inno Setup (Setup.exe), Imzala ve GitHub'a Dagit
 .DESCRIPTION
-    AutoHotkey v2 scriptini (copilot-buton.ahk) Ahk2Exe ile C:\Users\Kerem\Projects\Outputs klasorune derler,
+    AutoHotkey v2 scriptini (copilot-buton.ahk) Ahk2Exe ile C:\Users\Kerem\Projects\Outputs\copilot-button klasorune derler,
     Inno Setup 6 ile CopilotButton-Setup.exe kurulum paketini olusturur, signtool ile imzalar
     ve GitHub Release olusturarak dosyalari yukler.
 .NOTES
@@ -47,7 +47,8 @@ try {
     Set-Location $projectRoot
 
     $projectsParent = Split-Path -Parent $projectRoot
-    $distPath = if (Test-Path (Join-Path $projectsParent "Outputs")) { Join-Path $projectsParent "Outputs" } else { "C:\Users\Kerem\Projects\Outputs" }
+    $outputsBase    = if (Test-Path (Join-Path $projectsParent "Outputs")) { Join-Path $projectsParent "Outputs" } else { "C:\Users\Kerem\Projects\Outputs" }
+    $distPath       = Join-Path $outputsBase "copilot-button"
     $ahkScriptName  = "copilot-buton.ahk"
     $ahkScriptPath  = Join-Path $projectRoot $ahkScriptName
     $outputExeName  = "CopilotButton.exe"

@@ -30,7 +30,7 @@ CheckForUpdates(silent := true) {
         whr.SetRequestHeader("User-Agent", "CopilotButton-AutoUpdater")
         whr.SetRequestHeader("Accept", "application/vnd.github.v3+json")
         whr.Send()
-        whr.WaitForResponse()
+        whr.WaitForResponse(5)
 
         if (whr.Status != 200) {
             if (!silent)
@@ -77,7 +77,76 @@ CheckForUpdates(silent := true) {
     }
 }
 
+VerifyInstallerSignature(filePath, expectedThumbprint) {
+    if (!FileExist(filePath) || expectedThumbprint = "")
+        return false
+
+    expectedClean := StrUpper(Trim(RegExReplace(expectedThumbprint, "[\r\n\s\-:]", "")))
+
+    hStore := 0
+    hMsg := 0
+    ; CERT_QUERY_OBJECT_FILE = 1, CERT_QUERY_CONTENT_FLAG_PKCS7_SIGNED_EMBED = 0x400
+    success := DllCall("crypt32\CryptQueryObject",
+        "uint", 1,
+        "wstr", filePath,
+        "uint", 0x400,
+        "uint", 0x0E,
+        "uint", 0,
+        "ptr*", &pEncoding := 0,
+        "ptr*", &pContentType := 0,
+        "ptr*", &pFormatType := 0,
+        "ptr*", &hStore,
+        "ptr*", &hMsg,
+        "ptr*", &pContext := 0,
+        "int"
+    )
+
+    matched := false
+    if (success && hStore) {
+        pCertContext := 0
+        while (pCertContext := DllCall("crypt32\CertEnumCertificatesInStore", "ptr", hStore, "ptr", pCertContext, "ptr")) {
+            hashSize := 0
+            if DllCall("crypt32\CertGetCertificateContextProperty", "ptr", pCertContext, "uint", 3, "ptr", 0, "uint*", &hashSize) {
+                hashBuf := Buffer(hashSize, 0)
+                if DllCall("crypt32\CertGetCertificateContextProperty", "ptr", pCertContext, "uint", 3, "ptr", hashBuf, "uint*", &hashSize) {
+                    thumbprint := ""
+                    loop hashSize {
+                        thumbprint .= Format("{:02X}", NumGet(hashBuf, A_Index - 1, "UChar"))
+                    }
+                    if (thumbprint == expectedClean) {
+                        matched := true
+                        DllCall("crypt32\CertFreeCertificateContext", "ptr", pCertContext)
+                        break
+                    }
+                }
+            }
+        }
+        DllCall("crypt32\CertCloseStore", "ptr", hStore, "uint", 0)
+    }
+
+    if (hMsg)
+        DllCall("crypt32\CryptMsgClose", "ptr", hMsg)
+
+    ; Win32 API ile yakalanamazsa Authenticode PowerShell kontrolü (Fallback)
+    if (!matched) {
+        try {
+            tempOut := A_Temp "\sig_check_" . A_TickCount . ".txt"
+            psCmd := 'powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; (Get-AuthenticodeSignature \`"' . filePath . '\`").SignerCertificate.Thumbprint | Out-File -FilePath \`"' . tempOut . '\`" -Encoding ascii"'
+            RunWait(psCmd, , "Hide")
+            if FileExist(tempOut) {
+                actualThumbprint := StrUpper(Trim(RegExReplace(FileRead(tempOut), "[\r\n\s\-:]", "")))
+                try FileDelete(tempOut)
+                if (actualThumbprint != "" && actualThumbprint == expectedClean)
+                    matched := true
+            }
+        }
+    }
+
+    return matched
+}
+
 PerformInstallerUpdate(setupUrl, newVersion, silent := false) {
+    global EXPECTED_CERT_THUMBPRINT
     tempInstaller := A_Temp "\CopilotButton_Setup.exe"
 
     ShowTip("⬇️ v" . newVersion . " güncellemesi arka planda indiriliyor...", 4000)
@@ -94,11 +163,20 @@ PerformInstallerUpdate(setupUrl, newVersion, silent := false) {
             return
         }
 
+        ; ── Dijital İmza & MITM Güvenlik Kontrolü ──
+        if (EXPECTED_CERT_THUMBPRINT != "") {
+            if (!VerifyInstallerSignature(tempInstaller, EXPECTED_CERT_THUMBPRINT)) {
+                try FileDelete(tempInstaller)
+                ShowTip("❌ Güvenlik Uyarısı: İndirilen güncellemenin sertifikası doğrulanamadı!", 4000)
+                return
+            }
+        }
+
         ShowTip("🔄 v" . newVersion . " kuruluyor ve başlatılıyor...", 2000)
         Sleep 1000
 
         ; Inno Setup'ı tamamen sessiz modda çalıştır ve uygulamayı kapat
-        ; Inno Setup dosyaları güncelleyip yeni sürümü otomatik başlatacaktır
+        ; Inno Setup dosyaları güncelleyip WizardSilent kuralı ile yeni sürümü otomatik başlatacaktır
         Run('"' . tempInstaller . '" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS')
         ExitApp()
 

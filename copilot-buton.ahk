@@ -77,8 +77,9 @@ A_TrayMenu.ClickCount := 1
 holdLabel := (holdAction = "PushToTalk") ? "Push-to-Talk" : activeAppName
 ShowTip("✅ Copilot Tuşu v" APP_VERSION " aktif — " holdLabel, 2500)
 
-; Başlangıçta mikrofon durumunu senkronize et (overlay & tray ikonu)
+; Başlangıçta mikrofon durumunu senkronize et ve harici/donanım değişikliklerini sürekli izle
 SyncMicState()
+SetTimer(SyncMicState, 1000)
 
 ; Başlangıçta güncelleme kontrolü (sessiz)
 SetTimer(StartupUpdateCheck, -5000)

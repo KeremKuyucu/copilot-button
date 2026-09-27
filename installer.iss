@@ -8,7 +8,7 @@
 #define TempLine
 #define MyAppVersion ""
 #if FileHandle = FileOpen(AddBackslash(SourcePath) + "lib\Globals.ahk")
-#for {FileLine = ""; !FileEof(FileHandle); FileLine = FileRead(FileHandle)}
+#for {FileLine = ""; !FileEof(FileHandle); FileLine = FileRead(FileHandle)} \
 Pos("APP_VERSION :=", FileLine) ? (TempLine = Copy(FileLine, Pos('"', FileLine) + 1), MyAppVersion = Copy(TempLine, 1, Pos('"', TempLine) - 1)) : 0
 #expr FileClose(FileHandle)
 #endif
@@ -21,11 +21,11 @@ Pos("APP_VERSION :=", FileLine) ? (TempLine = Copy(FileLine, Pos('"', FileLine) 
 #define MyAppId "{{B729352A-3A65-4EE3-8E57-1F4F9CE993E1}}"
 
 #ifndef SourceExePath
-#define SourceExePath "C:\Users\Kerem\Projects\Outputs\CopilotButton.exe"
+#define SourceExePath "C:\Users\Kerem\Projects\Outputs\copilot-button\CopilotButton.exe"
 #endif
 
 #ifndef OutputDirPath
-#define OutputDirPath "C:\Users\Kerem\Projects\Outputs"
+#define OutputDirPath "C:\Users\Kerem\Projects\Outputs\copilot-button"
 #endif
 
 [Setup]
@@ -71,29 +71,16 @@ Source: "logo.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "logo_muted.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "config.ini"; DestDir: "{app}"; Flags: onlyifdoesntexist
 
+[Icons]
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\logo.ico"
+
 [Registry]
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "CopilotButton"; ValueData: """{app}\{#MyAppExeName}"""; Flags: uninsdeletevalue
 
-[InstallDelete]
-; Eski sürümlerin oluşturduğu Startup kısayollarını temizle
-Type: files; Name: "{userstartup}\CopilotButton.lnk"
-Type: files; Name: "{userstartup}\Copilot Button.lnk"
-
-; Eski Başlat Menüsü kısayollarını temizle
-Type: files; Name: "{autoprograms}\CopilotButton.lnk"
-Type: files; Name: "{autoprograms}\Copilot Button.lnk"
-
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Flags: nowait; Check: WizardSilent
 
 [UninstallDelete]
 Type: files; Name: "{app}\config.ini"
 Type: dirifempty; Name: "{app}"
-
-; Startup kısayolları
-Type: files; Name: "{userstartup}\CopilotButton.lnk"
-Type: files; Name: "{userstartup}\Copilot Button.lnk"
-
-; Başlat Menüsü kısayolları
-Type: files; Name: "{autoprograms}\CopilotButton.lnk"
-Type: files; Name: "{autoprograms}\Copilot Button.lnk"
