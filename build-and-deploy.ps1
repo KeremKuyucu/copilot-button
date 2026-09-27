@@ -16,6 +16,7 @@ param(
     [Parameter(Mandatory = $false)][switch]$CreateRelease,
     [Parameter(Mandatory = $false)][switch]$InnoSetupOnly,
     [Parameter(Mandatory = $false)][switch]$CompileOnly,
+    [Parameter(Mandatory = $false)][switch]$GenNotes,
     [Parameter(Mandatory = $false)][string]$ReleaseNotes
 )
 
@@ -217,6 +218,53 @@ try {
             Remove-Job -Id $stdoutEvent.Id -Force -ErrorAction SilentlyContinue
             Remove-Job -Id $stderrEvent.Id -Force -ErrorAction SilentlyContinue
             $proc.Dispose()
+        }
+    }
+
+    function Invoke-AgyReleaseNotes ([string]$ver) {
+        <#
+        .SYNOPSIS
+            Antigravity CLI (agy) kullanarak git degisikliklerinden surum notlarini otomatik olusturur.
+        #>
+        $agyCmd = Get-Command "agy" -ErrorAction SilentlyContinue
+        if (-not $agyCmd) {
+            Write-Warn "Antigravity CLI ('agy') sistemde bulunamadi. Surum notlari otomatik olusturulamadi."
+            return $false
+        }
+
+        Write-Step "Antigravity CLI (agy) ile Surum Notlari Olusturuluyor (v$ver)..."
+        Write-Info "Son commit loglari ve degisiklikler inceleniyor..."
+
+        $agyPrompt = "Copilot Button projesinin v$ver surumu icin surum notlarini olustur. " +
+            "1. Git commit loglarini ve son degisiklikleri incele. " +
+            "2. RELEASE_TEMPLATE.md sablonuna birebir uyarak 'RELEASE_$ver.md' dosyasini olustur. " +
+            "Dosyayi dogrudan proje kok dizininde olustur."
+
+        try {
+            $exitCode = Run-Exe -FilePath "agy" -ArgumentList @(
+                "-p", $agyPrompt,
+                "--add-dir", $projectRoot,
+                "--dangerously-skip-permissions"
+            ) -WorkingDirectory $projectRoot -AllowNonZero
+
+            $ghNotes = Join-Path $projectRoot "RELEASE_$ver.md"
+
+            if (Test-Path $ghNotes) {
+                Write-Ok "GitHub surum notu hazir: RELEASE_$ver.md"
+                $stepResults["Surum Notlari (agy)"] = [pscustomobject]@{
+                    Elapsed = [TimeSpan]::Zero
+                    Success = $true
+                    Detail  = "RELEASE_$ver.md"
+                }
+                return $true
+            } else {
+                Write-Warn "agy tamamlandi ancak RELEASE_$ver.md dosyasi olusmadi."
+                return $false
+            }
+        }
+        catch {
+            Write-Warn "Antigravity CLI calistirilirken hata olustu: $($_.Exception.Message)"
+            return $false
         }
     }
 
@@ -566,6 +614,31 @@ try {
         $answer = Read-Host "   GitHub Release olusturulsun / guncellensin mi? (e/H)"
         if ($answer -match '^[Ee]$') {
             $shouldCreateRelease = $true
+        }
+    }
+
+    if ($shouldCreateRelease -or $GenNotes) {
+        $ghNotesFile = Join-Path $projectRoot "RELEASE_$currentVersion.md"
+        $notesMissing = -not (Test-Path $ghNotesFile)
+
+        if ($GenNotes) {
+            [void](Invoke-AgyReleaseNotes -ver $currentVersion)
+        }
+        elseif (-not [Console]::IsInputRedirected -and -not $NoPrompt) {
+            Write-Host ""
+            Write-Host "-- Surum Notlari (Antigravity CLI) --" -ForegroundColor Cyan
+            if ($notesMissing) {
+                $genNotesAns = Read-Host "   Surum notlari eksik. Antigravity CLI (agy) ile otomatik olusturulsun mu? (E/h)"
+                if ($genNotesAns -notmatch '^[Hh]$') {
+                    [void](Invoke-AgyReleaseNotes -ver $currentVersion)
+                }
+            }
+            else {
+                $regenNotesAns = Read-Host "   Surum notlari mevcut. Antigravity CLI (agy) ile yeniden olusturulsun mu? (e/H)"
+                if ($regenNotesAns -match '^[Ee]$') {
+                    [void](Invoke-AgyReleaseNotes -ver $currentVersion)
+                }
+            }
         }
     }
 
