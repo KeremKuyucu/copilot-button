@@ -335,12 +335,16 @@ UpdateTrayIcon(isMuted) {
 
     try {
         if (isMuted) {
-            if FileExist(A_ScriptDir "\logo_muted.ico")
+            if FileExist(A_ScriptDir "\assets\logo_muted.ico")
+                TraySetIcon A_ScriptDir "\assets\logo_muted.ico"
+            else if FileExist(A_ScriptDir "\logo_muted.ico")
                 TraySetIcon A_ScriptDir "\logo_muted.ico"
             else if A_IsCompiled
                 TraySetIcon A_ScriptFullPath  ; EXE'nin gömülü ikonunu kullan
         } else {
-            if FileExist(A_ScriptDir "\logo.ico")
+            if FileExist(A_ScriptDir "\assets\logo.ico")
+                TraySetIcon A_ScriptDir "\assets\logo.ico"
+            else if FileExist(A_ScriptDir "\logo.ico")
                 TraySetIcon A_ScriptDir "\logo.ico"
             else if A_IsCompiled
                 TraySetIcon A_ScriptFullPath  ; EXE'nin gömülü ikonunu kullan

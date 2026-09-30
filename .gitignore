@@ -5,6 +5,14 @@ build_zip_temp/
 update_temp/
 tools/
 Output/
+Outputs/
 
-# User-specific / Local settings
+# User-specific / Local settings & configurations
 *.local
+config.ini
+config*.ini
+*.log
+
+# Root-level release notes drafts (moved to .github/releases/)
+/RELEASE_*.md
+!/.github/releases/

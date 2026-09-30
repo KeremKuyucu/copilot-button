@@ -48,8 +48,8 @@ PrivilegesRequired=lowest
 OutputDir={#OutputDirPath}
 OutputBaseFilename=CopilotButton-Setup
 
-SetupIconFile=logo.ico
-UninstallDisplayIcon={app}\logo.ico
+SetupIconFile=assets\logo.ico
+UninstallDisplayIcon={app}\assets\logo.ico
 
 Compression=lzma2/max
 SolidCompression=yes
@@ -67,12 +67,11 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
 Source: "{#SourceExePath}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "logo.ico"; DestDir: "{app}"; Flags: ignoreversion
-Source: "logo_muted.ico"; DestDir: "{app}"; Flags: ignoreversion
-Source: "config.ini"; DestDir: "{app}"; Flags: onlyifdoesntexist
+Source: "assets\logo.ico"; DestDir: "{app}\assets"; Flags: ignoreversion
+Source: "assets\logo_muted.ico"; DestDir: "{app}\assets"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\logo.ico"
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\assets\logo.ico"
 
 [Registry]
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "CopilotButton"; ValueData: """{app}\{#MyAppExeName}"""; Flags: uninsdeletevalue
@@ -83,4 +82,6 @@ Filename: "{app}\{#MyAppExeName}"; Flags: nowait; Check: WizardSilent
 
 [UninstallDelete]
 Type: files; Name: "{app}\config.ini"
+Type: files; Name: "{app}\assets\*.ico"
+Type: dirifempty; Name: "{app}\assets"
 Type: dirifempty; Name: "{app}"

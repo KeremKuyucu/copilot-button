@@ -2,7 +2,7 @@
 
 Bu dosyayı yeni sürüm notları yazarken şablon olarak kullanın.
 Aşağıdaki şablonu kopyalayıp `[PLACEHOLDER]` kısımlarını doldurun.
-Dosya adı RELEASE_X.X.X.md olacak.
+Dosya adı .github/releases/RELEASE_X.X.X.md olacak.
 ---
 
 ## 📦 Sürüm [X.X.X] – [Kısa Başlık Türkçe]

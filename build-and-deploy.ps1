@@ -57,7 +57,7 @@ try {
     $setupExeName   = "CopilotButton-Setup.exe"
     $setupExePath   = Join-Path $distPath $setupExeName
     $issScriptPath  = Join-Path $projectRoot "installer.iss"
-    $iconPath       = Join-Path $projectRoot "logo.ico"
+    $iconPath       = if (Test-Path (Join-Path $projectRoot "assets\logo.ico")) { Join-Path $projectRoot "assets\logo.ico" } else { Join-Path $projectRoot "logo.ico" }
 
     # Ahk2Exe Derleyici Yolu Arama
     $ahk2exeCandidates = @(
@@ -235,10 +235,23 @@ try {
         Write-Step "Antigravity CLI (agy) ile Surum Notlari Olusturuluyor (v$ver)..."
         Write-Info "Son commit loglari ve degisiklikler inceleniyor..."
 
+        $templateCandidates = @(
+            (Join-Path $projectRoot ".github\RELEASE_TEMPLATE.md"),
+            (Join-Path $projectRoot "RELEASE_TEMPLATE.md")
+        )
+        $templatePath = $templateCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+        $releasesDir = Join-Path $projectRoot ".github\releases"
+        Ensure-Dir $releasesDir
+        $notesFileName = "RELEASE_$ver.md"
+        $ghNotes = Join-Path $releasesDir $notesFileName
+
+        $templateRelPath = if ($templatePath) { (Resolve-Path $templatePath -Relative) } else { ".github/RELEASE_TEMPLATE.md" }
+
         $agyPrompt = "Copilot Button projesinin v$ver surumu icin surum notlarini olustur. " +
             "1. Git commit loglarini ve son degisiklikleri incele. " +
-            "2. RELEASE_TEMPLATE.md sablonuna birebir uyarak 'RELEASE_$ver.md' dosyasini olustur. " +
-            "Dosyayi dogrudan proje kok dizininde olustur."
+            "2. '$templateRelPath' sablonuna birebir uyarak '.github/releases/$notesFileName' dosyasini olustur. " +
+            "Dosyayi '.github/releases/' klasoru altinda olustur, proje kok dizinine dosya birakma."
 
         try {
             $exitCode = Run-Exe -FilePath "agy" -ArgumentList @(
@@ -247,18 +260,28 @@ try {
                 "--dangerously-skip-permissions"
             ) -WorkingDirectory $projectRoot -AllowNonZero
 
-            $ghNotes = Join-Path $projectRoot "RELEASE_$ver.md"
-
             if (Test-Path $ghNotes) {
-                Write-Ok "GitHub surum notu hazir: RELEASE_$ver.md"
+                Write-Ok "GitHub surum notu hazir: .github/releases/$notesFileName"
                 $stepResults["Surum Notlari (agy)"] = [pscustomobject]@{
                     Elapsed = [TimeSpan]::Zero
                     Success = $true
-                    Detail  = "RELEASE_$ver.md"
+                    Detail  = ".github/releases/$notesFileName"
                 }
                 return $true
             } else {
-                Write-Warn "agy tamamlandi ancak RELEASE_$ver.md dosyasi olusmadi."
+                # Kok dizinde olusturulmus olma ihtimaline karsi kontrol ve tasima
+                $rootNotes = Join-Path $projectRoot $notesFileName
+                if (Test-Path $rootNotes) {
+                    Move-Item -Path $rootNotes -Destination $ghNotes -Force
+                    Write-Ok "GitHub surum notu hazir (.github/releases altina tasindi): $notesFileName"
+                    $stepResults["Surum Notlari (agy)"] = [pscustomobject]@{
+                        Elapsed = [TimeSpan]::Zero
+                        Success = $true
+                        Detail  = ".github/releases/$notesFileName"
+                    }
+                    return $true
+                }
+                Write-Warn "agy tamamlandi ancak $notesFileName dosyasi olusmadi."
                 return $false
             }
         }
@@ -404,7 +427,7 @@ try {
 
         if (Test-Path $iconPath) {
             $ahk2exeArgs += @("/icon", $iconPath)
-            Write-Info "Ikon: logo.ico"
+            Write-Info "Ikon: $(Split-Path $iconPath -Leaf)"
         }
 
         try {
@@ -618,8 +641,12 @@ try {
     }
 
     if ($shouldCreateRelease -or $GenNotes) {
-        $ghNotesFile = Join-Path $projectRoot "RELEASE_$currentVersion.md"
-        $notesMissing = -not (Test-Path $ghNotesFile)
+        $ghNotesCandidates = @(
+            (Join-Path $projectRoot ".github\releases\RELEASE_$currentVersion.md"),
+            (Join-Path $projectRoot "RELEASE_$currentVersion.md")
+        )
+        $ghNotesFile = $ghNotesCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+        $notesMissing = ($null -eq $ghNotesFile)
 
         if ($GenNotes) {
             [void](Invoke-AgyReleaseNotes -ver $currentVersion)
@@ -634,7 +661,7 @@ try {
                 }
             }
             else {
-                $regenNotesAns = Read-Host "   Surum notlari mevcut. Antigravity CLI (agy) ile yeniden olusturulsun mu? (e/H)"
+                $regenNotesAns = Read-Host "   Surum notlari mevcut ($((Resolve-Path $ghNotesFile -Relative))). Antigravity CLI (agy) ile yeniden olusturulsun mu? (e/H)"
                 if ($regenNotesAns -match '^[Ee]$') {
                     [void](Invoke-AgyReleaseNotes -ver $currentVersion)
                 }
@@ -673,6 +700,7 @@ try {
                 try {
                     $releaseNotesFile = $null
                     $notesCandidates = @(
+                        (Join-Path $projectRoot ".github\releases\RELEASE_$currentVersion.md"),
                         (Join-Path $projectRoot "RELEASE_$currentVersion.md"),
                         (Join-Path $projectRoot "RELEASE_v$currentVersion.md"),
                         (Join-Path $projectRoot "RELEASE_NOTES.md"),

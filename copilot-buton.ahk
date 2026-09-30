@@ -1,4 +1,4 @@
-;@Ahk2Exe-SetMainIcon logo.ico
+;@Ahk2Exe-SetMainIcon assets\logo.ico
 ;@Ahk2Exe-SetProductName Copilot Button Controller
 ;@Ahk2Exe-SetDescription Windows Copilot Key Media & Mic Controller
 ;@Ahk2Exe-SetCopyright Copyright (c) 2026 Kerem Kuyucu
@@ -31,7 +31,9 @@ SetTitleMatchMode 2
 ;  TRAY İKONU VE MENÜSÜ
 ; ══════════════════════════════════════════
 try {
-    if FileExist(A_ScriptDir "\logo.ico")
+    if FileExist(A_ScriptDir "\assets\logo.ico")
+        TraySetIcon A_ScriptDir "\assets\logo.ico"
+    else if FileExist(A_ScriptDir "\logo.ico")
         TraySetIcon A_ScriptDir "\logo.ico"
     else if A_IsCompiled
         TraySetIcon A_ScriptFullPath

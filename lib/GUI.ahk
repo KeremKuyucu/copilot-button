@@ -179,7 +179,7 @@ ShowSettingsGUI(*) {
     ; ═════════════════════════════════════════════════════════════
     ;  HEADER
     ; ═════════════════════════════════════════════════════════════
-    iconPath := A_ScriptDir "\logo.ico"
+    iconPath := FileExist(A_ScriptDir "\assets\logo.ico") ? A_ScriptDir "\assets\logo.ico" : A_ScriptDir "\logo.ico"
     if FileExist(iconPath)
         settingsGui.Add("Picture", "x22 y18 w34 h34", iconPath)
 
