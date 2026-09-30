@@ -178,8 +178,26 @@ jobs:
           }
 
           Write-Host "Compiling AutoHotkey script..."
-          & "${{ env.AHK2EXE_PATH }}" $argsList
-          if ($LASTEXITCODE -ne 0) { throw "Ahk2Exe failed with code $LASTEXITCODE" }
+          $stdoutLog = Join-Path $buildDir "ahk2exe_out.log"
+          $stderrLog = Join-Path $buildDir "ahk2exe_err.log"
+          $p = Start-Process -FilePath "${{ env.AHK2EXE_PATH }}" `
+            -ArgumentList $argsList `
+            -NoNewWindow `
+            -Wait `
+            -PassThru `
+            -RedirectStandardOutput $stdoutLog `
+            -RedirectStandardError $stderrLog
+
+          if (Test-Path $stdoutLog) {
+            $outContent = (Get-Content $stdoutLog -Raw).Trim()
+            if ($outContent) { Write-Host $outContent }
+          }
+          if (Test-Path $stderrLog) {
+            $errContent = (Get-Content $stderrLog -Raw).Trim()
+            if ($errContent) { Write-Host $errContent -ForegroundColor Yellow }
+          }
+
+          if ($p.ExitCode -ne 0) { throw "Ahk2Exe failed with code $($p.ExitCode)" }
           if (-not (Test-Path $outputExe)) { throw "CopilotButton.exe was not created" }
 
           $sizeMB = [math]::Round((Get-Item $outputExe).Length / 1MB, 2)
