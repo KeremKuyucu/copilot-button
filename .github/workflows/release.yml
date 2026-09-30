@@ -178,27 +178,21 @@ jobs:
           }
 
           Write-Host "Compiling AutoHotkey script..."
-          $stdoutLog = Join-Path $buildDir "ahk2exe_out.log"
-          $stderrLog = Join-Path $buildDir "ahk2exe_err.log"
-          $p = Start-Process -FilePath "${{ env.AHK2EXE_PATH }}" `
-            -ArgumentList $argsList `
-            -NoNewWindow `
-            -Wait `
-            -PassThru `
-            -RedirectStandardOutput $stdoutLog `
-            -RedirectStandardError $stderrLog
+          & "${{ env.AHK2EXE_PATH }}" $argsList
 
-          if (Test-Path $stdoutLog) {
-            $outContent = (Get-Content $stdoutLog -Raw).Trim()
-            if ($outContent) { Write-Host $outContent }
-          }
-          if (Test-Path $stderrLog) {
-            $errContent = (Get-Content $stderrLog -Raw).Trim()
-            if ($errContent) { Write-Host $errContent -ForegroundColor Yellow }
+          # Wait for compilation to complete (up to 20 seconds)
+          $timeoutSec = 20
+          $elapsed = 0
+          while (-not (Test-Path $outputExe) -and $elapsed -lt $timeoutSec) {
+            Start-Sleep -Milliseconds 500
+            $elapsed += 0.5
           }
 
-          if ($p.ExitCode -ne 0) { throw "Ahk2Exe failed with code $($p.ExitCode)" }
-          if (-not (Test-Path $outputExe)) { throw "CopilotButton.exe was not created" }
+          if (-not (Test-Path $outputExe)) {
+            throw "Compilation failed: CopilotButton.exe was not created within $timeoutSec seconds"
+          }
+
+          Start-Sleep -Milliseconds 500
 
           $sizeMB = [math]::Round((Get-Item $outputExe).Length / 1MB, 2)
           Write-Host "Compiled successfully: CopilotButton.exe ($sizeMB MB)"
