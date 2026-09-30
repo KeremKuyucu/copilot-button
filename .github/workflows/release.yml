@@ -1,0 +1,354 @@
+# ============================================================
+# Copilot Button – GitHub Actions Release Pipeline
+# ============================================================
+# Triggers:
+#   - Push of a version tag (v1.x.x)
+#   - Manual dispatch (workflow_dispatch)
+#
+# Process:
+#   1. Extract version from lib/Globals.ahk
+#   2. Auto-generate release notes with Gemini API if missing
+#   3. Install AutoHotkey v2, Ahk2Exe & Inno Setup 6
+#   4. Compile AutoHotkey script to CopilotButton.exe (Ahk2Exe)
+#   5. Build installer CopilotButton-Setup.exe (Inno Setup)
+#   6. Code sign both EXE and Setup.exe (SignTool + Sectigo timestamp)
+#   7. Generate SHA-256 checksum
+#   8. Upload artifacts & create GitHub Release
+# ============================================================
+
+name: Copilot Button Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+  workflow_dispatch:
+    inputs:
+      create_github_release:
+        description: 'Create/update GitHub Release?'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build, Sign & Release (Windows)
+    runs-on: windows-latest
+
+    steps:
+      # ── Checkout repository ───────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ── Extract version from lib/Globals.ahk ──────────────
+      - name: Extract version
+        id: version
+        shell: pwsh
+        run: |
+          $globals = "lib\Globals.ahk"
+          if (-not (Test-Path $globals)) { $globals = "copilot-buton.ahk" }
+          $content = Get-Content $globals -Raw
+          $match = [regex]::Match($content, '(?:global\s+)?APP_VERSION\s*:=\s*["'']([^"'']+)["'']')
+          if (-not $match.Success) {
+            throw "Could not extract APP_VERSION from $globals"
+          }
+          $ver = $match.Groups[1].Value.Trim()
+          echo "version=$ver" >> $env:GITHUB_OUTPUT
+          Write-Host "Copilot Button version: $ver"
+
+      # ── Set up Python ─────────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # ── Generate release notes via Gemini API if missing ───
+      - name: Generate release notes (Gemini API)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.version.outputs.version }}"
+          $notesFile = ".github\releases\RELEASE_$ver.md"
+
+          if (Test-Path $notesFile) {
+            Write-Host "Release notes already present: $notesFile"
+          } elseif ($env:GEMINI_API_KEY) {
+            Write-Host "Release notes missing. Generating via Gemini API for v$ver..."
+            python scripts/generate_release_notes.py --engine gemini --version $ver
+          } else {
+            Write-Warning "GEMINI_API_KEY not configured and release notes not present."
+          }
+
+      # ── Install Inno Setup & AutoHotkey ───────────────────
+      - name: Install Inno Setup, AutoHotkey & Ahk2Exe
+        shell: pwsh
+        run: |
+          Write-Host "Installing Inno Setup via Chocolatey..."
+          choco install innosetup --no-progress -y
+
+          Write-Host "Installing AutoHotkey v2 via Chocolatey..."
+          choco install autohotkey.install --no-progress -y
+
+          Write-Host "Installing AutoHotkey Compiler (Ahk2Exe)..."
+          choco install autohotkey-compiler --no-progress -y
+
+      # ── Locate Compiler & Tools (with GitHub fallback) ────
+      - name: Locate Build Tools
+        id: tools
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 1. Locate ISCC (Inno Setup)
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            $iscc = Get-ChildItem "C:\Program Files (x86)" -Recurse -Filter "ISCC.exe" -ErrorAction SilentlyContinue |
+              Select-Object -First 1 -ExpandProperty FullName
+          }
+          if (-not $iscc) { throw "ISCC.exe not found after Inno Setup install" }
+          Write-Host "ISCC: $iscc"
+          echo "ISCC_PATH=$iscc" >> $env:GITHUB_ENV
+
+          # 2. Locate AutoHotkey64.exe (v2 base executable)
+          $ahkBaseCandidates = @(
+            "C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe",
+            "C:\Program Files\AutoHotkey\AutoHotkey64.exe",
+            "C:\Program Files (x86)\AutoHotkey\v2\AutoHotkey64.exe",
+            "C:\Program Files\AutoHotkey\UX\AutoHotkey64.exe"
+          )
+          $ahkBase = $ahkBaseCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+          if (-not $ahkBase) {
+            Write-Host "AutoHotkey64.exe not found in standard paths, downloading official v2 release..."
+            $toolsDir = "${{ github.workspace }}\tools\ahk"
+            New-Item -ItemType Directory -Path $toolsDir -Force | Out-Null
+            gh release download --repo AutoHotkey/AutoHotkey --pattern "*_setup.exe" --dir $toolsDir
+            $setupExe = Get-ChildItem -Path $toolsDir -Filter "*.exe" | Select-Object -First 1 -ExpandProperty FullName
+            Start-Process -FilePath $setupExe -ArgumentList "/silent" -Wait
+            $ahkBase = $ahkBaseCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          }
+          if (-not $ahkBase) { throw "AutoHotkey64.exe could not be located" }
+          Write-Host "AutoHotkey64 Base: $ahkBase"
+          echo "AHK_BASE_PATH=$ahkBase" >> $env:GITHUB_ENV
+
+          # 3. Locate Ahk2Exe.exe
+          $ahk2exeCandidates = @(
+            "C:\Program Files\AutoHotkey\Compiler\Ahk2Exe.exe",
+            "C:\Program Files (x86)\AutoHotkey\Compiler\Ahk2Exe.exe"
+          )
+          $ahk2exe = $ahk2exeCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+          if (-not $ahk2exe) {
+            Write-Host "Ahk2Exe not found in standard paths, downloading official Ahk2Exe release..."
+            $compilerDir = "${{ github.workspace }}\tools\compiler"
+            New-Item -ItemType Directory -Path $compilerDir -Force | Out-Null
+            gh release download --repo AutoHotkey/Ahk2Exe --pattern "*.zip" --dir $compilerDir
+            $zip = Get-ChildItem -Path $compilerDir -Filter "*.zip" | Select-Object -First 1 -ExpandProperty FullName
+            Expand-Archive -Path $zip -DestinationPath $compilerDir -Force
+            $ahk2exe = (Join-Path $compilerDir "Ahk2Exe.exe")
+          }
+          if (-not (Test-Path $ahk2exe)) { throw "Ahk2Exe.exe could not be located" }
+          Write-Host "Ahk2Exe Compiler: $ahk2exe"
+          echo "AHK2EXE_PATH=$ahk2exe" >> $env:GITHUB_ENV
+
+      # ── Compile AutoHotkey to standalone EXE ──────────────
+      - name: Compile AutoHotkey script (Ahk2Exe)
+        shell: pwsh
+        run: |
+          $buildDir = "${{ github.workspace }}\build"
+          New-Item -ItemType Directory -Path $buildDir -Force | Out-Null
+
+          $outputExe = Join-Path $buildDir "CopilotButton.exe"
+          $icon = "assets\logo.ico"
+
+          $argsList = @(
+            "/in", "copilot-buton.ahk",
+            "/out", $outputExe,
+            "/base", "${{ env.AHK_BASE_PATH }}",
+            "/compress", "0"
+          )
+          if (Test-Path $icon) {
+            $argsList += @("/icon", $icon)
+          }
+
+          Write-Host "Compiling AutoHotkey script..."
+          & "${{ env.AHK2EXE_PATH }}" $argsList
+          if ($LASTEXITCODE -ne 0) { throw "Ahk2Exe failed with code $LASTEXITCODE" }
+          if (-not (Test-Path $outputExe)) { throw "CopilotButton.exe was not created" }
+
+          $sizeMB = [math]::Round((Get-Item $outputExe).Length / 1MB, 2)
+          Write-Host "Compiled successfully: CopilotButton.exe ($sizeMB MB)"
+          echo "EXE_PATH=$outputExe" >> $env:GITHUB_ENV
+
+      # ── Build installer with Inno Setup ───────────────────
+      - name: Build installer (Inno Setup)
+        shell: pwsh
+        run: |
+          $ver       = "${{ steps.version.outputs.version }}"
+          $buildDir  = "${{ github.workspace }}\build"
+          $sourceExe = "${{ env.EXE_PATH }}"
+
+          Write-Host "Building installer with Inno Setup (v$ver)..."
+          & "${{ env.ISCC_PATH }}" `
+            "/DMyAppVersion=$ver" `
+            "/DSourceExePath=$sourceExe" `
+            "/DOutputDirPath=$buildDir" `
+            "installer.iss"
+
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed with code $LASTEXITCODE" }
+
+          $setupExe = Join-Path $buildDir "CopilotButton-Setup.exe"
+          if (-not (Test-Path $setupExe)) { throw "CopilotButton-Setup.exe was not created" }
+
+          $sizeMB = [math]::Round((Get-Item $setupExe).Length / 1MB, 2)
+          Write-Host "Installer created: CopilotButton-Setup.exe ($sizeMB MB)"
+          echo "SETUP_PATH=$setupExe" >> $env:GITHUB_ENV
+
+      # ── Generate SHA-256 Checksum ─────────────────────────
+      - name: Generate SHA-256 Checksum
+        shell: pwsh
+        run: |
+          $setupExe = "${{ env.SETUP_PATH }}"
+          $sha256 = (Get-FileHash -Path $setupExe -Algorithm SHA256).Hash.ToLower()
+          $shaFile = "$setupExe.sha256"
+          "$sha256  CopilotButton-Setup.exe" | Set-Content -Path $shaFile -Encoding ascii
+          Write-Host "SHA256: $sha256"
+
+      # ── Write PFX Certificate ─────────────────────────────
+      - name: Write PFX Certificate
+        shell: pwsh
+        env:
+          WINDOWS_PFX_BASE64: ${{ secrets.WINDOWS_PFX_BASE64 }}
+        run: |
+          $clean = ($env:WINDOWS_PFX_BASE64 -replace '\s+', '')
+          $pfxBytes = [Convert]::FromBase64String($clean)
+          [IO.File]::WriteAllBytes("${{ github.workspace }}\signing.pfx", $pfxBytes)
+          Write-Host "PFX written."
+
+      # ── Locate SignTool ───────────────────────────────────
+      - name: Locate SignTool
+        shell: pwsh
+        run: |
+          $candidates = @(
+            "C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool.exe",
+            "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe",
+            "C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64\signtool.exe",
+            "C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x86\signtool.exe"
+          )
+          $found = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+          if (-not $found) {
+            $found = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter "signtool.exe" -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -notmatch 'arm' } |
+              Sort-Object LastWriteTime -Descending |
+              Select-Object -First 1 -ExpandProperty FullName
+          }
+          if (-not $found) { throw "signtool.exe not found on runner" }
+          Write-Host "SignTool: $found"
+          echo "SIGNTOOL_PATH=$found" >> $env:GITHUB_ENV
+
+      # ── Sign Binaries (SHA-256 + Sectigo Timestamp) ───────
+      - name: Sign Binaries
+        shell: pwsh
+        env:
+          WINDOWS_PFX_PASSWORD: ${{ secrets.WINDOWS_PFX_PASSWORD }}
+        run: |
+          $pfxPath     = "${{ github.workspace }}\signing.pfx"
+          $pfxPassword = if ($env:WINDOWS_PFX_PASSWORD) { $env:WINDOWS_PFX_PASSWORD.Trim() } else { "" }
+          if (-not $pfxPassword) { throw "WINDOWS_PFX_PASSWORD secret is missing or empty." }
+
+          $signtool    = "${{ env.SIGNTOOL_PATH }}"
+          $filesToSign = @(
+            "${{ env.EXE_PATH }}",
+            "${{ env.SETUP_PATH }}"
+          )
+
+          # Import certificate to Root store so signtool verify can validate the chain
+          try {
+            $secPass = ConvertTo-SecureString $pfxPassword -AsPlainText -Force
+            Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\LocalMachine\Root -Password $secPass | Out-Null
+            Write-Host "Certificate added to LocalMachine\Root for verification."
+          } catch {
+            Write-Warning "Could not import certificate to Root store: $_"
+          }
+
+          $timestampServers = @(
+            "http://timestamp.sectigo.com",
+            "http://timestamp.digicert.com",
+            "http://tsa.starfieldtech.com",
+            "http://timestamp.globalsign.com/tsa/r6advanced1"
+          )
+
+          foreach ($f in $filesToSign) {
+            $fileName = Split-Path $f -Leaf
+            Write-Host "Signing $fileName..."
+
+            $signed = $false
+            foreach ($ts in $timestampServers) {
+              Write-Host "  Trying timestamp server: $ts"
+              & $signtool sign /fd SHA256 /tr $ts /td SHA256 /f $pfxPath /p $pfxPassword $f 2>&1
+              if ($LASTEXITCODE -eq 0) {
+                Write-Host "  Successfully signed $fileName with $ts"
+                $signed = $true
+                break
+              }
+              Write-Host "  Timestamp server failed, trying next..."
+            }
+
+            if (-not $signed) {
+              throw "Failed to sign $fileName on all timestamp servers."
+            }
+
+            # Verify signature
+            & $signtool verify /pa /v $f 2>&1
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "  Verified: $fileName"
+            } else {
+              Write-Warning "  $fileName is signed, root chain returned non-zero (expected for self-signed certificates)."
+            }
+          }
+          Write-Host "Code signing complete for all binaries."
+
+      # ── Clean up PFX certificate ──────────────────────────
+      - name: Remove PFX
+        if: always()
+        shell: pwsh
+        run: Remove-Item -Path "${{ github.workspace }}\signing.pfx" -Force -ErrorAction SilentlyContinue
+
+      # ── Upload Artifacts ──────────────────────────────────
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: copilot-button-v${{ steps.version.outputs.version }}
+          path: |
+            build/CopilotButton.exe
+            build/CopilotButton-Setup.exe
+            build/CopilotButton-Setup.exe.sha256
+          retention-days: 30
+
+      # ── Create GitHub Release ─────────────────────────────
+      - name: Create GitHub Release
+        if: >
+          github.event_name == 'push' ||
+          github.event.inputs.create_github_release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Copilot Button v${{ steps.version.outputs.version }}
+          body_path: ${{ hashFiles(format('.github/releases/RELEASE_{0}.md', steps.version.outputs.version)) != '' && format('.github/releases/RELEASE_{0}.md', steps.version.outputs.version) || '' }}
+          body: ${{ hashFiles(format('.github/releases/RELEASE_{0}.md', steps.version.outputs.version)) == '' && format('Copilot Button v{0} – automated release.', steps.version.outputs.version) || '' }}
+          files: |
+            build/CopilotButton-Setup.exe
+            build/CopilotButton-Setup.exe.sha256
+            build/CopilotButton.exe
+          draft: false
+          prerelease: false
+          generate_release_notes: ${{ hashFiles(format('.github/releases/RELEASE_{0}.md', steps.version.outputs.version)) == '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
