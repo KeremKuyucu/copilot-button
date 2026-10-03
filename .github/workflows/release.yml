@@ -99,6 +99,11 @@ jobs:
           Write-Host "Installing AutoHotkey Compiler (Ahk2Exe)..."
           choco install autohotkey-compiler --no-progress -y
 
+          # Diagnostics: show all installed AutoHotkey files to confirm Ahk2Exe location
+          Write-Host "=== AutoHotkey install tree ==="
+          Get-ChildItem "C:\Program Files\AutoHotkey", "C:\Program Files (x86)\AutoHotkey" -Recurse -ErrorAction SilentlyContinue |
+            Select-Object -ExpandProperty FullName | ForEach-Object { Write-Host "  $_" }
+
       # ── Locate Compiler & Tools (with GitHub fallback) ────
       - name: Locate Build Tools
         id: tools
@@ -138,23 +143,63 @@ jobs:
           Write-Host "AutoHotkey64 Base: $ahkBase"
           echo "AHK_BASE_PATH=$ahkBase" >> $env:GITHUB_ENV
 
-          # 3. Locate Ahk2Exe.exe
+          # 3. Locate Ahk2Exe.exe — expanded candidate list covering all known install layouts
           $ahk2exeCandidates = @(
             "C:\Program Files\AutoHotkey\Compiler\Ahk2Exe.exe",
-            "C:\Program Files (x86)\AutoHotkey\Compiler\Ahk2Exe.exe"
+            "C:\Program Files (x86)\AutoHotkey\Compiler\Ahk2Exe.exe",
+            "C:\Program Files\AutoHotkey\v2\Ahk2Exe.exe",
+            "C:\Program Files\AutoHotkey\UX\Ahk2Exe.exe",
+            "C:\Program Files\AutoHotkey\Ahk2Exe.exe"
           )
           $ahk2exe = $ahk2exeCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 
           if (-not $ahk2exe) {
-            Write-Host "Ahk2Exe not found in standard paths, downloading official Ahk2Exe release..."
+            # Broad filesystem search across all AutoHotkey install dirs
+            Write-Host "Searching filesystem for Ahk2Exe.exe..."
+            $ahk2exe = Get-ChildItem "C:\Program Files\AutoHotkey", "C:\Program Files (x86)\AutoHotkey" `
+              -Recurse -Filter "Ahk2Exe.exe" -ErrorAction SilentlyContinue |
+              Select-Object -First 1 -ExpandProperty FullName
+          }
+
+          if (-not $ahk2exe) {
+            # Download Ahk2Exe from the official GitHub release as last resort
+            Write-Host "Ahk2Exe not found locally; downloading from GitHub releases..."
             $compilerDir = "${{ github.workspace }}\tools\compiler"
             New-Item -ItemType Directory -Path $compilerDir -Force | Out-Null
-            gh release download --repo AutoHotkey/Ahk2Exe --pattern "*.zip" --dir $compilerDir
-            $zip = Get-ChildItem -Path $compilerDir -Filter "*.zip" | Select-Object -First 1 -ExpandProperty FullName
-            Expand-Archive -Path $zip -DestinationPath $compilerDir -Force
-            $ahk2exe = (Join-Path $compilerDir "Ahk2Exe.exe")
+
+            # Try gh CLI first, fall back to direct HTTP download if API is unavailable
+            $zip = $null
+            try {
+              gh release download --repo AutoHotkey/Ahk2Exe --pattern "*.zip" --dir $compilerDir 2>&1 | Write-Host
+              $zip = Get-ChildItem -Path $compilerDir -Filter "*.zip" -ErrorAction SilentlyContinue |
+                Select-Object -First 1 -ExpandProperty FullName
+            } catch {
+              Write-Warning "gh CLI download failed: $_"
+            }
+
+            if (-not $zip) {
+              # Direct HTTP fallback: fetch latest release JSON and download the zip
+              Write-Host "Falling back to direct HTTP download of Ahk2Exe..."
+              try {
+                $rel  = Invoke-RestMethod "https://api.github.com/repos/AutoHotkey/Ahk2Exe/releases/latest"
+                $url  = ($rel.assets | Where-Object { $_.name -like "*.zip" } | Select-Object -First 1).browser_download_url
+                $zip  = Join-Path $compilerDir "Ahk2Exe.zip"
+                Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+              } catch {
+                Write-Warning "HTTP fallback also failed: $_"
+              }
+            }
+
+            if ($zip -and (Test-Path $zip)) {
+              Expand-Archive -Path $zip -DestinationPath $compilerDir -Force
+              $ahk2exe = Get-ChildItem -Path $compilerDir -Filter "Ahk2Exe.exe" -Recurse -ErrorAction SilentlyContinue |
+                Select-Object -First 1 -ExpandProperty FullName
+            }
           }
-          if (-not (Test-Path $ahk2exe)) { throw "Ahk2Exe.exe could not be located" }
+
+          if (-not $ahk2exe -or -not (Test-Path $ahk2exe)) {
+            throw "Ahk2Exe.exe could not be located after all fallback attempts"
+          }
           Write-Host "Ahk2Exe Compiler: $ahk2exe"
           echo "AHK2EXE_PATH=$ahk2exe" >> $env:GITHUB_ENV
 
