@@ -69,45 +69,19 @@ OpenAppPicker(targetEditCtrl, parentGui := 0) {
 
     pickerGui.SetFont("s8.5 c" subTextColor, "Segoe UI")
     pickerGui.Add("Text", "x22 y43 w650 h18",
-        "Uygulama, açık pencere veya hazır bir uygulama seçin.")
+        "Yüklü programlar listesinden veya popüler önayarlardan uygulama seçin.")
 
     pickerGui.Add("Text", "x0 y70 w720 h1 Background" borderClr)
 
     ; ── TABS ──
     pickerGui.SetFont("s9 bold c" textColor, "Segoe UI")
     tabs := pickerGui.Add("Tab3", "x18 y82 w684 h414",
-        ["🪟 Açık Pencereler", "📋 Yüklü Programlar", "🎯 Pencere Seç", "⚡ Önayarlar"])
+        ["📋 Yüklü Programlar", "⚡ Önayarlar"])
 
     ; ══════════════════════════════════════════
-    ; SEKME 1: AÇIK PENCERELER
+    ; SEKME 1: YÜKLÜ PROGRAMLAR
     ; ══════════════════════════════════════════
     tabs.UseTab(1)
-
-    pickerGui.SetFont("s9 bold c" textColor, "Segoe UI")
-    pickerGui.Add("Text", "x34 y112 w400 h20", "Açık Pencereler")
-
-    pickerGui.SetFont("s8.5 c" subTextColor, "Segoe UI")
-    pickerGui.Add("Text", "x34 y134 w620 h18",
-        "Şu anda açık olan uygulamalardan birini seçin.")
-
-    pickerGui.SetFont("s9 c" textColor, "Segoe UI")
-    edtSearchOpen := pickerGui.Add("Edit", "x34 y160 w500 h28 " editOpt)
-
-    pickerGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
-    btnRefreshOpen := RegPickerBtn(pickerGui.Add("Text",
-        "x544 y160 w136 h28 Background" accentBlue " cFFFFFF Center 0x200", "↻  Yenile"))
-
-    pickerGui.SetFont("s8.5 c" textColor, "Segoe UI")
-    lvOpen := pickerGui.Add("ListView", "x34 y198 w646 h250 " editOpt " -Multi -Grid",
-        ["Uygulama / Pencere", "İşlem", "Yol"])
-    lvOpen.ModifyCol(1, 490)
-    lvOpen.ModifyCol(2, 145)
-    lvOpen.ModifyCol(3, 0)
-
-    ; ══════════════════════════════════════════
-    ; SEKME 2: YÜKLÜ PROGRAMLAR
-    ; ══════════════════════════════════════════
-    tabs.UseTab(2)
 
     pickerGui.SetFont("s9 bold c" textColor, "Segoe UI")
     pickerGui.Add("Text", "x34 y112 w400 h20", "Yüklü Programlar")
@@ -126,39 +100,9 @@ OpenAppPicker(targetEditCtrl, parentGui := 0) {
     lvInstalled.ModifyCol(3, 0)
 
     ; ══════════════════════════════════════════
-    ; SEKME 3: PENCERE SEÇ
+    ; SEKME 2: ÖNAYARLAR
     ; ══════════════════════════════════════════
-    tabs.UseTab(3)
-
-    pickerGui.SetFont("s12 bold c" textColor, "Segoe UI")
-    pickerGui.Add("Text", "x34 y120 w646 h28 Center", "🎯 Ekrandaki bir pencereyi seçin")
-
-    pickerGui.SetFont("s9 c" subTextColor, "Segoe UI")
-    pickerGui.Add("Text", "x90 y164 w534 h62 Center",
-        "Uygulamanın adına veya dosya yoluna ihtiyacınız yok.`n"
-        . "Butona basın ve açmak istediğiniz pencereye tıklayın.`n"
-        . "Uygulamanın çalıştırılabilir dosyası otomatik alınır.")
-
-    pickerGui.Add("Text", "x84 y244 w546 h118 Background" cardBgColor)
-
-    pickerGui.SetFont("s9 c" textColor, "Segoe UI")
-    pickerGui.Add("Text", "x108 y262 w500 h24 Center", "1   Hedef seçme modunu başlatın")
-    pickerGui.Add("Text", "x108 y292 w500 h24 Center", "2   İstediğiniz pencereye SOL TIKLAYIN")
-    pickerGui.Add("Text", "x108 y322 w500 h24 Center", "3   Yol otomatik olarak ayarlara aktarılır")
-
-    pickerGui.SetFont("s10 bold cFFFFFF", "Segoe UI")
-    btnStartTarget := RegPickerBtn(pickerGui.Add("Text",
-        "x190 y382 w334 h42 Background" accentBlue " cFFFFFF Center 0x200",
-        "🎯  Pencere Seçmeye Başla"))
-
-    pickerGui.SetFont("s8.5 c" dimTextColor, "Segoe UI")
-    pickerGui.Add("Text", "x34 y438 w646 h22 Center",
-        "ESC ile seçim modundan çıkabilirsiniz.")
-
-    ; ══════════════════════════════════════════
-    ; SEKME 4: ÖNAYARLAR
-    ; ══════════════════════════════════════════
-    tabs.UseTab(4)
+    tabs.UseTab(2)
 
     pickerGui.SetFont("s9 bold c" textColor, "Segoe UI")
     pickerGui.Add("Text", "x34 y112 w400 h20", "Popüler Önayarlar")
@@ -197,7 +141,6 @@ OpenAppPicker(targetEditCtrl, parentGui := 0) {
         "İptal"))
 
     ; ── DATA ──
-    allRunningWindows := []
     allInstalledApps := []
 
     presetApps := [
@@ -240,62 +183,6 @@ OpenAppPicker(targetEditCtrl, parentGui := 0) {
         { name: "Google Translate", cat: "🔗 Günlük", path: "https://translate.google.com" },
         { name: "Reddit", cat: "🔗 Günlük", path: "https://www.reddit.com" }
     ]
-
-    ; ── AÇIK PENCERELER ──
-    RefreshOpenWindows(*) {
-        allRunningWindows := []
-        seen := Map()
-
-        for hwnd in WinGetList() {
-            title := WinGetTitle(hwnd)
-            if (title = "")
-                continue
-
-            style := WinGetStyle(hwnd)
-            if !(style & 0x10000000)
-                continue
-
-            exStyle := WinGetExStyle(hwnd)
-            if (exStyle & 0x00000080)
-                continue
-
-            try {
-                pPath := WinGetProcessPath(hwnd)
-                pName := WinGetProcessName(hwnd)
-            } catch {
-                continue
-            }
-
-            if (pPath = "" || pName = "")
-                continue
-
-            pLower := StrLower(pName)
-            if (pLower = "autohotkey64.exe" || pLower = "autohotkey32.exe" || pLower = "copilotbutton.exe"
-                || pLower = "shellexperiencehost.exe" || pLower = "startmenuexperiencehost.exe"
-                || pLower = "searchhost.exe" || pLower = "textinputhost.exe"
-                || (pLower = "applicationframehost.exe" && (title = "Windows Input Experience" || title = ""))
-                || (pLower = "explorer.exe" && (title = "Program Manager" || title = "")))
-                continue
-
-            if (seen.Has(pPath))
-                continue
-
-            seen[pPath] := true
-            allRunningWindows.Push({ title: title, name: pName, path: pPath })
-        }
-
-        FilterOpenWindows()
-    }
-
-    FilterOpenWindows(*) {
-        query := StrLower(Trim(edtSearchOpen.Value))
-        lvOpen.Delete()
-
-        for item in allRunningWindows {
-            if (query = "" || InStr(StrLower(item.title), query) || InStr(StrLower(item.name), query))
-                lvOpen.Add(, item.title, item.name, item.path)
-        }
-    }
 
     ; ── YÜKLÜ PROGRAMLAR ──
     ScanInstalledApps() {
@@ -418,61 +305,6 @@ OpenAppPicker(targetEditCtrl, parentGui := 0) {
         SelectAndClose(pathVal, name)
     }
 
-    ; ── HEDEF SEÇİCİ ──
-    StartTargetPicker(*) {
-        pickerGui.Hide()
-
-        if (pickerParentGui && IsObject(pickerParentGui))
-            pickerParentGui.Hide()
-
-        ToolTip("🎯 Seçmek istediğiniz pencereye SOL TIKLAYIN...`nESC ile vazgeçebilirsiniz.", 20, 20)
-
-        KeyWait "LButton", "U"
-
-        loop {
-            Sleep 25
-
-            if GetKeyState("Escape", "P") {
-                ToolTip()
-
-                if (pickerParentGui && IsObject(pickerParentGui))
-                    pickerParentGui.Show()
-
-                pickerGui.Show()
-                return
-            }
-
-            if GetKeyState("LButton", "P") {
-                Sleep 60
-                MouseGetPos ,, &clickedHwnd
-                ToolTip()
-
-                if (clickedHwnd) {
-                    try {
-                        pName := WinGetProcessName(clickedHwnd)
-                        pPath := WinGetProcessPath(clickedHwnd)
-
-                        if (pName != "AutoHotkey64.exe" && pName != "AutoHotkey32.exe"
-                            && pName != "CopilotButton.exe" && pPath != "") {
-
-                            if (pickerParentGui && IsObject(pickerParentGui))
-                                pickerParentGui.Show()
-
-                            SelectAndClose(pPath, pName)
-                            return
-                        }
-                    }
-                }
-
-                if (pickerParentGui && IsObject(pickerParentGui))
-                    pickerParentGui.Show()
-
-                pickerGui.Show()
-                return
-            }
-        }
-    }
-
     ; ── DOSYADAN SEÇ ──
     BrowseManualFile(*) {
         selectedFile := FileSelect(3, , "Çalıştırılacak Uygulama veya Dosyayı Seçin",
@@ -488,25 +320,15 @@ OpenAppPicker(targetEditCtrl, parentGui := 0) {
 
         switch activeTab {
             case 1:
-                ChooseFromListView(lvOpen, 3)
-            case 2:
                 ChooseFromListView(lvInstalled, 3)
-            case 3:
-                StartTargetPicker()
-            case 4:
+            case 2:
                 ChooseFromListView(lvPresets, 3)
         }
     }
 
     ; ── EVENTS ──
-    edtSearchOpen.OnEvent("Change", FilterOpenWindows)
-    btnRefreshOpen.OnEvent("Click", RefreshOpenWindows)
-    lvOpen.OnEvent("DoubleClick", (*) => ChooseFromListView(lvOpen, 3))
-
     edtSearchInstalled.OnEvent("Change", FilterInstalledApps)
     lvInstalled.OnEvent("DoubleClick", (*) => ChooseFromListView(lvInstalled, 3))
-
-    btnStartTarget.OnEvent("Click", StartTargetPicker)
 
     edtSearchPreset.OnEvent("Change", FilterPresets)
     lvPresets.OnEvent("DoubleClick", (*) => ChooseFromListView(lvPresets, 3))
@@ -519,7 +341,6 @@ OpenAppPicker(targetEditCtrl, parentGui := 0) {
     pickerGui.OnEvent("Close", (*) => CloseAppPicker())
     pickerGui.OnEvent("Escape", (*) => CloseAppPicker())
 
-    RefreshOpenWindows()
     ScanInstalledApps()
     FilterPresets()
 
@@ -527,6 +348,7 @@ OpenAppPicker(targetEditCtrl, parentGui := 0) {
 
     pickerGui.Show("w720 h590")
 }
+
 
 ; ══════════════════════════════════════════
 ;  FARE İMLECİ

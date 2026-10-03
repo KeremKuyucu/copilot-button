@@ -33,11 +33,15 @@ RunAction(actionName, tapIndex := 0) {
             Send "{Blind}{Media_Prev}"
             SetTimer(ShowPrevTrackInfo, -600)
         case "VolumeUp":
-            ShowTip("🔊 Ses Artırıldı")
             Send "{Blind}{Volume_Up 5}"
+            ShowVolumeOSD()
         case "VolumeDown":
-            ShowTip("🔉 Ses Azaltıldı")
             Send "{Blind}{Volume_Down 5}"
+            ShowVolumeOSD()
+        case "TextTemplate":
+            SendTextTemplate(tapIndex)
+        case "CommandPalette":
+            ShowCommandPalette()
         case "CustomMacro":
             RunCustomMacro(tapIndex)
         case "None":
@@ -440,5 +444,60 @@ OpenMusicApp() {
             Run ytmUrl
             ShowTip("🎵 YouTube Music açılıyor...")
         }
+    }
+}
+
+; ══════════════════════════════════════════
+;  SES DÜZEYİ OSD (Yüzde + İlerleme Çubuğu)
+; ══════════════════════════════════════════
+ShowVolumeOSD() {
+    try {
+        vol := Round(SoundGetVolume())
+    } catch {
+        vol := 0
+    }
+
+    ; İlerleme çubuğu: 20 blok, her blok = %5
+    filled := Round(vol / 5)
+    empty  := 20 - filled
+
+    bar := ""
+    loop filled
+        bar .= "█"
+    loop empty
+        bar .= "░"
+
+    icon := (vol = 0) ? "🔇" : (vol < 30) ? "🔈" : (vol < 70) ? "🔉" : "🔊"
+
+    ShowTip(icon " Ses: %" vol "`n" bar)
+}
+
+; ══════════════════════════════════════════
+;  METİN ŞABLONU GÖNDER (Text Template)
+; ══════════════════════════════════════════
+SendTextTemplate(tapIndex) {
+    global textTemplate1, textTemplate2, textTemplate3, textTemplate4
+
+    tmpl := ""
+    switch tapIndex {
+        case 1: tmpl := textTemplate1
+        case 2: tmpl := textTemplate2
+        case 3: tmpl := textTemplate3
+        case 4: tmpl := textTemplate4
+    }
+
+    if (tmpl = "") {
+        ShowTip("⚠️ Metin şablonu tanımlı değil! Ayarlardan şablonu girin.", 2500)
+        return
+    }
+
+    try {
+        ; Panoya kopyala ve yapıştır (uzun metinler için güvenilir)
+        A_Clipboard := tmpl
+        ClipWait(1)
+        Send "^v"
+        ShowTip("📄 Şablon yapıştırıldı: " SubStr(tmpl, 1, 40) (StrLen(tmpl) > 40 ? "..." : ""))
+    } catch as err {
+        ShowTip("⚠️ Şablon hatası: " err.Message, 2500)
     }
 }

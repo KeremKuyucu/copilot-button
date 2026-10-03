@@ -24,6 +24,7 @@ SetTitleMatchMode 2
 #Include "lib\GUI.ahk"
 #Include "lib\MacroRecorder.ahk"
 #Include "lib\AppPicker.ahk"
+#Include "lib\CommandPalette.ahk"
 #Include "lib\Updater.ahk"
 #Include "lib\Telemetry.ahk"
 
@@ -54,6 +55,7 @@ A_TrayMenu.Add() ; Ayırıcı
 
 ; ── Hızlı Kontroller ──
 A_TrayMenu.Add("⚙️  Ayarlar & Kontrol Paneli", ShowSettingsGUI)
+A_TrayMenu.Add("⚡  Hızlı Komut Paleti (Spotlight)", (*) => ShowCommandPalette())
 A_TrayMenu.Add("🎙️  Mikrofonu Sustur / Aç", (*) => ToggleMicrophoneMute())
 A_TrayMenu.Add("⏯️  Müziği Oynat / Duraklat", (*) => (Send("{Blind}{Media_Play_Pause}"), ShowPlayPauseTrackInfo()))
 A_TrayMenu.Add("⏭️  Sonraki Şarkı", (*) => (Send("{Blind}{Media_Next}"), ShowNextTrackInfo()))

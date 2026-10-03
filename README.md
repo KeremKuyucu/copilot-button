@@ -110,12 +110,13 @@ OsdDurationMs=1500
 OsdFadeEnabled=1
 
 ; ── Basılı Tutma Eylemi ──
-; Options: MusicApp, PushToTalk, CustomApp
+; Options: MusicApp, PushToTalk, CustomApp, CustomMacro, CommandPalette
 HoldAction=MusicApp
 CustomAppPath=
+CustomMacroHold=
 
 ; ── Tık Eylem Atamaları ──
-; Options: MicMute, PlayPause, NextTrack, PrevTrack, VolumeUp, VolumeDown, MasterMute, ToggleDeafen, VoiceTyping, Screenshot, TaskView, LockScreen, None
+; Options: MicMute, PlayPause, NextTrack, PrevTrack, VolumeUp, VolumeDown, MasterMute, ToggleDeafen, VoiceTyping, Screenshot, TaskView, LockScreen, CommandPalette, CustomMacro, TextTemplate, None
 Action1=MicMute
 Action2=PlayPause
 Action3=NextTrack

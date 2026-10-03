@@ -248,6 +248,12 @@ CheckHoldTimer() {
         return
     }
 
+    ; Hızlı Komut Paleti (Spotlight) modu
+    if (holdAction = "CommandPalette") {
+        ShowCommandPalette()
+        return
+    }
+
     ; Müzik uygulaması modu
     OpenMusicApp()
 }

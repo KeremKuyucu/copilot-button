@@ -58,22 +58,24 @@ ApplyThemeToControls(guiObj, isDark) {
 ;  EYLEM İSİMLERİ VE GÖRÜNTÜLEME EŞLEMELERİ
 ; ══════════════════════════════════════════
 global actionKeys := ["MicMute", "PlayPause", "NextTrack", "PrevTrack", "VolumeUp", "VolumeDown", "MasterMute",
-    "ToggleDeafen", "VoiceTyping", "Screenshot", "TaskView", "LockScreen", "CustomMacro", "None"]
+    "ToggleDeafen", "VoiceTyping", "Screenshot", "TaskView", "LockScreen", "CommandPalette", "CustomMacro", "TextTemplate", "None"]
 
 global actionDisplayMap := Map(
     "MicMute", "🎙️  Mikrofonu Sustur / Aç",
     "PlayPause", "⏯️  Oynat / Duraklat",
     "NextTrack", "⏭️  Sonraki Şarkı",
     "PrevTrack", "⏮️  Önceki Şarkı",
-    "VolumeUp", "🔊  Ses Düzeyini Artır",
-    "VolumeDown", "🔉  Ses Düzeyini Azalt",
+    "VolumeUp", "🔊  Ses Artır (OSD Çubuk)",
+    "VolumeDown", "🔉  Ses Azalt (OSD Çubuk)",
     "MasterMute", "🔇  Genel Sesi Kapat (Mute)",
     "ToggleDeafen", "🔕  Sağırlaştır (Kulaklık & Mic)",
     "VoiceTyping", "🗣️  Windows Sesle Yazma",
     "Screenshot", "📸  Ekran Alıntısı Aracı",
     "TaskView", "🗂️  Görev Görünümü (Win+Tab)",
     "LockScreen", "🔒  Ekranı Kilitle",
+    "CommandPalette", "⚡  Hızlı Komut Paleti (Spotlight)",
     "CustomMacro", "🎹  Özel Tuş Makrosu",
+    "TextTemplate", "📝  Metin Şablonu Yapıştır",
     "None", "⛔  Hiçbir Şey Yapma"
 )
 
@@ -99,7 +101,8 @@ ShowSettingsGUI(*) {
         spotifyCmd, spotifyTitle, osdPosition, osdColor, osdFontSize, osdDurationMs, osdFadeEnabled, holdAction,
         action1, action2, action3, action4, trayIconMicState, customAppPath, themeMode, soundFxEnabled,
         telemetryEnabled, actionKeys, actionDisplayMap, tipGui, APP_VERSION, micDevice,
-        customMacro1, customMacro2, customMacro3, customMacro4, customMacroHold
+        customMacro1, customMacro2, customMacro3, customMacro4, customMacroHold,
+        textTemplate1, textTemplate2, textTemplate3, textTemplate4
 
     if (IsObject(settingsGui)) {
         settingsGui.Show()
@@ -168,168 +171,166 @@ ShowSettingsGUI(*) {
     page2 := []
     page3 := []
     page4 := []
-    page5 := []
 
     AddP1(ctrl) => (page1.Push(ctrl), ctrl)
     AddP2(ctrl) => (page2.Push(ctrl), ctrl)
     AddP3(ctrl) => (page3.Push(ctrl), ctrl)
     AddP4(ctrl) => (page4.Push(ctrl), ctrl)
-    AddP5(ctrl) => (page5.Push(ctrl), ctrl)
 
+    ; ═════════════════════════════════════════════════════════════
     ; ═════════════════════════════════════════════════════════════
     ;  HEADER
     ; ═════════════════════════════════════════════════════════════
     iconPath := FileExist(A_ScriptDir "\assets\logo.ico") ? A_ScriptDir "\assets\logo.ico" : A_ScriptDir "\logo.ico"
     if FileExist(iconPath)
-        settingsGui.Add("Picture", "x22 y18 w34 h34", iconPath)
+        settingsGui.Add("Picture", "x22 y12 w32 h32", iconPath)
 
-    settingsGui.SetFont("s14 bold c" textColor, "Segoe UI")
-    settingsGui.Add("Text", "x68 y15 w360 h27", "Copilot Button")
+    settingsGui.SetFont("s13 bold c" textColor, "Segoe UI")
+    settingsGui.Add("Text", "x64 y10 w350 h24", "Copilot Button")
 
     settingsGui.SetFont("s8.5 c" subTextColor, "Segoe UI")
-    settingsGui.Add("Text", "x69 y43 w430 h18", "Donanım tuşu • Medya • Mikrofon • Kısayollar")
+    settingsGui.Add("Text", "x65 y34 w430 h18", "Donanım tuşu • Medya • Mikrofon • Kısayollar")
 
     ; Sağ üst durum rozeti
     settingsGui.SetFont("s8.5 bold c" successColor, "Segoe UI")
-    settingsGui.Add("Text", "x690 y22 w185 h22 Right", "●  AKTİF   v" APP_VERSION)
+    settingsGui.Add("Text", "x660 y17 w185 h22 Right", "●  AKTİF   v" APP_VERSION)
 
-    settingsGui.Add("Text", "x0 y70 w900 h1 Background" borderClr)
+    settingsGui.Add("Text", "x0 y56 w860 h1 Background" borderClr)
 
     ; ═════════════════════════════════════════════════════════════
     ;  SIDEBAR
     ; ═════════════════════════════════════════════════════════════
-    settingsGui.Add("Text", "x0 y71 w220 h539 Background" sidebarBg)
+    settingsGui.Add("Text", "x0 y57 w210 h413 Background" sidebarBg)
 
     settingsGui.SetFont("s8 bold c" dimTextColor, "Segoe UI")
-    settingsGui.Add("Text", "x20 y91 w180 h18", "AYARLAR")
+    settingsGui.Add("Text", "x20 y70 w170 h18", "AYARLAR")
 
     settingsGui.SetFont("s9 bold cFFFFFF", "Segoe UI")
-    btnNav1 := RegBtn(settingsGui.Add("Text", "x14 y115 w192 h44 Background" accentBlue " cFFFFFF Center 0x200",
+    btnNav1 := RegBtn(settingsGui.Add("Text", "x15 y92 w180 h36 Background" accentBlue " cFFFFFF Center 0x200",
         "⚡  Tıklama Eylemleri"))
-    btnNav2 := RegBtn(settingsGui.Add("Text", "x14 y165 w192 h44 Background" navInactiveBg " c" navInactiveTxt " Center 0x200",
+    btnNav2 := RegBtn(settingsGui.Add("Text", "x15 y134 w180 h36 Background" navInactiveBg " c" navInactiveTxt " Center 0x200",
         "⏱  Zamanlama & Sistem"))
-    btnNav3 := RegBtn(settingsGui.Add("Text", "x14 y215 w192 h44 Background" navInactiveBg " c" navInactiveTxt " Center 0x200",
+    btnNav3 := RegBtn(settingsGui.Add("Text", "x15 y176 w180 h36 Background" navInactiveBg " c" navInactiveTxt " Center 0x200",
         "🎨  OSD & Görünüm"))
-    btnNav4 := RegBtn(settingsGui.Add("Text", "x14 y265 w192 h44 Background" navInactiveBg " c" navInactiveTxt " Center 0x200",
-        "🎵  Medya & Bas-Konuş"))
-    btnNav5 := RegBtn(settingsGui.Add("Text", "x14 y315 w192 h44 Background" navInactiveBg " c" navInactiveTxt " Center 0x200",
+    btnNav4 := RegBtn(settingsGui.Add("Text", "x15 y218 w180 h36 Background" navInactiveBg " c" navInactiveTxt " Center 0x200",
         "ℹ  Hakkında & Bakım"))
 
-    navButtons := [btnNav1, btnNav2, btnNav3, btnNav4, btnNav5]
+    navButtons := [btnNav1, btnNav2, btnNav3, btnNav4]
     navLabels := [
         "⚡  Tıklama Eylemleri",
         "⏱  Zamanlama & Sistem",
         "🎨  OSD & Görünüm",
-        "🎵  Medya & Bas-Konuş",
         "ℹ  Hakkında & Bakım"
     ]
 
     ; Sidebar bilgi kartı
-    settingsGui.Add("GroupBox", "x14 y382 w192 h205", "Hızlı Bilgi")
+    settingsGui.Add("GroupBox", "x15 y265 w180 h195", "Hızlı Bilgi")
     settingsGui.SetFont("s8.5 c" subTextColor, "Segoe UI")
-    settingsGui.Add("Text", "x27 y408 w166 h165",
+    settingsGui.Add("Text", "x24 y287 w162 h165",
         "Copilot tuşu için farklı basma`n"
         . "senaryoları atayabilirsiniz.`n`n"
-        . "• 1 Tık → Mikrofon`n"
-        . "• 2 Tık → Medya`n"
-        . "• 3 / 4 Tık → Kısayol`n"
-        . "• Basılı Tutma → Uygulama`n"
-        . "  veya özel makro`n`n"
-        . "Değişiklikler yalnızca`n"
-        . "Kaydet & Uygula ile kalıcı olur."
+        . "• 1-4 Tık → Eylem / Makro`n"
+        . "• Basılı Tutma → Özel işlev`n`n"
+        . "Değişiklikler Kaydet & Uygula`n"
+        . "ile geçerli olur."
     )
 
     ; İçerik alanı ayırıcı
-    settingsGui.Add("Text", "x220 y71 w1 h539 Background" borderClr)
+    settingsGui.Add("Text", "x210 y57 w1 h413 Background" borderClr)
 
     ; ═════════════════════════════════════════════════════════════
     ;  PAGE 1 — CLICK ACTIONS
     ; ═════════════════════════════════════════════════════════════
     settingsGui.SetFont("s12 bold c" textColor, "Segoe UI")
-    AddP1(settingsGui.Add("Text", "x248 y91 w625 h28", "Tıklama Eylemleri"))
+    AddP1(settingsGui.Add("Text", "x230 y68 w615 h24", "Tıklama Eylemleri"))
 
     settingsGui.SetFont("s8.5 c" subTextColor, "Segoe UI")
-    AddP1(settingsGui.Add("Text", "x248 y120 w625 h18",
-        "Copilot tuşuna kaç kez basıldığına göre çalıştırılacak işlevleri belirleyin."))
+    AddP1(settingsGui.Add("Text", "x230 y92 w615 h16",
+        "Copilot tuşuna basılma sayısına ve basılı tutmaya göre eylemleri belirleyin."))
 
     settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    AddP1(settingsGui.Add("GroupBox", "x248 y151 w625 h374", "Tuş Atamaları"))
+    AddP1(settingsGui.Add("GroupBox", "x230 y112 w615 h192", "Tıklama Eylemleri (1 - 4 Tık)"))
 
     actionDisplayList := []
     for k in actionKeys
         actionDisplayList.Push(actionDisplayMap[k])
 
-    ; Row helper
+    ; Row 1
     settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
-    AddP1(settingsGui.Add("Text", "x268 y181 w150 h22", "1 Tık"))
-    settingsGui.SetFont("s8.5 c" dimTextColor, "Segoe UI")
-    AddP1(settingsGui.Add("Text", "x268 y201 w150 h18", "Tek basım"))
+    AddP1(settingsGui.Add("Text", "x245 y138 w50 h24", "1 Tık"))
     settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    ddlAct1 := AddP1(settingsGui.Add("DropDownList", "x430 y177 w443 r12 " editOpt, actionDisplayList))
+    ddlAct1 := AddP1(settingsGui.Add("DropDownList", "x300 y134 w240 r12 " editOpt, actionDisplayList))
     ddlAct1.Text := GetActionDisplay(action1)
 
-    settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
-    AddP1(settingsGui.Add("Text", "x268 y249 w150 h22", "2 Tık"))
     settingsGui.SetFont("s8.5 c" dimTextColor, "Segoe UI")
-    AddP1(settingsGui.Add("Text", "x268 y269 w150 h18", "Çift basım"))
-    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    ddlAct2 := AddP1(settingsGui.Add("DropDownList", "x430 y245 w443 r12 " editOpt, actionDisplayList))
-    ddlAct2.Text := GetActionDisplay(action2)
-
-    settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
-    AddP1(settingsGui.Add("Text", "x268 y317 w150 h22", "3 Tık"))
-    settingsGui.SetFont("s8.5 c" dimTextColor, "Segoe UI")
-    AddP1(settingsGui.Add("Text", "x268 y337 w150 h18", "Üç basım"))
-    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    ddlAct3 := AddP1(settingsGui.Add("DropDownList", "x430 y313 w443 r12 " editOpt, actionDisplayList))
-    ddlAct3.Text := GetActionDisplay(action3)
-
-    settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
-    AddP1(settingsGui.Add("Text", "x268 y385 w150 h22", "4 Tık"))
-    settingsGui.SetFont("s8.5 c" dimTextColor, "Segoe UI")
-    AddP1(settingsGui.Add("Text", "x268 y405 w150 h18", "Dört basım"))
-    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    ddlAct4 := AddP1(settingsGui.Add("DropDownList", "x430 y381 w443 r12 " editOpt, actionDisplayList))
-    ddlAct4.Text := GetActionDisplay(action4)
-
-    ; Dynamic macro editors — intentionally below each row
-    settingsGui.SetFont("s8.5 c" dimTextColor, "Segoe UI")
-    lblMacro1 := AddP1(settingsGui.Add("Text", "x430 y207 w95 h18 Hidden", "Makro:"))
-    edtMacro1 := AddP1(settingsGui.Add("Edit", "x475 y204 w295 h24 Hidden " editOpt, customMacro1))
-    settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
-    btnRec1 := RegBtn(AddP1(settingsGui.Add("Text", "x776 y204 w97 h24 Hidden Background" darkBlueBtn " cFFFFFF Center 0x200",
-        "⏺  Kaydet")))
+    lblMacro1 := AddP1(settingsGui.Add("Text", "x550 y138 w42 h20 Hidden", "Makro:"))
+    settingsGui.SetFont("s8.5 c" textColor, "Segoe UI")
+    edtMacro1 := AddP1(settingsGui.Add("Edit", "x595 y135 w180 h24 Hidden " editOpt,
+        (action1 = "TextTemplate") ? textTemplate1 : customMacro1))
+    settingsGui.SetFont("s8 bold cFFFFFF", "Segoe UI")
+    btnRec1 := RegBtn(AddP1(settingsGui.Add("Text", "x780 y135 w55 h24 Hidden Background" darkBlueBtn " cFFFFFF Center 0x200",
+        "⏺ Kayıt")))
     btnRec1.OnEvent("Click", (*) => OpenMacroRecorder(1, edtMacro1, settingsGui))
 
+    ; Row 2
+    settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
+    AddP1(settingsGui.Add("Text", "x245 y174 w50 h24", "2 Tık"))
+    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
+    ddlAct2 := AddP1(settingsGui.Add("DropDownList", "x300 y170 w240 r12 " editOpt, actionDisplayList))
+    ddlAct2.Text := GetActionDisplay(action2)
+
     settingsGui.SetFont("s8.5 c" dimTextColor, "Segoe UI")
-    lblMacro2 := AddP1(settingsGui.Add("Text", "x430 y275 w95 h18 Hidden", "Makro:"))
-    edtMacro2 := AddP1(settingsGui.Add("Edit", "x475 y272 w295 h24 Hidden " editOpt, customMacro2))
-    settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
-    btnRec2 := RegBtn(AddP1(settingsGui.Add("Text", "x776 y272 w97 h24 Hidden Background" darkBlueBtn " cFFFFFF Center 0x200",
-        "⏺  Kaydet")))
+    lblMacro2 := AddP1(settingsGui.Add("Text", "x550 y174 w42 h20 Hidden", "Makro:"))
+    settingsGui.SetFont("s8.5 c" textColor, "Segoe UI")
+    edtMacro2 := AddP1(settingsGui.Add("Edit", "x595 y171 w180 h24 Hidden " editOpt,
+        (action2 = "TextTemplate") ? textTemplate2 : customMacro2))
+    settingsGui.SetFont("s8 bold cFFFFFF", "Segoe UI")
+    btnRec2 := RegBtn(AddP1(settingsGui.Add("Text", "x780 y171 w55 h24 Hidden Background" darkBlueBtn " cFFFFFF Center 0x200",
+        "⏺ Kayıt")))
     btnRec2.OnEvent("Click", (*) => OpenMacroRecorder(2, edtMacro2, settingsGui))
 
-    settingsGui.SetFont("s8.5 c" dimTextColor, "Segoe UI")
-    lblMacro3 := AddP1(settingsGui.Add("Text", "x430 y343 w95 h18 Hidden", "Makro:"))
-    edtMacro3 := AddP1(settingsGui.Add("Edit", "x475 y340 w295 h24 Hidden " editOpt, customMacro3))
-    settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
-    btnRec3 := RegBtn(AddP1(settingsGui.Add("Text", "x776 y340 w97 h24 Hidden Background" darkBlueBtn " cFFFFFF Center 0x200",
-        "⏺  Kaydet")))
-    btnRec3.OnEvent("Click", (*) => OpenMacroRecorder(3, edtMacro3, settingsGui))
+    ; Row 3
+    settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
+    AddP1(settingsGui.Add("Text", "x245 y210 w50 h24", "3 Tık"))
+    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
+    ddlAct3 := AddP1(settingsGui.Add("DropDownList", "x300 y206 w240 r12 " editOpt, actionDisplayList))
+    ddlAct3.Text := GetActionDisplay(action3)
 
     settingsGui.SetFont("s8.5 c" dimTextColor, "Segoe UI")
-    lblMacro4 := AddP1(settingsGui.Add("Text", "x430 y411 w95 h18 Hidden", "Makro:"))
-    edtMacro4 := AddP1(settingsGui.Add("Edit", "x475 y408 w295 h24 Hidden " editOpt, customMacro4))
-    settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
-    btnRec4 := RegBtn(AddP1(settingsGui.Add("Text", "x776 y408 w97 h24 Hidden Background" darkBlueBtn " cFFFFFF Center 0x200",
-        "⏺  Kaydet")))
+    lblMacro3 := AddP1(settingsGui.Add("Text", "x550 y210 w42 h20 Hidden", "Makro:"))
+    settingsGui.SetFont("s8.5 c" textColor, "Segoe UI")
+    edtMacro3 := AddP1(settingsGui.Add("Edit", "x595 y207 w180 h24 Hidden " editOpt,
+        (action3 = "TextTemplate") ? textTemplate3 : customMacro3))
+    settingsGui.SetFont("s8 bold cFFFFFF", "Segoe UI")
+    btnRec3 := RegBtn(AddP1(settingsGui.Add("Text", "x780 y207 w55 h24 Hidden Background" darkBlueBtn " cFFFFFF Center 0x200",
+        "⏺ Kayıt")))
+    btnRec3.OnEvent("Click", (*) => OpenMacroRecorder(3, edtMacro3, settingsGui))
+
+    ; Row 4
+    settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
+    AddP1(settingsGui.Add("Text", "x245 y246 w50 h24", "4 Tık"))
+    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
+    ddlAct4 := AddP1(settingsGui.Add("DropDownList", "x300 y242 w240 r12 " editOpt, actionDisplayList))
+    ddlAct4.Text := GetActionDisplay(action4)
+
+    settingsGui.SetFont("s8.5 c" dimTextColor, "Segoe UI")
+    lblMacro4 := AddP1(settingsGui.Add("Text", "x550 y246 w42 h20 Hidden", "Makro:"))
+    settingsGui.SetFont("s8.5 c" textColor, "Segoe UI")
+    edtMacro4 := AddP1(settingsGui.Add("Edit", "x595 y243 w180 h24 Hidden " editOpt,
+        (action4 = "TextTemplate") ? textTemplate4 : customMacro4))
+    settingsGui.SetFont("s8 bold cFFFFFF", "Segoe UI")
+    btnRec4 := RegBtn(AddP1(settingsGui.Add("Text", "x780 y243 w55 h24 Hidden Background" darkBlueBtn " cFFFFFF Center 0x200",
+        "⏺ Kayıt")))
     btnRec4.OnEvent("Click", (*) => OpenMacroRecorder(4, edtMacro4, settingsGui))
 
     UpdateMacroVisibility(ddl, lblMacro, edtMacro, btnRec) {
-        isMacro := (GetActionKey(ddl.Text) = "CustomMacro")
-        lblMacro.Visible := isMacro
-        edtMacro.Visible := isMacro
-        btnRec.Visible := isMacro
+        actionKey := GetActionKey(ddl.Text)
+        isMacro := (actionKey = "CustomMacro")
+        isTmpl  := (actionKey = "TextTemplate")
+        lblMacro.Text := isTmpl ? "Metin:" : "Makro:"
+        lblMacro.Visible := (isMacro || isTmpl)
+        edtMacro.Visible := (isMacro || isTmpl)
+        btnRec.Visible   := isMacro
     }
 
     UpdateMacroVisibility(ddlAct1, lblMacro1, edtMacro1, btnRec1)
@@ -343,226 +344,41 @@ ShowSettingsGUI(*) {
     ddlAct4.OnEvent("Change", (*) => UpdateMacroVisibility(ddlAct4, lblMacro4, edtMacro4, btnRec4))
 
     settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
-    AddP1(settingsGui.Add("Text", "x268 y486 w585 h30",
-        "Makro kullanmak için ilgili eylemden “Özel Tuş Makrosu” seçin. Ardından Kaydet ile tuş dizisini kaydedin."))
+    AddP1(settingsGui.Add("Text", "x245 y278 w585 h18",
+        "Özel Makro veya Metin Şablonu seçildiğinde kutucuk satırda görünür."))
 
-    ; ═════════════════════════════════════════════════════════════
-    ;  PAGE 2 — TIMING / SYSTEM
-    ; ═════════════════════════════════════════════════════════════
-    settingsGui.SetFont("s12 bold c" textColor, "Segoe UI")
-    AddP2(settingsGui.Add("Text", "x248 y91 w625 h28", "Zamanlama & Sistem"))
-
-    settingsGui.SetFont("s8.5 c" subTextColor, "Segoe UI")
-    AddP2(settingsGui.Add("Text", "x248 y120 w625 h18",
-        "Tıklama algılama hassasiyetini ve sistem davranışlarını ayarlayın."))
-
+    ; ── BASILI TUTMA EYLEMİ (Page 1 altı) ──
     settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    AddP2(settingsGui.Add("GroupBox", "x248 y151 w625 h230", "Algılama Eşik Süreleri"))
+    AddP1(settingsGui.Add("GroupBox", "x230 y312 w615 h152", "Basılı Tutma Eylemi"))
 
     settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
-    AddP2(settingsGui.Add("Text", "x268 y183 w250 h22", "Çoklu Tık Bekleme Süresi"))
-    settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
-    AddP2(settingsGui.Add("Text", "x268 y205 w250 h18", "İki tık arasındaki maksimum süre (ms)"))
+    AddP1(settingsGui.Add("Text", "x245 y334 w125 h20", "Basılı Tutma Modu:"))
     settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    edtDoubleTap := AddP2(settingsGui.Add("Edit", "x535 y179 w78 h26 Number " editOpt, doubleTapThreshold))
-    settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
-    btnDT150 := RegBtn(AddP2(settingsGui.Add("Text", "x622 y179 w65 h26 Background" darkBlueBtn " cFFFFFF Center 0x200",
-        "150 ms")))
-    btnDT250 := RegBtn(AddP2(settingsGui.Add("Text", "x693 y179 w65 h26 Background" accentBlue " cFFFFFF Center 0x200",
-        "250 ms")))
-    btnDT350 := RegBtn(AddP2(settingsGui.Add("Text", "x764 y179 w65 h26 Background" darkBlueBtn " cFFFFFF Center 0x200",
-        "350 ms")))
-
-    settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
-    AddP2(settingsGui.Add("Text", "x268 y253 w250 h22", "Basılı Tutma Eşik Süresi"))
-    settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
-    AddP2(settingsGui.Add("Text", "x268 y275 w250 h18", "Basılı tutma eyleminin tetiklenme süresi"))
-    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    edtHold := AddP2(settingsGui.Add("Edit", "x535 y249 w78 h26 Number " editOpt, holdThreshold))
-    settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
-    btnHold200 := RegBtn(AddP2(settingsGui.Add("Text", "x622 y249 w65 h26 Background" darkBlueBtn " cFFFFFF Center 0x200",
-        "200 ms")))
-    btnHold250 := RegBtn(AddP2(settingsGui.Add("Text", "x693 y249 w65 h26 Background" accentBlue " cFFFFFF Center 0x200",
-        "250 ms")))
-    btnHold400 := RegBtn(AddP2(settingsGui.Add("Text", "x764 y249 w65 h26 Background" darkBlueBtn " cFFFFFF Center 0x200",
-        "400 ms")))
-
-    settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
-    AddP2(settingsGui.Add("Text", "x268 y319 w560 h18",
-        "Öneri: çoğu kullanıcı için 250 ms iyi bir başlangıç noktasıdır."))
-
-    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    AddP2(settingsGui.Add("GroupBox", "x248 y396 w625 h78", "Mikrofon Cihazı"))
-
-    captureDevices := EnumerateCaptureDevices()
-    micDeviceList := ["🔄  Otomatik Algıla"]
-    for _, devName in captureDevices
-        micDeviceList.Push(devName)
-
-    settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
-    AddP2(settingsGui.Add("Text", "x268 y425 w130 h22", "Kullanılacak cihaz:"))
-    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    ddlMicDevice := AddP2(settingsGui.Add("DropDownList", "x405 y421 w448 r8 " editOpt, micDeviceList))
-
-    if (micDevice = "Auto" || micDevice = "")
-        ddlMicDevice.Text := "🔄  Otomatik Algıla"
-    else
-        try ddlMicDevice.Text := micDevice
-
-    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    AddP2(settingsGui.Add("GroupBox", "x248 y475 w625 h120", "Sistem & Geri Bildirim"))
-
-    chkAutoStart := AddP2(settingsGui.Add("Checkbox", "x268 y498 w570 h22 Checked" (autoStart ? "1" : "0"),
-        "🚀  Windows ile birlikte otomatik başlat"))
-    chkTrayMic := AddP2(settingsGui.Add("Checkbox", "x268 y522 w570 h22 Checked" (trayIconMicState ? "1" : "0"),
-        "🎙  Mikrofon durumuna göre görev çubuğu simgesini değiştir"))
-    chkSoundFx := AddP2(settingsGui.Add("Checkbox", "x268 y546 w570 h22 Checked" (soundFxEnabled ? "1" : "0"),
-        "🔊  Mikrofon açma / kapamada hafif ses efekti çal"))
-    chkTelemetry := AddP2(settingsGui.Add("Checkbox", "x268 y570 w570 h22 Checked" (telemetryEnabled ? "1" : "0"),
-        "📊  Anonim açılış telemetrisi ve kullanım loglarını gönder"))
-
-    ; ═════════════════════════════════════════════════════════════
-    ;  PAGE 3 — OSD / APPEARANCE
-    ; ═════════════════════════════════════════════════════════════
-    settingsGui.SetFont("s12 bold c" textColor, "Segoe UI")
-    AddP3(settingsGui.Add("Text", "x248 y91 w625 h28", "OSD & Görünüm"))
-
-    settingsGui.SetFont("s8.5 c" subTextColor, "Segoe UI")
-    AddP3(settingsGui.Add("Text", "x248 y120 w625 h18",
-        "Ekran üstü bildirimlerin konumunu, rengini ve tipografisini özelleştirin."))
-
-    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    AddP3(settingsGui.Add("GroupBox", "x248 y151 w625 h145", "Tema & Konum"))
-
-    settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
-    AddP3(settingsGui.Add("Text", "x268 y184 w130 h22", "Arayüz Teması"))
-    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    ddlTheme := AddP3(settingsGui.Add("DropDownList", "x405 y180 w170 r7 " editOpt, ["Dark", "Light", "Auto"]))
-    ddlTheme.Text := themeMode
-    settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
-    AddP3(settingsGui.Add("Text", "x590 y184 w240 h20", "Dark / Light / Windows"))
-
-    settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
-    AddP3(settingsGui.Add("Text", "x268 y230 w130 h22", "OSD Konumu"))
-    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    ddlPos := AddP3(settingsGui.Add("DropDownList", "x405 y226 w170 r7 " editOpt,
-        ["TopLeft", "TopRight", "BottomLeft", "BottomRight", "Center"]))
-    ddlPos.Text := osdPosition
-    settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
-    AddP3(settingsGui.Add("Text", "x590 y230 w240 h20", "Bildirim ekran üzerindeki konumu"))
-
-    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    AddP3(settingsGui.Add("GroupBox", "x248 y313 w625 h277", "OSD Biçimlendirme & Önizleme"))
-
-    settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
-    AddP3(settingsGui.Add("Text", "x268 y346 w130 h22", "Metin Rengi"))
-    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    edtOsdColor := AddP3(settingsGui.Add("Edit", "x405 y342 w88 h26 " editOpt, osdColor))
-
-    settingsGui.SetFont("s9 cFFFFFF", "Segoe UI")
-    btnClr1 := RegBtn(AddP3(settingsGui.Add("Text", "x502 y342 w43 h26 Background1C283C Center 0x200", "🟦")))
-    btnClr2 := RegBtn(AddP3(settingsGui.Add("Text", "x549 y342 w43 h26 Background1C283C Center 0x200", "🟩")))
-    btnClr3 := RegBtn(AddP3(settingsGui.Add("Text", "x596 y342 w43 h26 Background1C283C Center 0x200", "🟪")))
-    btnClr4 := RegBtn(AddP3(settingsGui.Add("Text", "x643 y342 w43 h26 Background1C283C Center 0x200", "🟧")))
-    btnClr5 := RegBtn(AddP3(settingsGui.Add("Text", "x690 y342 w43 h26 Background1C283C Center 0x200", "🟥")))
-    btnClr6 := RegBtn(AddP3(settingsGui.Add("Text", "x737 y342 w43 h26 Background1C283C Center 0x200", "⬜")))
-
-    settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
-    AddP3(settingsGui.Add("Text", "x268 y390 w130 h22", "Font Boyutu"))
-    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    edtOsdSize := AddP3(settingsGui.Add("Edit", "x405 y386 w88 h26 Number " editOpt, osdFontSize))
-    settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
-    AddP3(settingsGui.Add("Text", "x502 y390 w310 h20", "pt  •  Önerilen: 9–14"))
-
-    settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
-    AddP3(settingsGui.Add("Text", "x268 y434 w130 h22", "Gösterim Süresi"))
-    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    edtOsdDur := AddP3(settingsGui.Add("Edit", "x405 y430 w88 h26 Number " editOpt, osdDurationMs))
-    settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
-    AddP3(settingsGui.Add("Text", "x502 y434 w310 h20", "ms  •  Önerilen: 1500"))
-
-    chkFade := AddP3(settingsGui.Add("Checkbox", "x268 y478 w560 h22 Checked" (osdFadeEnabled ? "1" : "0"),
-    "✨  Yumuşak Fade-in / Fade-out animasyonu kullan"))
-
-    settingsGui.SetFont("s9 bold cFFFFFF", "Segoe UI")
-    btnTestOsd := RegBtn(AddP3(settingsGui.Add("Text", "x268 y520 w560 h38 Background" accentBlue " cFFFFFF Center 0x200",
-        "👁  OSD Bildirimini Şimdi Önizle")))
-
-    ; ═════════════════════════════════════════════════════════════
-    ;  PAGE 4 — MEDIA / HOLD
-    ; ═════════════════════════════════════════════════════════════
-    settingsGui.SetFont("s12 bold c" textColor, "Segoe UI")
-    AddP4(settingsGui.Add("Text", "x248 y91 w625 h28", "Medya & Basılı Tutma"))
-
-    settingsGui.SetFont("s8.5 c" subTextColor, "Segoe UI")
-    AddP4(settingsGui.Add("Text", "x248 y120 w625 h18",
-        "Müzik oynatıcınızı ve Copilot tuşuna basılı tutulduğunda çalışacak eylemi ayarlayın."))
-
-    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    AddP4(settingsGui.Add("GroupBox", "x248 y151 w625 h183", "Hedef Müzik Oynatıcı"))
-
-    radSpotify := AddP4(settingsGui.Add("Radio", "x268 y180 w145 h22 Checked" (musicApp = "Spotify" ? "1" : "0"),
-    " Spotify"))
-    radYtm := AddP4(settingsGui.Add("Radio", "x430 y180 w170 h22 Checked" (musicApp = "YTM" ? "1" : "0"),
-    " YouTube Music"))
-
-    settingsGui.SetFont("s8.5 bold c" textColor, "Segoe UI")
-    AddP4(settingsGui.Add("Text", "x268 y215 w95 h20", "Spotify Komut"))
-    settingsGui.SetFont("s8.5 c" textColor, "Segoe UI")
-    edtSpotCmd := AddP4(settingsGui.Add("Edit", "x370 y211 w503 h24 " editOpt, spotifyCmd))
-
-    settingsGui.SetFont("s8.5 bold c" textColor, "Segoe UI")
-    AddP4(settingsGui.Add("Text", "x268 y249 w95 h20", "Spotify Başlık"))
-    settingsGui.SetFont("s8.5 c" textColor, "Segoe UI")
-    edtSpotTitle := AddP4(settingsGui.Add("Edit", "x370 y245 w503 h24 " editOpt, spotifyTitle))
-
-    settingsGui.SetFont("s8.5 bold c" textColor, "Segoe UI")
-    AddP4(settingsGui.Add("Text", "x268 y283 w95 h20", "YTM URL"))
-    settingsGui.SetFont("s8.5 c" textColor, "Segoe UI")
-    edtYtmUrl := AddP4(settingsGui.Add("Edit", "x370 y279 w503 h24 " editOpt, ytmUrl))
-
-    settingsGui.SetFont("s8.5 bold c" textColor, "Segoe UI")
-    AddP4(settingsGui.Add("Text", "x268 y317 w95 h20", "YTM Başlık"))
-    settingsGui.SetFont("s8.5 c" textColor, "Segoe UI")
-    edtYtmTitle := AddP4(settingsGui.Add("Edit", "x370 y313 w503 h24 " editOpt, ytmTitle))
-
-    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    AddP4(settingsGui.Add("GroupBox", "x248 y352 w625 h238", "Basılı Tutma Eylemi"))
-
-    settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
-    AddP4(settingsGui.Add("Text", "x268 y382 w150 h22", "Basılı Tutma Modu"))
-    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    ddlHold := AddP4(settingsGui.Add("DropDownList", "x430 y378 w443 r8 " editOpt,
-        ["MusicApp", "PushToTalk", "CustomApp", "CustomMacro"]))
+    ddlHold := AddP1(settingsGui.Add("DropDownList", "x375 y330 w240 r8 " editOpt,
+        ["MusicApp", "PushToTalk", "CustomApp", "CustomMacro", "CommandPalette"]))
     ddlHold.Text := holdAction
 
-    ; CustomApp
-    settingsGui.SetFont("s8.5 bold c" textColor, "Segoe UI")
-    lblCustomApp := AddP4(settingsGui.Add("Text", "x268 y418 w585 h20",
-        "Özel Uygulama Yolu veya Web URL"))
     settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
-    AddP4(settingsGui.Add("Text", "x268 y438 w585 h18",
-        "Program, .lnk veya web adresi girin."))
-    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    edtCustomApp := AddP4(settingsGui.Add("Edit", "x268 y461 w350 h27 " editOpt, customAppPath))
+    AddP1(settingsGui.Add("Text", "x625 y334 w205 h20", "Örn: Bas-konuş, spotlight"))
+
+    ; Bilgi notu (MusicApp veya PushToTalk seçiliyken)
+    settingsGui.SetFont("s8.5 c" textColor, "Segoe UI")
+    lblHoldInfo := AddP1(settingsGui.Add("Text", "x245 y370 w585 h20", ""))
+
+    ; CustomApp
+    edtCustomApp := AddP1(settingsGui.Add("Edit", "x245 y366 w390 h26 Hidden " editOpt, customAppPath))
     settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
-    btnPickApp := RegBtn(AddP4(settingsGui.Add("Text", "x626 y461 w117 h27 Background" accentBlue " cFFFFFF Center 0x200",
+    btnPickApp := RegBtn(AddP1(settingsGui.Add("Text", "x645 y366 w110 h26 Hidden Background" accentBlue " cFFFFFF Center 0x200",
         "🚀 Uygulama Seç")))
-    btnBrowse := RegBtn(AddP4(settingsGui.Add("Text", "x749 y461 w124 h27 Background" darkBlueBtn " cFFFFFF Center 0x200",
-        "📁 Dosya Seç")))
+    btnBrowse := RegBtn(AddP1(settingsGui.Add("Text", "x760 y366 w75 h26 Hidden Background" darkBlueBtn " cFFFFFF Center 0x200",
+        "📁 Gözat")))
 
     ; CustomMacro
-    settingsGui.SetFont("s8.5 bold c" textColor, "Segoe UI")
-    lblHoldMacro := AddP4(settingsGui.Add("Text", "x268 y418 w585 h20 Hidden",
-        "Basılı Tutma Makro Dizisi"))
-    settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
-    AddP4(settingsGui.Add("Text", "x268 y438 w585 h18 Hidden",
-        "Örn: ^c = Ctrl+C, !{F4} = Alt+F4, #+s = Win+Shift+S"))
     settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    edtHoldMacro := AddP4(settingsGui.Add("Edit", "x268 y461 w455 h27 Hidden " editOpt, customMacroHold))
+    edtHoldMacro := AddP1(settingsGui.Add("Edit", "x245 y366 w475 h26 Hidden " editOpt, customMacroHold))
     settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
-    btnRecHold := RegBtn(AddP4(settingsGui.Add("Text", "x733 y461 w140 h27 Hidden Background" darkBlueBtn " cFFFFFF Center 0x200",
-        "⏺  Makro Kaydet")))
+    btnRecHold := RegBtn(AddP1(settingsGui.Add("Text", "x725 y366 w110 h26 Hidden Background" darkBlueBtn " cFFFFFF Center 0x200",
+        "⏺ Makro Kaydet")))
     btnRecHold.OnEvent("Click", (*) => OpenMacroRecorder(0, edtHoldMacro, settingsGui))
 
     UpdateHoldVisibility(*) {
@@ -570,12 +386,20 @@ ShowSettingsGUI(*) {
         isCustomApp := (mode = "CustomApp")
         isCustomMacro := (mode = "CustomMacro")
 
-        lblCustomApp.Visible := isCustomApp
+        lblHoldInfo.Visible := (!isCustomApp && !isCustomMacro)
+        if (mode = "MusicApp")
+            lblHoldInfo.Text := "🎵 Spotify veya YouTube Music'i otomatik olarak açar veya öne getirir."
+        else if (mode = "PushToTalk")
+            lblHoldInfo.Text := "🎙 Tuş basılıyken mikrofonu açar, bırakınca susturur (Bas-Konuş)."
+        else if (mode = "CommandPalette")
+            lblHoldInfo.Text := "⚡ Raycast / Spotlight tarzı hızlı komut ve arama paletini açar."
+        else
+            lblHoldInfo.Text := ""
+
         edtCustomApp.Visible := isCustomApp
         btnPickApp.Visible := isCustomApp
         btnBrowse.Visible := isCustomApp
 
-        lblHoldMacro.Visible := isCustomMacro
         edtHoldMacro.Visible := isCustomMacro
         btnRecHold.Visible := isCustomMacro
     }
@@ -584,72 +408,223 @@ ShowSettingsGUI(*) {
     ddlHold.OnEvent("Change", UpdateHoldVisibility)
 
     settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
-    AddP4(settingsGui.Add("Text", "x268 y505 w585 h72",
-        "MusicApp: Spotify veya YouTube Music'i açar / öne getirir.`n"
-        . "PushToTalk: Tuş basılıyken mikrofonu açar, bırakınca susturur.`n"
-        . "CustomApp: Belirlediğiniz programı veya web sayfasını açar.`n"
-        . "CustomMacro: Kaydettiğiniz makro dizisini gönderir."
+    AddP1(settingsGui.Add("Text", "x245 y405 w590 h48",
+        "• MusicApp: Müzik çaları açar / öne getirir  • PushToTalk: Bas-konuş mikrofon`n"
+        . "• CustomApp: Seçilen programı/URL açar  • CustomMacro: Özel tuş makrosu`n"
+        . "• CommandPalette: Raycast tarzı akıllı komut ve hesaplama paleti"
     ))
 
     ; ═════════════════════════════════════════════════════════════
-    ;  PAGE 5 — ABOUT / MAINTENANCE
+    ;  PAGE 2 — TIMING / SYSTEM
     ; ═════════════════════════════════════════════════════════════
     settingsGui.SetFont("s12 bold c" textColor, "Segoe UI")
-    AddP5(settingsGui.Add("Text", "x248 y91 w625 h28", "Hakkında & Bakım"))
+    AddP2(settingsGui.Add("Text", "x230 y68 w615 h24", "Zamanlama & Sistem"))
 
     settingsGui.SetFont("s8.5 c" subTextColor, "Segoe UI")
-    AddP5(settingsGui.Add("Text", "x248 y120 w625 h18",
+    AddP2(settingsGui.Add("Text", "x230 y92 w615 h16",
+        "Tıklama algılama hassasiyetini, mikrofonu ve sistem davranışlarını ayarlayın."))
+
+    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
+    AddP2(settingsGui.Add("GroupBox", "x230 y112 w615 h112", "Algılama Eşik Süreleri"))
+
+    settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
+    AddP2(settingsGui.Add("Text", "x245 y134 w160 h20", "Çoklu Tık Bekleme:"))
+    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
+    edtDoubleTap := AddP2(settingsGui.Add("Edit", "x410 y130 w65 h24 Number " editOpt, doubleTapThreshold))
+    settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
+    btnDT150 := RegBtn(AddP2(settingsGui.Add("Text", "x485 y130 w55 h24 Background" darkBlueBtn " cFFFFFF Center 0x200", "150 ms")))
+    btnDT250 := RegBtn(AddP2(settingsGui.Add("Text", "x545 y130 w55 h24 Background" accentBlue " cFFFFFF Center 0x200", "250 ms")))
+    btnDT350 := RegBtn(AddP2(settingsGui.Add("Text", "x605 y130 w55 h24 Background" darkBlueBtn " cFFFFFF Center 0x200", "350 ms")))
+    settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
+    AddP2(settingsGui.Add("Text", "x670 y134 w160 h20", "Önerilen: 250 ms"))
+
+    settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
+    AddP2(settingsGui.Add("Text", "x245 y170 w160 h20", "Basılı Tutma Süresi:"))
+    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
+    edtHold := AddP2(settingsGui.Add("Edit", "x410 y166 w65 h24 Number " editOpt, holdThreshold))
+    settingsGui.SetFont("s8.5 bold cFFFFFF", "Segoe UI")
+    btnHold200 := RegBtn(AddP2(settingsGui.Add("Text", "x485 y166 w55 h24 Background" darkBlueBtn " cFFFFFF Center 0x200", "200 ms")))
+    btnHold250 := RegBtn(AddP2(settingsGui.Add("Text", "x545 y166 w55 h24 Background" accentBlue " cFFFFFF Center 0x200", "250 ms")))
+    btnHold400 := RegBtn(AddP2(settingsGui.Add("Text", "x605 y166 w55 h24 Background" darkBlueBtn " cFFFFFF Center 0x200", "400 ms")))
+    settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
+    AddP2(settingsGui.Add("Text", "x670 y170 w160 h20", "Önerilen: 250 ms"))
+
+    settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
+    AddP2(settingsGui.Add("Text", "x245 y200 w585 h18",
+        "İki tık arasındaki maksimum süre ve basılı tutma eşiğidir."))
+
+    ; Mikrofon & Müzik
+    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
+    AddP2(settingsGui.Add("GroupBox", "x230 y230 w615 h96", "Mikrofon & Müzik Çalar"))
+
+    captureDevices := EnumerateCaptureDevices()
+    micDeviceList := ["🔄  Otomatik Algıla"]
+    for _, devName in captureDevices
+        micDeviceList.Push(devName)
+
+    settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
+    AddP2(settingsGui.Add("Text", "x245 y252 w115 h20", "Mikrofon Cihazı:"))
+    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
+    ddlMicDevice := AddP2(settingsGui.Add("DropDownList", "x365 y248 w465 r8 " editOpt, micDeviceList))
+    if (micDevice = "Auto" || micDevice = "")
+        ddlMicDevice.Text := "🔄  Otomatik Algıla"
+    else
+        try ddlMicDevice.Text := micDevice
+
+    settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
+    AddP2(settingsGui.Add("Text", "x245 y290 w115 h20", "Müzik Uygulaması:"))
+    settingsGui.SetFont("s8.5 c" textColor, "Segoe UI")
+    radSpotify := AddP2(settingsGui.Add("Radio", "x365 y290 w120 h20 Checked" (musicApp = "Spotify" ? "1" : "0"), " Spotify"))
+    radYtm := AddP2(settingsGui.Add("Radio", "x500 y290 w150 h20 Checked" (musicApp = "YTM" ? "1" : "0"), " YouTube Music"))
+
+    ; Sistem & Geri Bildirim
+    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
+    AddP2(settingsGui.Add("GroupBox", "x230 y334 w615 h130", "Sistem & Geri Bildirim"))
+
+    chkAutoStart := AddP2(settingsGui.Add("Checkbox", "x245 y356 w275 h22 Checked" (autoStart ? "1" : "0"),
+        "🚀  Windows ile otomatik başlat"))
+    chkTrayMic := AddP2(settingsGui.Add("Checkbox", "x535 y356 w295 h22 Checked" (trayIconMicState ? "1" : "0"),
+        "🎙  Mikrofon simgesi göster"))
+    chkSoundFx := AddP2(settingsGui.Add("Checkbox", "x245 y388 w275 h22 Checked" (soundFxEnabled ? "1" : "0"),
+        "🔊  Susturma / açma ses efekti"))
+    chkTelemetry := AddP2(settingsGui.Add("Checkbox", "x535 y388 w295 h22 Checked" (telemetryEnabled ? "1" : "0"),
+        "📊  Anonim kullanım telemetrisi"))
+
+    settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
+    AddP2(settingsGui.Add("Text", "x245 y424 w585 h20",
+        "Seçenekler 'Kaydet & Uygula' butonuna tıklandığında hemen devreye girer."))
+
+    ; ═════════════════════════════════════════════════════════════
+    ;  PAGE 3 — OSD / APPEARANCE
+    ; ═════════════════════════════════════════════════════════════
+    settingsGui.SetFont("s12 bold c" textColor, "Segoe UI")
+    AddP3(settingsGui.Add("Text", "x230 y68 w615 h24", "OSD & Görünüm"))
+
+    settingsGui.SetFont("s8.5 c" subTextColor, "Segoe UI")
+    AddP3(settingsGui.Add("Text", "x230 y92 w615 h16",
+        "Ekran üstü bildirimlerin konumunu, rengini ve tipografisini özelleştirin."))
+
+    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
+    AddP3(settingsGui.Add("GroupBox", "x230 y112 w615 h84", "Tema & Bildirim Konumu"))
+
+    settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
+    AddP3(settingsGui.Add("Text", "x245 y134 w100 h20", "Arayüz Teması:"))
+    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
+    ddlTheme := AddP3(settingsGui.Add("DropDownList", "x350 y130 w120 r7 " editOpt, ["Dark", "Light", "Auto"]))
+    ddlTheme.Text := themeMode
+
+    settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
+    AddP3(settingsGui.Add("Text", "x495 y134 w95 h20", "OSD Konumu:"))
+    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
+    ddlPos := AddP3(settingsGui.Add("DropDownList", "x595 y130 w150 r7 " editOpt,
+        ["TopLeft", "TopRight", "BottomLeft", "BottomRight", "Center"]))
+    ddlPos.Text := osdPosition
+
+    settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
+    AddP3(settingsGui.Add("Text", "x245 y168 w585 h18", "Koyu/Açık tema ve ekran üzerindeki bildirim pozisyonu."))
+
+    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
+    AddP3(settingsGui.Add("GroupBox", "x230 y202 w615 h262", "OSD Biçimlendirme & Önizleme"))
+
+    settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
+    AddP3(settingsGui.Add("Text", "x245 y226 w85 h20", "Metin Rengi:"))
+    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
+    edtOsdColor := AddP3(settingsGui.Add("Edit", "x335 y222 w75 h24 " editOpt, osdColor))
+
+    settingsGui.SetFont("s9 cFFFFFF", "Segoe UI")
+    btnClr1 := RegBtn(AddP3(settingsGui.Add("Text", "x418 y222 w36 h24 Background1C283C Center 0x200", "🟦")))
+    btnClr2 := RegBtn(AddP3(settingsGui.Add("Text", "x458 y222 w36 h24 Background1C283C Center 0x200", "🟩")))
+    btnClr3 := RegBtn(AddP3(settingsGui.Add("Text", "x498 y222 w36 h24 Background1C283C Center 0x200", "🟣")))
+    btnClr4 := RegBtn(AddP3(settingsGui.Add("Text", "x538 y222 w36 h24 Background1C283C Center 0x200", "🟧")))
+    btnClr5 := RegBtn(AddP3(settingsGui.Add("Text", "x578 y222 w36 h24 Background1C283C Center 0x200", "🟥")))
+    btnClr6 := RegBtn(AddP3(settingsGui.Add("Text", "x618 y222 w36 h24 Background1C283C Center 0x200", "⬜")))
+
+    settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
+    AddP3(settingsGui.Add("Text", "x245 y262 w85 h20", "Font Boyutu:"))
+    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
+    edtOsdSize := AddP3(settingsGui.Add("Edit", "x335 y258 w75 h24 Number " editOpt, osdFontSize))
+    settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
+    AddP3(settingsGui.Add("Text", "x418 y262 w110 h20", "pt (Örn: 9-14)"))
+
+    settingsGui.SetFont("s9 bold c" textColor, "Segoe UI")
+    AddP3(settingsGui.Add("Text", "x535 y262 w75 h20", "Süre (ms):"))
+    settingsGui.SetFont("s9 c" textColor, "Segoe UI")
+    edtOsdDur := AddP3(settingsGui.Add("Edit", "x615 y258 w75 h24 Number " editOpt, osdDurationMs))
+    settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
+    AddP3(settingsGui.Add("Text", "x698 y262 w80 h20", "ms (1500)"))
+
+    chkFade := AddP3(settingsGui.Add("Checkbox", "x245 y298 w570 h22 Checked" (osdFadeEnabled ? "1" : "0"),
+        "✨  Yumuşak Fade-in / Fade-out animasyonu kullan"))
+
+    settingsGui.SetFont("s9 bold cFFFFFF", "Segoe UI")
+    btnTestOsd := RegBtn(AddP3(settingsGui.Add("Text", "x245 y334 w585 h36 Background" accentBlue " cFFFFFF Center 0x200",
+        "👁  OSD Bildirimini Şimdi Önizle")))
+
+    settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
+    AddP3(settingsGui.Add("Text", "x245 y380 w585 h36",
+        "OSD ekran bildirimleri mikrofon veya medya değiştiğinde belirir.`n"
+        . "Yukarıdaki renk butonlarıyla hızlı palet seçimi yapabilirsiniz."))
+
+    ; ═════════════════════════════════════════════════════════════
+    ;  PAGE 4 — ABOUT / MAINTENANCE
+    ; ═════════════════════════════════════════════════════════════
+    settingsGui.SetFont("s12 bold c" textColor, "Segoe UI")
+    AddP4(settingsGui.Add("Text", "x230 y68 w615 h24", "Hakkında & Bakım"))
+    settingsGui.SetFont("s8.5 c" subTextColor, "Segoe UI")
+    AddP4(settingsGui.Add("Text", "x230 y92 w615 h16",
         "Uygulama sürümü, proje bilgileri ve bakım araçları."))
 
     settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    AddP5(settingsGui.Add("GroupBox", "x248 y151 w625 h190", "Copilot Button Controller"))
+    AddP4(settingsGui.Add("GroupBox", "x230 y112 w615 h180", "Copilot Button Controller"))
 
     if FileExist(iconPath)
-        AddP5(settingsGui.Add("Picture", "x268 y181 w42 h42", iconPath))
+        AddP4(settingsGui.Add("Picture", "x248 y135 w36 h36", iconPath))
 
     settingsGui.SetFont("s11 bold c" textColor, "Segoe UI")
-    AddP5(settingsGui.Add("Text", "x325 y180 w520 h25", "Copilot Button Controller"))
+    AddP4(settingsGui.Add("Text", "x295 y133 w530 h22", "Copilot Button Controller"))
 
     settingsGui.SetFont("s8.5 c" subTextColor, "Segoe UI")
-    AddP5(settingsGui.Add("Text", "x325 y207 w520 h44",
+    AddP4(settingsGui.Add("Text", "x295 y158 w530 h34",
         "Windows Copilot donanım tuşunu medya, mikrofon ve üretkenlik"
-        . "`n" . "kısayolları için özelleştirilebilir bir kontrol tuşuna dönüştürür."
+        . "`n" . "kısayolları için özelleştirilebilir bir kontrol merkezine dönüştürür."
     ))
 
     settingsGui.SetFont("s8.5 c" textColor, "Segoe UI")
-    AddP5(settingsGui.Add("Text", "x268 y270 w570 h20", "Sürüm:  v" APP_VERSION))
-    AddP5(settingsGui.Add("Text", "x268 y294 w570 h20", "Geliştirici:  Kerem Kuyucu"))
-    AddP5(settingsGui.Add("Text", "x268 y318 w570 h20", "Altyapı:  AutoHotkey v2 Native Architecture"))
+    AddP4(settingsGui.Add("Text", "x248 y204 w260 h18", "Sürüm:  v" APP_VERSION))
+    AddP4(settingsGui.Add("Text", "x520 y204 w300 h18", "Geliştirici:  Kerem Kuyucu"))
+    AddP4(settingsGui.Add("Text", "x248 y226 w260 h18", "Altyapı:  AutoHotkey v2 Native"))
+    AddP4(settingsGui.Add("Text", "x520 y226 w300 h18", "Lisans:  Açık Kaynak (MIT)"))
+    AddP4(settingsGui.Add("Text", "x248 y248 w570 h18", "GitHub:  https://github.com/KeremKuyucu/copilot-button"))
 
     settingsGui.SetFont("s9 c" textColor, "Segoe UI")
-    AddP5(settingsGui.Add("GroupBox", "x248 y360 w625 h108", "Bakım Araçları"))
+    AddP4(settingsGui.Add("GroupBox", "x230 y300 w615 h164", "Bakım & Yönetim Araçları"))
 
     settingsGui.SetFont("s9 bold cFFFFFF", "Segoe UI")
-    btnCheckUpdate := RegBtn(AddP5(settingsGui.Add("Text", "x268 y392 w290 h42 Background" darkBlueBtn " cFFFFFF Center 0x200",
+    btnCheckUpdate := RegBtn(AddP4(settingsGui.Add("Text", "x248 y326 w280 h38 Background" darkBlueBtn " cFFFFFF Center 0x200",
         "🔄  Güncellemeleri Denetle")))
-    btnReloadScript := RegBtn(AddP5(settingsGui.Add("Text", "x570 y392 w283 h42 Background" accentBlue " cFFFFFF Center 0x200",
+    btnReloadScript := RegBtn(AddP4(settingsGui.Add("Text", "x540 y326 w280 h38 Background" accentBlue " cFFFFFF Center 0x200",
         "↻  Uygulamayı Yeniden Başlat")))
 
     settingsGui.SetFont("s8 c" dimTextColor, "Segoe UI")
-    AddP5(settingsGui.Add("Text", "x268 y482 w585 h55",
-        "Proje açık kaynak olarak GitHub üzerinde yayınlanmaktadır.`n"
-        . "https://github.com/KeremKuyucu/copilot-button"
+    AddP4(settingsGui.Add("Text", "x248 y376 w575 h40",
+        "Ayarlar config.ini dosyasında saklanır.`n"
+        . "Yeniden başlatma tüm klavye ve fare dinleyicilerini sıfırdan yükler."
     ))
 
     ; ═════════════════════════════════════════════════════════════
     ;  FOOTER
     ; ═════════════════════════════════════════════════════════════
-    settingsGui.Add("Text", "x0 y610 w900 h1 Background" borderClr)
+    settingsGui.Add("Text", "x0 y470 w860 h1 Background" borderClr)
     settingsGui.SetFont("s8.5 c" subTextColor, "Segoe UI")
-    settingsGui.Add("Text", "x20 y631 w430 h22",
+    settingsGui.Add("Text", "x20 y486 w420 h22",
         "Değişiklikleri kaydetmek için “Kaydet & Uygula” seçeneğini kullanın.")
 
     settingsGui.SetFont("s9 bold cFFFFFF", "Segoe UI")
-    btnCancel := RegBtn(settingsGui.Add("Text", "x610 y624 w120 h38 Background" navInactiveBg " c" navInactiveTxt " Center 0x200",
+    btnCancel := RegBtn(settingsGui.Add("Text", "x580 y480 w120 h36 Background" navInactiveBg " c" navInactiveTxt " Center 0x200",
         "✕  İptal"))
     btnCancel.OnEvent("Click", (*) => CleanAndClose())
 
-    btnSave := RegBtn(settingsGui.Add("Text", "x742 y624 w135 h38 Background" accentBlue " cFFFFFF Center 0x200",
+    btnSave := RegBtn(settingsGui.Add("Text", "x710 y480 w135 h36 Background" accentBlue " cFFFFFF Center 0x200",
         "✓  Kaydet & Uygula"))
     btnSave.OnEvent("Click", (*) => SaveAndReload())
 
@@ -657,7 +632,7 @@ ShowSettingsGUI(*) {
     ;  TAB / INTERACTION MANAGEMENT
     ; ═════════════════════════════════════════════════════════════
     SwitchTab(tabIndex) {
-        pageLists := [page1, page2, page3, page4, page5]
+        pageLists := [page1, page2, page3, page4]
 
         for idx, ctrlList in pageLists {
             isCurrent := (idx = tabIndex)
@@ -671,7 +646,6 @@ ShowSettingsGUI(*) {
             UpdateMacroVisibility(ddlAct2, lblMacro2, edtMacro2, btnRec2)
             UpdateMacroVisibility(ddlAct3, lblMacro3, edtMacro3, btnRec3)
             UpdateMacroVisibility(ddlAct4, lblMacro4, edtMacro4, btnRec4)
-        } else if (tabIndex = 4) {
             UpdateHoldVisibility()
         }
 
@@ -693,7 +667,6 @@ ShowSettingsGUI(*) {
     btnNav2.OnEvent("Click", (*) => SwitchTab(2))
     btnNav3.OnEvent("Click", (*) => SwitchTab(3))
     btnNav4.OnEvent("Click", (*) => SwitchTab(4))
-    btnNav5.OnEvent("Click", (*) => SwitchTab(5))
 
     ; Page 2 presets
     btnDT150.OnEvent("Click", (*) => (edtDoubleTap.Value := "150"))
@@ -714,7 +687,7 @@ ShowSettingsGUI(*) {
 
     btnTestOsd.OnEvent("Click", ShowTestOsd)
 
-    ; Page 4 / 5
+    ; Basılı tutma & Hakkında butonları
     btnPickApp.OnEvent("Click", (*) => OpenAppPicker(edtCustomApp, settingsGui))
     btnBrowse.OnEvent("Click", (*) => BrowseCustomApp(edtCustomApp))
     btnCheckUpdate.OnEvent("Click", (*) => CheckForUpdates(false))
@@ -747,7 +720,7 @@ ShowSettingsGUI(*) {
     ; Başlangıç sayfası
     SwitchTab(1)
 
-    settingsGui.Show("w900 h680")
+    settingsGui.Show("w860 h530")
 
     ; ═════════════════════════════════════════════════════════════
     ;  INTERNAL HELPERS
@@ -799,10 +772,10 @@ ShowSettingsGUI(*) {
         newApp := radSpotify.Value ? "Spotify" : "YTM"
         newDouble := Integer(edtDoubleTap.Value)
         newHold := Integer(edtHold.Value)
-        newYtmUrl := Trim(edtYtmUrl.Value)
-        newYtmTitle := Trim(edtYtmTitle.Value)
-        newSpotCmd := Trim(edtSpotCmd.Value)
-        newSpotTitle := Trim(edtSpotTitle.Value)
+        newYtmUrl := ytmUrl
+        newYtmTitle := ytmTitle
+        newSpotCmd := spotifyCmd
+        newSpotTitle := spotifyTitle
 
         newTheme := ddlTheme.Text
         newOsdPos := ddlPos.Text
@@ -861,10 +834,21 @@ ShowSettingsGUI(*) {
         IniWrite(GetActionKey(ddlAct3.Text), configFile, "Settings", "Action3")
         IniWrite(GetActionKey(ddlAct4.Text), configFile, "Settings", "Action4")
 
-        IniWrite(Trim(edtMacro1.Value), configFile, "Settings", "CustomMacro1")
-        IniWrite(Trim(edtMacro2.Value), configFile, "Settings", "CustomMacro2")
-        IniWrite(Trim(edtMacro3.Value), configFile, "Settings", "CustomMacro3")
-        IniWrite(Trim(edtMacro4.Value), configFile, "Settings", "CustomMacro4")
+        SaveActionData(actKey, val, idx) {
+            key := GetActionKey(actKey)
+            if (key = "TextTemplate") {
+                IniWrite(val, configFile, "Settings", "TextTemplate" idx)
+                IniWrite("", configFile, "Settings", "CustomMacro" idx)
+            } else {
+                IniWrite(val, configFile, "Settings", "CustomMacro" idx)
+                IniWrite("", configFile, "Settings", "TextTemplate" idx)
+            }
+        }
+
+        SaveActionData(ddlAct1.Text, Trim(edtMacro1.Value), 1)
+        SaveActionData(ddlAct2.Text, Trim(edtMacro2.Value), 2)
+        SaveActionData(ddlAct3.Text, Trim(edtMacro3.Value), 3)
+        SaveActionData(ddlAct4.Text, Trim(edtMacro4.Value), 4)
 
         selectedMic := ddlMicDevice.Text
         if (selectedMic = "🔄  Otomatik Algıla")

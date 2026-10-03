@@ -57,7 +57,7 @@ CreateDefaultConfig(path) {
 
     ; ── Basılı Tutma Eylemi ──
 
-    ; HoldAction: MusicApp (müzik uygulamasını aç), PushToTalk (bas-konuş), CustomApp (özel uygulama/URL)
+    ; HoldAction: MusicApp (müzik uygulamasını aç), PushToTalk (bas-konuş), CustomApp (özel uygulama/URL), CustomMacro (makro), CommandPalette (hızlı komut paleti)
     HoldAction=MusicApp
 
     ; CustomApp seçildiğinde açılacak uygulama yolu veya URL
@@ -65,7 +65,7 @@ CreateDefaultConfig(path) {
     CustomAppPath=
 
     ; ── Tık Eylem Atamaları ──
-    ; Seçenekler: MicMute, PlayPause, NextTrack, PrevTrack, VolumeUp, VolumeDown, MasterMute, ToggleDeafen, VoiceTyping, Screenshot, TaskView, LockScreen, CustomMacro, None
+    ; Seçenekler: MicMute, PlayPause, NextTrack, PrevTrack, VolumeUp, VolumeDown, MasterMute, ToggleDeafen, VoiceTyping, Screenshot, TaskView, LockScreen, CommandPalette, CustomMacro, TextTemplate, None
 
     ; 1 Tık Eylemi
     Action1=MicMute
