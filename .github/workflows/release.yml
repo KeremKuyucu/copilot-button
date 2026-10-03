@@ -210,43 +210,25 @@ jobs:
           Write-Host "  Base:      $ahkBase"
           Write-Host "  Arguments: $argString"
 
-          # Run Ahk2Exe with safety timeout to prevent CI hanging
-          $psi = New-Object System.Diagnostics.ProcessStartInfo
-          $psi.FileName = $ahk2exe
-          $psi.Arguments = $argString
-          $psi.WorkingDirectory = "${{ github.workspace }}"
-          $psi.UseShellExecute = $false
-          $psi.RedirectStandardOutput = $true
-          $psi.RedirectStandardError = $true
-          $psi.CreateNoWindow = $true
+          # Run Ahk2Exe with log redirection and safety timeout to prevent CI hanging
+          $logFile = Join-Path $buildDir "ahk2exe.log"
+          $proc = Start-Process `
+            -FilePath $ahk2exe `
+            -ArgumentList $argString `
+            -WorkingDirectory "${{ github.workspace }}" `
+            -NoNewWindow `
+            -PassThru `
+            -RedirectStandardOutput $logFile `
+            -RedirectStandardError ($logFile + ".err")
 
-          $proc = New-Object System.Diagnostics.Process
-          $proc.StartInfo = $psi
-
-          $stdOut = New-Object System.Text.StringBuilder
-          $stdErr = New-Object System.Text.StringBuilder
-
-          $proc.add_OutputDataReceived({ if ($EventArgs.Data) { [void]$stdOut.AppendLine($EventArgs.Data) } })
-          $proc.add_ErrorDataReceived({ if ($EventArgs.Data) { [void]$stdErr.AppendLine($EventArgs.Data) } })
-
-          [void]$proc.Start()
-          $proc.BeginOutputReadLine()
-          $proc.BeginErrorReadLine()
-
-          $timeoutMs = 60000
-          $finished = $proc.WaitForExit($timeoutMs)
-
-          if (-not $finished) {
+          $timeoutSec = 30
+          if (-not $proc.WaitForExit($timeoutSec * 1000)) {
             try { $proc.Kill() } catch {}
-            throw "Ahk2Exe compilation timed out after $($timeoutMs / 1000)s."
+            throw "Ahk2Exe compilation timed out after $timeoutSec seconds."
           }
 
-          $proc.WaitForExit()
-
-          $outText = $stdOut.ToString().Trim()
-          $errText = $stdErr.ToString().Trim()
-          if ($outText) { Write-Host "  [stdout] $outText" }
-          if ($errText) { Write-Host "  [stderr] $errText" }
+          if (Test-Path $logFile)        { Get-Content $logFile        | ForEach-Object { Write-Host "  [stdout] $_" } }
+          if (Test-Path "$logFile.err")  { Get-Content "$logFile.err"  | ForEach-Object { Write-Host "  [stderr] $_" } }
           Write-Host "  Ahk2Exe exit code: $($proc.ExitCode)"
 
           if (-not (Test-Path $outputExe)) {
