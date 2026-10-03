@@ -24,15 +24,34 @@ CompareVersions(v1, v2) {
 CheckForUpdates(silent := true) {
     global APP_VERSION
 
+    if (!silent)
+        ShowTip("🔄 Güncellemeler denetleniyor...", 1500)
+
     try {
         whr := ComObject("WinHttp.WinHttpRequest.5.1")
+        ; DNS çözme, bağlantı kurma, gönderme ve yanıt alma zaman aşımları (ms)
+        whr.SetTimeouts(5000, 5000, 10000, 10000)
+        ; TLS 1.2 & TLS 1.3 desteği (0x0800 + 0x2000 = 0x2800)
+        try whr.Option(9) := 0x2800
+
         whr.Open("GET", "https://api.github.com/repos/KeremKuyucu/copilot-button/releases/latest", true)
         whr.SetRequestHeader("User-Agent", "CopilotButton-AutoUpdater")
         whr.SetRequestHeader("Accept", "application/vnd.github.v3+json")
         whr.Send()
-        whr.WaitForResponse(5)
 
-        if (whr.Status != 200) {
+        ; Asenkron yanıtı bekle (10 saniye zaman aşımı)
+        if (!whr.WaitForResponse(10)) {
+            try whr.Abort()
+            if (!silent)
+                ShowTip("⚠️ Güncelleme kontrolü zaman aşımına uğradı", 2500)
+            return
+        }
+
+        if (whr.Status == 403) {
+            if (!silent)
+                ShowTip("⚠️ GitHub API istek sınırı aşıldı, lütfen daha sonra tekrar deneyin.", 3000)
+            return
+        } else if (whr.Status != 200) {
             if (!silent)
                 ShowTip("⚠️ Güncelleme kontrolü başarısız (HTTP " . whr.Status . ")", 2500)
             return
@@ -72,8 +91,19 @@ CheckForUpdates(silent := true) {
         }
 
     } catch as err {
-        if (!silent)
-            ShowTip("⚠️ Güncelleme kontrolü hatası: " . err.Message, 2500)
+        if (!silent) {
+            errMsg := "⚠️ Güncelleme kontrolü hatası"
+            if (InStr(err.Message, "0x80072EE7") || InStr(err.Message, "12007"))
+                errMsg := "⚠️ Sunucuya bağlanılamadı (İnternet bağlantınızı kontrol edin)"
+            else if (InStr(err.Message, "0x80072EE2") || InStr(err.Message, "12002") || InStr(err.Message, "0x8000000A"))
+                errMsg := "⚠️ Güncelleme kontrolü zaman aşımına uğradı"
+            else {
+                firstLine := StrSplit(err.Message, "`n")[1]
+                if (firstLine != "")
+                    errMsg .= ": " . Trim(firstLine)
+            }
+            ShowTip(errMsg, 3000)
+        }
     }
 }
 

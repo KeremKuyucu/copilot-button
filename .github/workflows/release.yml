@@ -10,10 +10,11 @@
 #   2. Auto-generate release notes with Gemini API if missing
 #   3. Install AutoHotkey v2, Ahk2Exe & Inno Setup 6
 #   4. Compile AutoHotkey script to CopilotButton.exe (Ahk2Exe)
-#   5. Build installer CopilotButton-Setup.exe (Inno Setup)
-#   6. Code sign both EXE and Setup.exe (SignTool + Sectigo timestamp)
-#   7. Generate SHA-256 checksum
-#   8. Upload artifacts & create GitHub Release
+#   5. Code sign CopilotButton.exe (SignTool + Sectigo timestamp)
+#   6. Build installer CopilotButton-Setup.exe (Inno Setup)
+#   7. Code sign CopilotButton-Setup.exe (SignTool + Sectigo timestamp)
+#   8. Generate SHA-256 checksum of installer
+#   9. Upload artifacts & create GitHub Release (Setup.exe & .sha256 only)
 # ============================================================
 
 name: Copilot Button Release
@@ -198,40 +199,6 @@ jobs:
           Write-Host "Compiled successfully: CopilotButton.exe ($sizeMB MB)"
           echo "EXE_PATH=$outputExe" >> $env:GITHUB_ENV
 
-      # ── Build installer with Inno Setup ───────────────────
-      - name: Build installer (Inno Setup)
-        shell: pwsh
-        run: |
-          $ver       = "${{ steps.version.outputs.version }}"
-          $buildDir  = "${{ github.workspace }}\build"
-          $sourceExe = "${{ env.EXE_PATH }}"
-
-          Write-Host "Building installer with Inno Setup (v$ver)..."
-          & "${{ env.ISCC_PATH }}" `
-            "/DMyAppVersion=$ver" `
-            "/DSourceExePath=$sourceExe" `
-            "/DOutputDirPath=$buildDir" `
-            "installer.iss"
-
-          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed with code $LASTEXITCODE" }
-
-          $setupExe = Join-Path $buildDir "CopilotButton-Setup.exe"
-          if (-not (Test-Path $setupExe)) { throw "CopilotButton-Setup.exe was not created" }
-
-          $sizeMB = [math]::Round((Get-Item $setupExe).Length / 1MB, 2)
-          Write-Host "Installer created: CopilotButton-Setup.exe ($sizeMB MB)"
-          echo "SETUP_PATH=$setupExe" >> $env:GITHUB_ENV
-
-      # ── Generate SHA-256 Checksum ─────────────────────────
-      - name: Generate SHA-256 Checksum
-        shell: pwsh
-        run: |
-          $setupExe = "${{ env.SETUP_PATH }}"
-          $sha256 = (Get-FileHash -Path $setupExe -Algorithm SHA256).Hash.ToLower()
-          $shaFile = "$setupExe.sha256"
-          "$sha256  CopilotButton-Setup.exe" | Set-Content -Path $shaFile -Encoding ascii
-          Write-Host "SHA256: $sha256"
-
       # ── Write PFX Certificate ─────────────────────────────
       - name: Write PFX Certificate
         shell: pwsh
@@ -265,8 +232,8 @@ jobs:
           Write-Host "SignTool: $found"
           echo "SIGNTOOL_PATH=$found" >> $env:GITHUB_ENV
 
-      # ── Sign Binaries (SHA-256 + Sectigo Timestamp) ───────
-      - name: Sign Binaries
+      # ── Sign Application Binary ───────────────────────────
+      - name: Sign Application Binary (CopilotButton.exe)
         shell: pwsh
         env:
           WINDOWS_PFX_PASSWORD: ${{ secrets.WINDOWS_PFX_PASSWORD }}
@@ -275,11 +242,8 @@ jobs:
           $pfxPassword = if ($env:WINDOWS_PFX_PASSWORD) { $env:WINDOWS_PFX_PASSWORD.Trim() } else { "" }
           if (-not $pfxPassword) { throw "WINDOWS_PFX_PASSWORD secret is missing or empty." }
 
-          $signtool    = "${{ env.SIGNTOOL_PATH }}"
-          $filesToSign = @(
-            "${{ env.EXE_PATH }}",
-            "${{ env.SETUP_PATH }}"
-          )
+          $signtool = "${{ env.SIGNTOOL_PATH }}"
+          $file     = "${{ env.EXE_PATH }}"
 
           # Import certificate to Root store so signtool verify can validate the chain
           try {
@@ -297,35 +261,103 @@ jobs:
             "http://timestamp.globalsign.com/tsa/r6advanced1"
           )
 
-          foreach ($f in $filesToSign) {
-            $fileName = Split-Path $f -Leaf
-            Write-Host "Signing $fileName..."
+          $fileName = Split-Path $file -Leaf
+          Write-Host "Signing $fileName before packaging into installer..."
 
-            $signed = $false
-            foreach ($ts in $timestampServers) {
-              Write-Host "  Trying timestamp server: $ts"
-              & $signtool sign /fd SHA256 /tr $ts /td SHA256 /f $pfxPath /p $pfxPassword $f 2>&1
-              if ($LASTEXITCODE -eq 0) {
-                Write-Host "  Successfully signed $fileName with $ts"
-                $signed = $true
-                break
-              }
-              Write-Host "  Timestamp server failed, trying next..."
-            }
-
-            if (-not $signed) {
-              throw "Failed to sign $fileName on all timestamp servers."
-            }
-
-            # Verify signature
-            & $signtool verify /pa /v $f 2>&1
+          $signed = $false
+          foreach ($ts in $timestampServers) {
+            Write-Host "  Trying timestamp server: $ts"
+            & $signtool sign /fd SHA256 /tr $ts /td SHA256 /f $pfxPath /p $pfxPassword $file 2>&1
             if ($LASTEXITCODE -eq 0) {
-              Write-Host "  Verified: $fileName"
-            } else {
-              Write-Warning "  $fileName is signed, root chain returned non-zero (expected for self-signed certificates)."
+              Write-Host "  Successfully signed $fileName with $ts"
+              $signed = $true
+              break
             }
+            Write-Host "  Timestamp server failed, trying next..."
           }
-          Write-Host "Code signing complete for all binaries."
+
+          if (-not $signed) {
+            throw "Failed to sign $fileName on all timestamp servers."
+          }
+
+          # Verify signature
+          & $signtool verify /pa /v $file 2>&1
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "  Verified: $fileName"
+          } else {
+            Write-Warning "  $fileName is signed, root chain returned non-zero (expected for self-signed certificates)."
+          }
+
+      # ── Build installer with Inno Setup ───────────────────
+      - name: Build installer (Inno Setup)
+        shell: pwsh
+        run: |
+          $ver       = "${{ steps.version.outputs.version }}"
+          $buildDir  = "${{ github.workspace }}\build"
+          $sourceExe = "${{ env.EXE_PATH }}"
+
+          Write-Host "Building installer with Inno Setup (v$ver)..."
+          & "${{ env.ISCC_PATH }}" `
+            "/DMyAppVersion=$ver" `
+            "/DSourceExePath=$sourceExe" `
+            "/DOutputDirPath=$buildDir" `
+            "installer.iss"
+
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed with code $LASTEXITCODE" }
+
+          $setupExe = Join-Path $buildDir "CopilotButton-Setup.exe"
+          if (-not (Test-Path $setupExe)) { throw "CopilotButton-Setup.exe was not created" }
+
+          $sizeMB = [math]::Round((Get-Item $setupExe).Length / 1MB, 2)
+          Write-Host "Installer created: CopilotButton-Setup.exe ($sizeMB MB)"
+          echo "SETUP_PATH=$setupExe" >> $env:GITHUB_ENV
+
+      # ── Sign Installer ────────────────────────────────────
+      - name: Sign Installer (CopilotButton-Setup.exe)
+        shell: pwsh
+        env:
+          WINDOWS_PFX_PASSWORD: ${{ secrets.WINDOWS_PFX_PASSWORD }}
+        run: |
+          $pfxPath     = "${{ github.workspace }}\signing.pfx"
+          $pfxPassword = if ($env:WINDOWS_PFX_PASSWORD) { $env:WINDOWS_PFX_PASSWORD.Trim() } else { "" }
+          if (-not $pfxPassword) { throw "WINDOWS_PFX_PASSWORD secret is missing or empty." }
+
+          $signtool = "${{ env.SIGNTOOL_PATH }}"
+          $file     = "${{ env.SETUP_PATH }}"
+
+          $timestampServers = @(
+            "http://timestamp.sectigo.com",
+            "http://timestamp.digicert.com",
+            "http://tsa.starfieldtech.com",
+            "http://timestamp.globalsign.com/tsa/r6advanced1"
+          )
+
+          $fileName = Split-Path $file -Leaf
+          Write-Host "Signing $fileName..."
+
+          $signed = $false
+          foreach ($ts in $timestampServers) {
+            Write-Host "  Trying timestamp server: $ts"
+            & $signtool sign /fd SHA256 /tr $ts /td SHA256 /f $pfxPath /p $pfxPassword $file 2>&1
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "  Successfully signed $fileName with $ts"
+              $signed = $true
+              break
+            }
+            Write-Host "  Timestamp server failed, trying next..."
+          }
+
+          if (-not $signed) {
+            throw "Failed to sign $fileName on all timestamp servers."
+          }
+
+          # Verify signature
+          & $signtool verify /pa /v $file 2>&1
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "  Verified: $fileName"
+          } else {
+            Write-Warning "  $fileName is signed, root chain returned non-zero (expected for self-signed certificates)."
+          }
 
       # ── Clean up PFX certificate ──────────────────────────
       - name: Remove PFX
@@ -333,13 +365,22 @@ jobs:
         shell: pwsh
         run: Remove-Item -Path "${{ github.workspace }}\signing.pfx" -Force -ErrorAction SilentlyContinue
 
+      # ── Generate SHA-256 Checksum ─────────────────────────
+      - name: Generate SHA-256 Checksum
+        shell: pwsh
+        run: |
+          $setupExe = "${{ env.SETUP_PATH }}"
+          $sha256 = (Get-FileHash -Path $setupExe -Algorithm SHA256).Hash.ToLower()
+          $shaFile = "$setupExe.sha256"
+          "$sha256  CopilotButton-Setup.exe" | Set-Content -Path $shaFile -Encoding ascii
+          Write-Host "SHA256: $sha256"
+
       # ── Upload Artifacts ──────────────────────────────────
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: copilot-button-v${{ steps.version.outputs.version }}
           path: |
-            build/CopilotButton.exe
             build/CopilotButton-Setup.exe
             build/CopilotButton-Setup.exe.sha256
           retention-days: 30
@@ -358,7 +399,6 @@ jobs:
           files: |
             build/CopilotButton-Setup.exe
             build/CopilotButton-Setup.exe.sha256
-            build/CopilotButton.exe
           draft: false
           prerelease: false
           generate_release_notes: ${{ hashFiles(format('.github/releases/RELEASE_{0}.md', steps.version.outputs.version)) == '' }}
