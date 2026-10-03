@@ -32,7 +32,7 @@ CheckForUpdates(silent := true) {
         ; DNS çözme, bağlantı kurma, gönderme ve yanıt alma zaman aşımları (ms)
         whr.SetTimeouts(5000, 5000, 10000, 10000)
         ; TLS 1.2 & TLS 1.3 desteği (0x0800 + 0x2000 = 0x2800)
-        try whr.Option(9) := 0x2800
+        try whr.Option[9] := 0x2800
 
         whr.Open("GET", "https://api.github.com/repos/KeremKuyucu/copilot-button/releases/latest", true)
         whr.SetRequestHeader("User-Agent", "CopilotButton-AutoUpdater")

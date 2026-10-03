@@ -62,29 +62,7 @@ jobs:
           echo "version=$ver" >> $env:GITHUB_OUTPUT
           Write-Host "Copilot Button version: $ver"
 
-      # ── Set up Python ─────────────────────────────────────
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
 
-      # ── Generate release notes via Gemini API if missing ───
-      - name: Generate release notes (Gemini API)
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        shell: pwsh
-        run: |
-          $ver = "${{ steps.version.outputs.version }}"
-          $notesFile = ".github\releases\RELEASE_$ver.md"
-
-          if (Test-Path $notesFile) {
-            Write-Host "Release notes already present: $notesFile"
-          } elseif ($env:GEMINI_API_KEY) {
-            Write-Host "Release notes missing. Generating via Gemini API for v$ver..."
-            python scripts/generate_release_notes.py --engine gemini --version $ver
-          } else {
-            Write-Warning "GEMINI_API_KEY not configured and release notes not present."
-          }
 
       # ── Install Inno Setup & AutoHotkey ───────────────────
       - name: Install Inno Setup, AutoHotkey & Ahk2Exe
@@ -147,6 +125,7 @@ jobs:
           $ahk2exeCandidates = @(
             "C:\Program Files\AutoHotkey\Compiler\Ahk2Exe.exe",
             "C:\Program Files (x86)\AutoHotkey\Compiler\Ahk2Exe.exe",
+            "C:\ProgramData\chocolatey\bin\Ahk2Exe.exe",
             "C:\Program Files\AutoHotkey\v2\Ahk2Exe.exe",
             "C:\Program Files\AutoHotkey\UX\Ahk2Exe.exe",
             "C:\Program Files\AutoHotkey\Ahk2Exe.exe"
@@ -213,35 +192,63 @@ jobs:
           $outputExe  = Join-Path $buildDir "CopilotButton.exe"
           $ahk2exe    = "${{ env.AHK2EXE_PATH }}"
           $ahkBase    = "${{ env.AHK_BASE_PATH }}"
-          $icon       = "assets\logo.ico"
+          $inScript   = Join-Path "${{ github.workspace }}" "copilot-buton.ahk"
+          $icon       = Join-Path "${{ github.workspace }}" "assets\logo.ico"
 
           # Build argument list for Ahk2Exe
-          $args = "/in `"copilot-buton.ahk`" /out `"$outputExe`" /base `"$ahkBase`" /compress 0"
+          $argList = @("/in", "`"$inScript`"", "/out", "`"$outputExe`"", "/base", "`"$ahkBase`"")
           if (Test-Path $icon) {
-            $args += " /icon `"$icon`""
+            $argList += @("/icon", "`"$icon`"")
           }
+          $argList += "/silent"
+          $argString = $argList -join " "
 
           Write-Host "Compiling AutoHotkey script..."
-          Write-Host "  Ahk2Exe: $ahk2exe"
-          Write-Host "  Args:    $args"
+          Write-Host "  Ahk2Exe:   $ahk2exe"
+          Write-Host "  Input:     $inScript"
+          Write-Host "  Output:    $outputExe"
+          Write-Host "  Base:      $ahkBase"
+          Write-Host "  Arguments: $argString"
 
-          # Ahk2Exe is a GUI app — use Start-Process -Wait to block until it finishes
-          $logFile = Join-Path $buildDir "ahk2exe_output.txt"
-          $proc = Start-Process `
-            -FilePath $ahk2exe `
-            -ArgumentList $args `
-            -Wait `
-            -NoNewWindow `
-            -PassThru `
-            -RedirectStandardOutput $logFile `
-            -RedirectStandardError  ($logFile + ".err")
+          # Run Ahk2Exe with safety timeout to prevent CI hanging
+          $psi = New-Object System.Diagnostics.ProcessStartInfo
+          $psi.FileName = $ahk2exe
+          $psi.Arguments = $argString
+          $psi.WorkingDirectory = "${{ github.workspace }}"
+          $psi.UseShellExecute = $false
+          $psi.RedirectStandardOutput = $true
+          $psi.RedirectStandardError = $true
+          $psi.CreateNoWindow = $true
 
-          # Print captured output for diagnostics
-          if (Test-Path $logFile)        { Get-Content $logFile        | ForEach-Object { Write-Host "  [stdout] $_" } }
-          if (Test-Path "$logFile.err")  { Get-Content "$logFile.err"  | ForEach-Object { Write-Host "  [stderr] $_" } }
+          $proc = New-Object System.Diagnostics.Process
+          $proc.StartInfo = $psi
+
+          $stdOut = New-Object System.Text.StringBuilder
+          $stdErr = New-Object System.Text.StringBuilder
+
+          $proc.add_OutputDataReceived({ if ($EventArgs.Data) { [void]$stdOut.AppendLine($EventArgs.Data) } })
+          $proc.add_ErrorDataReceived({ if ($EventArgs.Data) { [void]$stdErr.AppendLine($EventArgs.Data) } })
+
+          [void]$proc.Start()
+          $proc.BeginOutputReadLine()
+          $proc.BeginErrorReadLine()
+
+          $timeoutMs = 60000
+          $finished = $proc.WaitForExit($timeoutMs)
+
+          if (-not $finished) {
+            try { $proc.Kill() } catch {}
+            throw "Ahk2Exe compilation timed out after $($timeoutMs / 1000)s."
+          }
+
+          $proc.WaitForExit()
+
+          $outText = $stdOut.ToString().Trim()
+          $errText = $stdErr.ToString().Trim()
+          if ($outText) { Write-Host "  [stdout] $outText" }
+          if ($errText) { Write-Host "  [stderr] $errText" }
           Write-Host "  Ahk2Exe exit code: $($proc.ExitCode)"
 
-          # Verify the output was produced
           if (-not (Test-Path $outputExe)) {
             throw "Compilation failed: CopilotButton.exe was not created (exit code: $($proc.ExitCode))"
           }
@@ -445,13 +452,11 @@ jobs:
         with:
           tag_name: v${{ steps.version.outputs.version }}
           name: Copilot Button v${{ steps.version.outputs.version }}
-          body_path: ${{ hashFiles(format('.github/releases/RELEASE_{0}.md', steps.version.outputs.version)) != '' && format('.github/releases/RELEASE_{0}.md', steps.version.outputs.version) || '' }}
-          body: ${{ hashFiles(format('.github/releases/RELEASE_{0}.md', steps.version.outputs.version)) == '' && format('Copilot Button v{0} – automated release.', steps.version.outputs.version) || '' }}
           files: |
             build/CopilotButton-Setup.exe
             build/CopilotButton-Setup.exe.sha256
           draft: false
           prerelease: false
-          generate_release_notes: ${{ hashFiles(format('.github/releases/RELEASE_{0}.md', steps.version.outputs.version)) == '' }}
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
