@@ -165,35 +165,41 @@ jobs:
           $buildDir = "${{ github.workspace }}\build"
           New-Item -ItemType Directory -Path $buildDir -Force | Out-Null
 
-          $outputExe = Join-Path $buildDir "CopilotButton.exe"
-          $icon = "assets\logo.ico"
+          $outputExe  = Join-Path $buildDir "CopilotButton.exe"
+          $ahk2exe    = "${{ env.AHK2EXE_PATH }}"
+          $ahkBase    = "${{ env.AHK_BASE_PATH }}"
+          $icon       = "assets\logo.ico"
 
-          $argsList = @(
-            "/in", "copilot-buton.ahk",
-            "/out", $outputExe,
-            "/base", "${{ env.AHK_BASE_PATH }}",
-            "/compress", "0"
-          )
+          # Build argument list for Ahk2Exe
+          $args = "/in `"copilot-buton.ahk`" /out `"$outputExe`" /base `"$ahkBase`" /compress 0"
           if (Test-Path $icon) {
-            $argsList += @("/icon", $icon)
+            $args += " /icon `"$icon`""
           }
 
           Write-Host "Compiling AutoHotkey script..."
-          & "${{ env.AHK2EXE_PATH }}" $argsList
+          Write-Host "  Ahk2Exe: $ahk2exe"
+          Write-Host "  Args:    $args"
 
-          # Wait for compilation to complete (up to 20 seconds)
-          $timeoutSec = 20
-          $elapsed = 0
-          while (-not (Test-Path $outputExe) -and $elapsed -lt $timeoutSec) {
-            Start-Sleep -Milliseconds 500
-            $elapsed += 0.5
-          }
+          # Ahk2Exe is a GUI app — use Start-Process -Wait to block until it finishes
+          $logFile = Join-Path $buildDir "ahk2exe_output.txt"
+          $proc = Start-Process `
+            -FilePath $ahk2exe `
+            -ArgumentList $args `
+            -Wait `
+            -NoNewWindow `
+            -PassThru `
+            -RedirectStandardOutput $logFile `
+            -RedirectStandardError  ($logFile + ".err")
 
+          # Print captured output for diagnostics
+          if (Test-Path $logFile)        { Get-Content $logFile        | ForEach-Object { Write-Host "  [stdout] $_" } }
+          if (Test-Path "$logFile.err")  { Get-Content "$logFile.err"  | ForEach-Object { Write-Host "  [stderr] $_" } }
+          Write-Host "  Ahk2Exe exit code: $($proc.ExitCode)"
+
+          # Verify the output was produced
           if (-not (Test-Path $outputExe)) {
-            throw "Compilation failed: CopilotButton.exe was not created within $timeoutSec seconds"
+            throw "Compilation failed: CopilotButton.exe was not created (exit code: $($proc.ExitCode))"
           }
-
-          Start-Sleep -Milliseconds 500
 
           $sizeMB = [math]::Round((Get-Item $outputExe).Length / 1MB, 2)
           Write-Host "Compiled successfully: CopilotButton.exe ($sizeMB MB)"
