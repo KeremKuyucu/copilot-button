@@ -62,7 +62,29 @@ jobs:
           echo "version=$ver" >> $env:GITHUB_OUTPUT
           Write-Host "Copilot Button version: $ver"
 
+      # ── Set up Python ─────────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
+      # ── Generate release notes via Gemini API if missing ───
+      - name: Generate release notes (Gemini API)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.version.outputs.version }}"
+          $notesFile = ".github\releases\RELEASE_$ver.md"
+
+          if (Test-Path $notesFile) {
+            Write-Host "Release notes already present: $notesFile"
+          } elseif ($env:GEMINI_API_KEY) {
+            Write-Host "Release notes missing. Generating via Gemini API for v$ver..."
+            python scripts/generate_release_notes.py --engine gemini --version $ver
+          } else {
+            Write-Warning "GEMINI_API_KEY not configured and release notes not present."
+          }
 
       # ── Install Inno Setup & AutoHotkey ───────────────────
       - name: Install Inno Setup, AutoHotkey & Ahk2Exe
@@ -434,11 +456,12 @@ jobs:
         with:
           tag_name: v${{ steps.version.outputs.version }}
           name: Copilot Button v${{ steps.version.outputs.version }}
+          body_path: ${{ hashFiles(format('.github/releases/RELEASE_{0}.md', steps.version.outputs.version)) != '' && format('.github/releases/RELEASE_{0}.md', steps.version.outputs.version) || '' }}
           files: |
             build/CopilotButton-Setup.exe
             build/CopilotButton-Setup.exe.sha256
           draft: false
           prerelease: false
-          generate_release_notes: true
+          generate_release_notes: ${{ hashFiles(format('.github/releases/RELEASE_{0}.md', steps.version.outputs.version)) == '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
