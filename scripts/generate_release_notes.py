@@ -82,10 +82,9 @@ def find_gemini_api_key(explicit_key: str = None) -> str:
     if os.environ.get("GEMINI_API_KEY"):
         return os.environ["GEMINI_API_KEY"].strip()
 
-    # Check local key files if any
-    key_file = Path("C:/Users/kerem/Projects/imza-bilgileri/gemini.key")
-    if key_file.exists():
-        key = key_file.read_text(encoding="utf-8").strip()
+    home_key = Path.home() / ".gemini" / "api.key"
+    if home_key.exists():
+        key = home_key.read_text(encoding="utf-8").strip()
         if key:
             return key
 
@@ -199,8 +198,7 @@ def main():
     if engine == "gemini":
         if not api_key:
             print("[!] Error: Gemini engine selected but no GEMINI_API_KEY found.")
-            print("    Provide it via --api-key, GEMINI_API_KEY environment variable,")
-            print("    or save it to C:/Users/kerem/Projects/imza-bilgileri/gemini.key")
+            print("    Provide it via --api-key or set the GEMINI_API_KEY environment variable.")
             sys.exit(1)
         release_notes = generate_with_gemini(api_key, version, last_tag, commit_log)
     elif engine == "agy":
