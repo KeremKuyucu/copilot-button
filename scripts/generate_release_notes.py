@@ -39,15 +39,43 @@ def get_current_version() -> str:
 
 def get_git_context() -> tuple[str, str]:
     """Returns (last_tag, commit_log)"""
+    last_tag = ""
     try:
-        last_tag = subprocess.check_output(
-            ["git", "describe", "--tags", "--abbrev=0"],
+        head_tags = subprocess.check_output(
+            ["git", "tag", "--points-at", "HEAD"],
             cwd=PROJECT_ROOT,
             stderr=subprocess.DEVNULL,
             text=True
-        ).strip()
+        ).strip().splitlines()
+
+        if head_tags:
+            last_tag = subprocess.check_output(
+                ["git", "describe", "--tags", "--abbrev=0", "HEAD~1"],
+                cwd=PROJECT_ROOT,
+                stderr=subprocess.DEVNULL,
+                text=True
+            ).strip()
+        else:
+            last_tag = subprocess.check_output(
+                ["git", "describe", "--tags", "--abbrev=0"],
+                cwd=PROJECT_ROOT,
+                stderr=subprocess.DEVNULL,
+                text=True
+            ).strip()
     except Exception:
-        last_tag = ""
+        try:
+            tags = subprocess.check_output(
+                ["git", "tag", "--sort=-v:refname"],
+                cwd=PROJECT_ROOT,
+                stderr=subprocess.DEVNULL,
+                text=True
+            ).strip().splitlines()
+            if len(tags) > 1:
+                last_tag = tags[1]
+            elif len(tags) == 1:
+                last_tag = tags[0]
+        except Exception:
+            last_tag = ""
 
     if last_tag:
         rev_range = f"{last_tag}..HEAD"

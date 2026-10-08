@@ -18,6 +18,11 @@ config*.ini
 *.pfx
 *.key
 
-# Root-level release notes drafts (moved to .github/releases/)
+# Release notes drafts & artifacts
+RELEASE_*.md
 /RELEASE_*.md
-!/.github/releases/
+.github/releases/
+
+# Python
+__pycache__/
+*.pyc
