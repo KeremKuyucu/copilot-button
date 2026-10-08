@@ -218,6 +218,14 @@ CheckHoldTimer() {
     if (holdAction = "CustomApp") {
         if (customAppPath != "") {
             try {
+                exeName := RegExReplace(customAppPath, "^.*\\", "")
+                if (exeName != "" && InStr(exeName, ".exe") && WinExist("ahk_exe " exeName)) {
+                    WinActivate "ahk_exe " exeName
+                    displayName := RegExReplace(exeName, "\.exe$", "")
+                    ShowTip("🚀 " displayName " öne getirildi")
+                    return
+                }
+
                 Run customAppPath
                 ; Dosya adını veya URL'yi OSD'de göster
                 displayName := RegExReplace(customAppPath, "^.*\\", "")  ; Son \\ sonrasını al

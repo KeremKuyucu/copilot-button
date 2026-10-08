@@ -201,7 +201,8 @@ ShowCommandPalette(*) {
         { title: "⏮️  Önceki Şarkı",                    cat: "Medya",         val: "prev",       type: "action", keys: "önceki geri prev track" },
         { title: "🎵  Spotify Aç",                       cat: "Uygulama",      val: "spotify:",   type: "run",    keys: "spotify müzik dinle" },
         { title: "💬  Discord Aç",                       cat: "İletişim",      val: "discord:",   type: "run",    keys: "discord sohbet ses" },
-        { title: "🎮  Steam Aç",                         cat: "Oyun",          val: "steam:",     type: "run",    keys: "steam oyun kütüphane" }
+        { title: "🎮  Steam Aç",                         cat: "Oyun",          val: "steam:",     type: "run",    keys: "steam oyun kütüphane" },
+        { title: "✨  Google Gemini Aç",                 cat: "Yapay Zeka",    val: "gemini",     type: "gemini", keys: "gemini google ai yapay zeka" }
     ]
 
     ; ── LİSTEYİ YENİLE ──
@@ -242,6 +243,11 @@ ShowCommandPalette(*) {
         if (SubStr(qLower, 1, 3) = "ai " && StrLen(q) > 3) {
             qr := SubStr(q, 4)
             cmdPalItems.Push({ title: "🤖  ChatGPT: '" qr "'", cat: "Yapay Zeka", val: "https://chatgpt.com/?q=" . UriEncode(qr), type: "url" })
+            localAppData := EnvGet("LOCALAPPDATA")
+            geminiExe := (localAppData != "") ? localAppData "\Google\Gemini\Gemini.exe" : ""
+            if (geminiExe != "" && FileExist(geminiExe)) {
+                cmdPalItems.Push({ title: "✨  Gemini Uygulaması", cat: "Yapay Zeka", val: "gemini", type: "gemini" })
+            }
             cmdPalItems.Push({ title: "✨  Gemini: '" qr "'",   cat: "Yapay Zeka", val: "https://gemini.google.com",               type: "url" })
             RedrawRows()
             return
@@ -317,6 +323,8 @@ ShowCommandPalette(*) {
             case "copy":
                 A_Clipboard := item.val
                 ShowTip("📋 Panoya kopyalandı: " item.val, 2000)
+            case "gemini":
+                LaunchGeminiApp()
             case "url":
                 try {
                     Run item.val
@@ -462,4 +470,26 @@ GetLocalIP() {
         }
     }
     return ""
+}
+
+LaunchGeminiApp() {
+    if WinExist("ahk_exe Gemini.exe") {
+        WinActivate "ahk_exe Gemini.exe"
+        ShowTip("✨ Gemini öne getirildi")
+        return
+    }
+    localAppData := EnvGet("LOCALAPPDATA")
+    geminiExe := (localAppData != "") ? localAppData "\Google\Gemini\Gemini.exe" : ""
+    geminiLauncher := (localAppData != "") ? localAppData "\Google\Gemini\GeminiAppLauncher.exe" : ""
+    targetPath := (geminiExe != "" && FileExist(geminiExe)) ? geminiExe
+                : (geminiLauncher != "" && FileExist(geminiLauncher)) ? geminiLauncher
+                : (FileExist(A_Programs "\Gemini.lnk") ? A_Programs "\Gemini.lnk" : "https://gemini.google.com")
+    try {
+        Run targetPath
+        ShowTip("✨ Gemini açılıyor...")
+    } catch as err {
+        try Run "https://gemini.google.com"
+        catch
+            ShowTip("⚠️ Gemini açılamadı: " err.Message, 2500)
+    }
 }

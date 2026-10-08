@@ -143,11 +143,17 @@ OpenAppPicker(targetEditCtrl, parentGui := 0) {
     ; ── DATA ──
     allInstalledApps := []
 
+    geminiExe := EnvGet("LOCALAPPDATA") "\Google\Gemini\Gemini.exe"
+    geminiLauncher := EnvGet("LOCALAPPDATA") "\Google\Gemini\GeminiAppLauncher.exe"
+    geminiPath := (FileExist(geminiExe)) ? geminiExe
+        : (FileExist(geminiLauncher)) ? geminiLauncher
+        : (FileExist(A_Programs "\Gemini.lnk") ? (A_Programs "\Gemini.lnk") : "https://gemini.google.com")
+
     presetApps := [
         ; Yapay Zeka
         { name: "ChatGPT", cat: "🤖 Yapay Zeka", path: 'explorer.exe "shell:AppsFolder\OpenAI.Codex_2p2nqsd0c76g0!App"' },
         { name: "Microsoft Copilot", cat: "🤖 Yapay Zeka", path: 'explorer.exe "shell:AppsFolder\Microsoft.Copilot_8wekyb3d8bbwe!App"' },
-        { name: "Gemini", cat: "🤖 Yapay Zeka", path: "https://gemini.google.com" },
+        { name: "Gemini", cat: "🤖 Yapay Zeka", path: geminiPath },
         { name: "Claude", cat: "🤖 Yapay Zeka", path: "https://claude.ai" },
         { name: "Perplexity", cat: "🤖 Yapay Zeka", path: "https://www.perplexity.ai" },
         { name: "DeepSeek", cat: "🤖 Yapay Zeka", path: "https://chat.deepseek.com" },
