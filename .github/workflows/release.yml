@@ -81,7 +81,7 @@ jobs:
             Write-Host "Release notes already present: $notesFile"
           } elseif ($env:GEMINI_API_KEY) {
             Write-Host "Release notes missing. Generating via Gemini API for v$ver..."
-            python scripts/generate_release_notes.py --engine gemini --version $ver
+            python .github/scripts/generate_release_notes.py --engine gemini --version $ver
           } else {
             Write-Warning "GEMINI_API_KEY not configured and release notes not present."
           }
@@ -363,7 +363,7 @@ jobs:
             "/DMyAppVersion=$ver" `
             "/DSourceExePath=$sourceExe" `
             "/DOutputDirPath=$buildDir" `
-            "installer.iss"
+            ".github\installer.iss"
 
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed with code $LASTEXITCODE" }
 

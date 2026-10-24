@@ -7,7 +7,7 @@
 #define FileLine
 #define TempLine
 #define MyAppVersion ""
-#if FileHandle = FileOpen(AddBackslash(SourcePath) + "lib\Globals.ahk")
+#if FileHandle = FileOpen(AddBackslash(SourcePath) + "..\lib\Globals.ahk")
 #for {FileLine = ""; !FileEof(FileHandle); FileLine = FileRead(FileHandle)} \
 Pos("APP_VERSION :=", FileLine) ? (TempLine = Copy(FileLine, Pos('"', FileLine) + 1), MyAppVersion = Copy(TempLine, 1, Pos('"', TempLine) - 1)) : 0
 #expr FileClose(FileHandle)
@@ -21,11 +21,11 @@ Pos("APP_VERSION :=", FileLine) ? (TempLine = Copy(FileLine, Pos('"', FileLine) 
 #define MyAppId "{{B729352A-3A65-4EE3-8E57-1F4F9CE993E1}}"
 
 #ifndef SourceExePath
-#define SourceExePath "C:\Users\Kerem\Projects\Outputs\copilot-button\CopilotButton.exe"
+#define SourceExePath "..\build\CopilotButton.exe"
 #endif
 
 #ifndef OutputDirPath
-#define OutputDirPath "C:\Users\Kerem\Projects\Outputs\copilot-button"
+#define OutputDirPath "..\build"
 #endif
 
 [Setup]
@@ -48,7 +48,7 @@ PrivilegesRequired=lowest
 OutputDir={#OutputDirPath}
 OutputBaseFilename=CopilotButton-Setup
 
-SetupIconFile=assets\logo.ico
+SetupIconFile=..\assets\logo.ico
 UninstallDisplayIcon={app}\assets\logo.ico
 
 Compression=lzma2/max
@@ -67,8 +67,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
 Source: "{#SourceExePath}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "assets\logo.ico"; DestDir: "{app}\assets"; Flags: ignoreversion
-Source: "assets\logo_muted.ico"; DestDir: "{app}\assets"; Flags: ignoreversion
+Source: "..\assets\logo.ico"; DestDir: "{app}\assets"; Flags: ignoreversion
+Source: "..\assets\logo_muted.ico"; DestDir: "{app}\assets"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\assets\logo.ico"
