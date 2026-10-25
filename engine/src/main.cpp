@@ -153,10 +153,10 @@ static std::wstring GetIniPath() {
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
     if (!EnsureSingleInstance()) return 1;
 
-    // ── Uygulamayı Windows'a resmi uygulama olarak tanıt (AUMID + Registry) ──
-    RegisterAppWithWindows();
-
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+
+    // ── Uygulamayı Windows'a resmi uygulama olarak tanıt (AUMID + Kısayol + Registry) ──
+    RegisterAppWithWindows();
 
     // ── Config yükle + hot-reload başlat ──────────────────────────────
     ConfigManager cfgMgr(GetIniPath());

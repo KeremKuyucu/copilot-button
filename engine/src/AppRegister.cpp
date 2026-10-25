@@ -26,44 +26,51 @@ static std::wstring GetCurrentExePath() {
 //  Windows Arama ve Başlat Menüsünün uygulamayı tanımasını sağlar.
 // ─────────────────────────────────────────────
 static void CreateStartMenuShortcut(const std::wstring& exePath) {
+    HRESULT hrInit = CoInitialize(nullptr);
+
     wchar_t programsPath[MAX_PATH] = {};
-    if (FAILED(SHGetFolderPathW(nullptr, CSIDL_PROGRAMS, nullptr, 0, programsPath))) {
-        return;
+    if (SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_PROGRAMS, nullptr, 0, programsPath))) {
+        std::wstring shortcutPath = std::wstring(programsPath) + L"\\Copilot Button.lnk";
+
+        IShellLinkW* pShellLink = nullptr;
+        if (SUCCEEDED(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER,
+                                       IID_IShellLinkW, reinterpret_cast<void**>(&pShellLink)))) {
+            pShellLink->SetPath(exePath.c_str());
+
+            size_t lastSlash = exePath.find_last_of(L"\\/");
+            if (lastSlash != std::wstring::npos) {
+                pShellLink->SetWorkingDirectory(exePath.substr(0, lastSlash).c_str());
+            }
+
+            pShellLink->SetIconLocation(exePath.c_str(), 0);
+            pShellLink->SetDescription(APP_NAME);
+
+            // AppUserModelID ataması (Windows bildirim ve görev çubuğu gruplaması için)
+            IPropertyStore* pPropStore = nullptr;
+            if (SUCCEEDED(pShellLink->QueryInterface(IID_IPropertyStore, reinterpret_cast<void**>(&pPropStore)))) {
+                PROPVARIANT pv;
+                PropVariantInit(&pv);
+                pv.vt = VT_LPWSTR;
+                pv.pwszVal = const_cast<wchar_t*>(APP_ID);
+                pPropStore->SetValue(PKEY_AppUserModel_ID, pv);
+                pPropStore->Commit();
+                pPropStore->Release();
+            }
+
+            IPersistFile* pPersistFile = nullptr;
+            if (SUCCEEDED(pShellLink->QueryInterface(IID_IPersistFile, reinterpret_cast<void**>(&pPersistFile)))) {
+                if (SUCCEEDED(pPersistFile->Save(shortcutPath.c_str(), TRUE))) {
+                    // Windows Explorer ve Başlat Menüsüne değişikliği anında bildir
+                    SHChangeNotify(SHCNE_CREATE, SHCNF_PATHW, shortcutPath.c_str(), nullptr);
+                }
+                pPersistFile->Release();
+            }
+            pShellLink->Release();
+        }
     }
 
-    std::wstring shortcutPath = std::wstring(programsPath) + L"\\Copilot Button.lnk";
-
-    IShellLinkW* pShellLink = nullptr;
-    if (SUCCEEDED(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER,
-                                   IID_IShellLinkW, reinterpret_cast<void**>(&pShellLink)))) {
-        pShellLink->SetPath(exePath.c_str());
-
-        size_t lastSlash = exePath.find_last_of(L"\\/");
-        if (lastSlash != std::wstring::npos) {
-            pShellLink->SetWorkingDirectory(exePath.substr(0, lastSlash).c_str());
-        }
-
-        pShellLink->SetIconLocation(exePath.c_str(), 0);
-        pShellLink->SetDescription(APP_NAME);
-
-        // AppUserModelID ataması (Windows bildirim ve görev çubuğu gruplaması için)
-        IPropertyStore* pPropStore = nullptr;
-        if (SUCCEEDED(pShellLink->QueryInterface(IID_IPropertyStore, reinterpret_cast<void**>(&pPropStore)))) {
-            PROPVARIANT pv;
-            PropVariantInit(&pv);
-            pv.vt = VT_LPWSTR;
-            pv.pwszVal = const_cast<wchar_t*>(APP_ID);
-            pPropStore->SetValue(PKEY_AppUserModel_ID, pv);
-            pPropStore->Commit();
-            pPropStore->Release();
-        }
-
-        IPersistFile* pPersistFile = nullptr;
-        if (SUCCEEDED(pShellLink->QueryInterface(IID_IPersistFile, reinterpret_cast<void**>(&pPersistFile)))) {
-            pPersistFile->Save(shortcutPath.c_str(), TRUE);
-            pPersistFile->Release();
-        }
-        pShellLink->Release();
+    if (SUCCEEDED(hrInit)) {
+        CoUninitialize();
     }
 }
 
