@@ -27,7 +27,9 @@ private:
     std::wstring m_iniPath;
     std::wstring m_htmlDir;
     HWND         m_hWnd       = nullptr;
+    void*        m_env        = nullptr; // ICoreWebView2Environment*
     void*        m_controller = nullptr; // ICoreWebView2Controller*
     void*        m_webView    = nullptr; // ICoreWebView2*
+    UINT32       m_browserPid = 0;
     bool         m_initialized = false;
 };

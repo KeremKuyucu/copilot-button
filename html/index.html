@@ -234,6 +234,29 @@ input:checked + .slider:before {
 .btn-save:active {
   transform: translateY(0);
 }
+.btn-close {
+  background: rgba(239, 68, 68, 0.15);
+  color: #FCA5A5;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 12px;
+  padding: 12px 22px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-close:hover {
+  background: rgba(239, 68, 68, 0.28);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #fff;
+  transform: translateY(-2px);
+}
+.btn-close:active {
+  transform: translateY(0);
+}
 .toast {
   position: fixed;
   bottom: 24px;
@@ -461,7 +484,10 @@ input[type="color"] {
 </div>
 
 <div class="footer">
-  <button type="button" class="btn-save" onclick="saveSettings()">💾 Ayarları Kaydet</button>
+  <div style="display: flex; gap: 12px; align-items: center;">
+    <button type="button" class="btn-save" onclick="saveSettings()">💾 Ayarları Kaydet</button>
+    <button type="button" class="btn-close" onclick="closeWindow()">✕ Kapat</button>
+  </div>
   <span style="font-size: 12px; color: var(--text-muted);">Değişiklikler anında motora uygulanır</span>
 </div>
 
@@ -577,6 +603,18 @@ function saveSettings() {
     window.chrome.webview.postMessage({ type: 'save_config', payload: payload });
   }
 }
+
+function closeWindow() {
+  if (window.chrome && window.chrome.webview) {
+    window.chrome.webview.postMessage({ type: 'close' });
+  }
+}
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeWindow();
+  }
+});
 
 window.onload = () => {
   if (window.chrome && window.chrome.webview) {

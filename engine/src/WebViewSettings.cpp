@@ -133,8 +133,15 @@ bool WebViewSettingsWindow::IsOpen() const {
 }
 
 void WebViewSettingsWindow::Close() {
+    HWND hWndToDestroy = m_hWnd;
+    m_hWnd = nullptr;
+
+    UINT32 browserPid = m_browserPid;
+    m_browserPid = 0;
+
     if (m_controller) {
         auto* ctrl = static_cast<ICoreWebView2Controller*>(m_controller);
+        ctrl->put_IsVisible(FALSE);
         ctrl->Close();
         ctrl->Release();
         m_controller = nullptr;
@@ -144,11 +151,40 @@ void WebViewSettingsWindow::Close() {
         wv->Release();
         m_webView = nullptr;
     }
-    if (m_hWnd && IsWindow(m_hWnd)) {
-        DestroyWindow(m_hWnd);
-        m_hWnd = nullptr;
+    if (m_env) {
+        auto* env = static_cast<ICoreWebView2Environment*>(m_env);
+        env->Release();
+        m_env = nullptr;
+    }
+    if (hWndToDestroy && IsWindow(hWndToDestroy)) {
+        DestroyWindow(hWndToDestroy);
     }
     m_initialized = false;
+
+    // WebView2 tarayıcı alt süreçlerini bekle / temizle
+    if (browserPid != 0) {
+        HANDLE hProc = OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, FALSE, browserPid);
+        if (hProc) {
+            DWORD w = WaitForSingleObject(hProc, 500);
+            if (w == WAIT_TIMEOUT) {
+                // Ana tarayıcı sürecini ve ona bağlı alt süreçleri (GPU/Renderer/Utility) sessizce temizle
+                wchar_t cmdLine[128] = {};
+                wsprintfW(cmdLine, L"taskkill.exe /F /T /PID %u", browserPid);
+                STARTUPINFOW si = { sizeof(si) };
+                si.dwFlags = STARTF_USESHOWWINDOW;
+                si.wShowWindow = SW_HIDE;
+                PROCESS_INFORMATION pi = {};
+                if (CreateProcessW(nullptr, cmdLine, nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
+                    WaitForSingleObject(pi.hProcess, 1000);
+                    CloseHandle(pi.hProcess);
+                    CloseHandle(pi.hThread);
+                } else {
+                    TerminateProcess(hProc, 0);
+                }
+            }
+            CloseHandle(hProc);
+        }
+    }
 }
 
 // ─────────────────────────────────────────────
@@ -164,9 +200,20 @@ LRESULT CALLBACK WebViewSettingsWindow::WndProc(HWND hwnd, UINT msg, WPARAM wPar
             }
             return 0;
 
+        case WM_KEYDOWN:
+            if (wParam == VK_ESCAPE) {
+                if (self) self->Close();
+                return 0;
+            }
+            break;
+
         case WM_CLOSE:
-            // Pencereyi tamamen yok etmek yerine gizle (bir dahaki sefere anında açılır)
-            ShowWindow(hwnd, SW_HIDE);
+            // Pencere kapatıldığında WebView2 denetleyicisini ve tüm tarayıcı süreçlerini tamamen sonlandır
+            if (self) {
+                self->Close();
+            } else {
+                DestroyWindow(hwnd);
+            }
             return 0;
 
         case WM_DESTROY:
@@ -344,6 +391,9 @@ bool WebViewSettingsWindow::Open(const std::wstring& iniPath) {
     // WebView2 Kullanıcı Veri Klasörü (%LOCALAPPDATA%\CopilotButton\WebView2Data)
     std::wstring userDataFolder = appDataRoot + L"\\WebView2Data";
 
+    // Arka planda WebView2 süreçlerinin asılı kalmasını önlemek için parametreleri ayarla
+    SetEnvironmentVariableW(L"WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", L"--no-first-run --disable-background-mode");
+
     // 5. WebView2 Ortamını Oluştur
     HWND hwndTarget = m_hWnd;
     pfnCreate(
@@ -351,9 +401,18 @@ bool WebViewSettingsWindow::Open(const std::wstring& iniPath) {
         MakeCallback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler, HRESULT, ICoreWebView2Environment*>(
             [this, hwndTarget](HRESULT hr, ICoreWebView2Environment* env) -> HRESULT {
                 if (FAILED(hr) || !env) {
-                    MessageBoxW(hwndTarget, L"WebView2 ortamı başlatılamadı!", L"Hata", MB_ICONERROR);
+                    if (m_hWnd == hwndTarget) {
+                        MessageBoxW(hwndTarget, L"WebView2 ortamı başlatılamadı!", L"Hata", MB_ICONERROR);
+                    }
                     return hr;
                 }
+
+                if (m_hWnd != hwndTarget || !m_hWnd) {
+                    return S_OK;
+                }
+
+                env->AddRef();
+                m_env = env;
 
                 // 6. Denetleyiciyi (Controller) Oluştur
                 env->CreateCoreWebView2Controller(
@@ -362,6 +421,11 @@ bool WebViewSettingsWindow::Open(const std::wstring& iniPath) {
                         [this, hwndTarget](HRESULT chr, ICoreWebView2Controller* controller) -> HRESULT {
                             if (FAILED(chr) || !controller) return chr;
 
+                            if (m_hWnd != hwndTarget || !m_hWnd) {
+                                controller->Close();
+                                return S_OK;
+                            }
+
                             controller->AddRef();
                             m_controller = controller;
 
@@ -369,6 +433,7 @@ bool WebViewSettingsWindow::Open(const std::wstring& iniPath) {
                             controller->get_CoreWebView2(&webView);
                             if (!webView) return E_FAIL;
                             m_webView = webView;
+                            webView->get_BrowserProcessId(&m_browserPid);
 
                             // Boyutları pencereye uyarla
                             RECT rc;
@@ -446,6 +511,10 @@ void WebViewSettingsWindow::OnWebMessage(const std::wstring& jsonMsg) {
         HandleBrowseApp();
     } else if (type == "save_config") {
         HandleSaveConfig(utf8);
+    } else if (type == "close") {
+        if (m_hWnd) {
+            PostMessageW(m_hWnd, WM_CLOSE, 0, 0);
+        }
     }
 }
 
