@@ -1,116 +1,140 @@
-# 🚀 Copilot Button Controller (AutoHotkey v2)
+# 🚀 Copilot Button Controller (C++20 Native Engine)
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![AutoHotkey v2](https://img.shields.io/badge/AutoHotkey-v2.0+-green.svg)](https://www.autohotkey.com/)
-[![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-blue)](https://microsoft.com)
-[![Built with AI](https://img.shields.io/badge/Built%20with-AI-8A2BE2.svg)](#)
+[![Language: C++20](https://img.shields.io/badge/Language-C%2B%2B20-00599C.svg)](https://isocpp.org/)
+[![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011%20(x64)-blue)](https://microsoft.com)
+[![Architecture](https://img.shields.io/badge/Architecture-Standalone%20%2F%20Portable-success)](#)
+[![UI: WebView2](https://img.shields.io/badge/UI-WebView2%20%2B%20Win32-purple.svg)](https://developer.microsoft.com/microsoft-edge/webview2/)
 
-Windows 11 klavyelerindeki **Copilot tuşunu (`Win + Shift + F23`)** gelişmiş bir **Mikrofon & Medya Kontrolörüne** dönüştüren güçlü ve özelleştirilebilir bir AutoHotkey v2 aracıdır.
+Windows 11 klavyelerindeki fiziksel **Copilot tuşunu (`Win + Shift + F23`)** gelişmiş, gecikmesiz bir **Mikrofon, Medya ve Kısayol Denetleyicisine** dönüştüren yüksek performanslı, bağımsız (standalone) bir yerel C++20 Win32 motorudur.
 
 ---
 
 ## ✨ Öne Çıkan Özellikler
 
-- 🛡️ **Oyun & Uygulama Koruması (Anti-Modifier Leak Hook):** Donanımsal Copilot tuşunun gönderdiği `Shift` ve `Win` tuşlarını kanca seviyesinde tamamen yakalar ve bastırır. Oyun oynarken veya tam ekran uygulamalarda Copilot tuşuna basıldığında oyunların Shift (koşma/çömelme) veya Windows tuşunu (başlat menüsü) algılayıp takılması kesin olarak engellenir.
-- 🎙️ **1 Tık — Mikrofon Kontrolü:** Sistem mikrofonunu anında açar / susturur. 
-  - Discord tarzı ses efekti çalar.
-  - Ekranda mikrofon durumunu gösteren özel OSD açılır.
-- ⏸️ **2 Tık — Durdur / Oynat + Now Playing:** Şarkıyı oynatır / durdurur ve aktif şarkı adını estetik OSD ile ekranda gösterir (Spotify destekli).
-- ⏭️ **3 Tık — Sonraki Parça:** Sonraki şarkıya geçer ve yeni şarkı adını OSD'de görüntüler.
-- ⏮️ **4 Tık — Önceki Parça / Özel Eylem:** Önceki şarkıya geçer veya atadığınız özel eylemi çalıştırır.
+- ⚡ **Ultra-Hafif C++20 Motoru:** Arka planda yalnızca **~5 MB RAM** tüketir. Harici çalışma zamanı kütüphanesi (runtime) gerektirmez; tamamen saf Win32 ve modern C++20 ile inşa edilmiştir.
+- 🛡️ **Oyun & Uygulama Koruması (Anti-Modifier Leak Hook):** Donanımsal Copilot tuşunun bastığı `Left Shift` ve `Left Windows` tuşlarını alçak seviye klavye kancası (`WH_KEYBOARD_LL`) seviyesinde anında yutar. Oyunlarda Shift tuşunun (koşma/çömelme) takılması veya Windows Başlat menüsünün açılması kesin olarak engellenir.
+- 🎙️ **Windows Core Audio & Gerçek Zamanlı Bildirimler:** Mikrofon susturma/açma işlemleri doğrudan Windows Core Audio API (`IAudioEndpointVolume`) üzerinden milisaniye altı sürede gerçekleşir. Harici mikrofon değişiklikleri `IAudioEndpointVolumeCallback` ile anında masaüstü rozetine ve OSD'ye yansıtılır.
+- ⏸️ **Spotify Entegrasyonu & Parça Takibi:** Spotify masaüstü oynatıcısını izleyerek çalan şarkı ve sanatçı adını yakalar. Parça değişimlerinde ekranda dinamik OSD kartı gösterir.
 - 🗣️ **Basılı Tutma (Hold) Modları:**
-  - **PushToTalk:** Tuşa basılı tuttuğunuz sürece mikrofon açılır, bırakınca otomatik kapanır.
-  - **CustomApp:** Belirlediğiniz herhangi bir `.exe` uygulamasını veya internet bağlantısını (`URL`) açar.
-- 💬 **Gelişmiş OSD Bildirimleri:**
-  - **Konum Seçimi:** Sol Üst, Sağ Üst, Sol Alt, Sağ Alt, Merkez.
-  - **Renk & Font:** Özelleştirilebilir Hex renk kodu ve font boyutu.
-  - **Fade Animasyonu:** Yumuşak beliriş ve kayboluş (Fade-in / Fade-out) animasyonu.
-- 🎨 **Karanlık Tema (Dark Mode) Desteği:** Windows 10/11 uyumlu modern koyu başlık çubuğu ve koyu tema arayüzü (Karanlık, Aydınlık veya Sistem Teması).
-- ⚙️ **Modern Sekmeli Ayarlar Menüsü (GUI):** Tüm zamanlama, eylem atamaları, tema, ses efektleri ve OSD ayarlarını 3 sekmeli kompakt ve modern arayüzden kolayca yönetin.
-- 📁 **Özel Uygulama Seçici (Gözat):** `CustomApp` modu için dosya seçici penceresi ile `.exe` veya script dosyalarını kolayca seçin.
-- 🔊 **Ses Efekti Yönetimi:** Mikrofon susturma/açma ses efektlerini tek tıkla açıp kapatın.
-- 🔄 **Sessiz Otomatik Güncelleme:** Yeni sürümleri GitHub Releases üzerinden otomatik kontrol eder, Inno Setup yükleyicisi ile ayarlarınızı koruyarak arka planda sessizce günceller.
-- 📁 **Inno Setup Kurulum Paketi:** Standart Windows yükleyicisi ile tek tıkla kurulum, Başlat Menüsü ve Başlangıç kısayolları oluşturma, Denetim Masası'ndan temiz kaldırma.
+  - **PushToTalk:** Tuşa basılı tuttuğunuz sürece mikrofon açılır, bıraktığınız an otomatik susturulur.
+  - **CustomApp:** Belirlediğiniz herhangi bir `.exe` uygulamasını veya internet bağlantısını (`URL`) başlatır.
+- 💬 **Gelişmiş Ekran Bildirimleri (OSD):**
+  - **Konumlandırma:** Sol Üst, Sağ Üst, Sol Alt, Sağ Alt, Merkez.
+  - **Kişiselleştirme:** Özel Hex renk kodu, font boyutu ve yumuşak fade animasyonu.
+- ⚙️ **Modern WebView2 Ayarlar Paneli:**
+  - Yerel HTTP soketi veya port açmadan, bellek içi sanal host eşlemesi (`SetVirtualHostNameToFolderMapping`) ile çalışır.
+  - **İsteğe Bağlı (On-Demand) Yaşam Döngüsü:** Ayarlar penceresi kapatıldığında tüm WebView2 denetleyicileri ve Edge alt süreçleri bellekten tamamen silinir.
+- 📦 **Tek Dosya (Standalone) & Gömülü Kaynaklar:**
+  - HTML arayüzü, `WebView2Loader.dll`, uygulama ikonu ve manifest dosyası doğrudan `.exe` içine gömülüdür (`RCDATA`).
+  - Kurulum sihirbazına gerek duymadan indirip doğrudan taşınabilir olarak çalıştırabilirsiniz.
+- 🚀 **Akıllı Windows Tanıtımı & İki Katmanlı AutoStart:**
+  - `Win + R` veya terminalden `CopilotButton` yazılarak anında çalıştırılabilir (`App Paths`).
+  - Başlat Menüsüne (`%APPDATA%\...\Start Menu\Programs\Copilot Button.lnk`) otomatik indekslenir.
+  - Yönetici yetkili arka plan motoru için hem Windows Kayıt Defteri (`Run`) hem de Görev Zamanlayıcısı (`schtasks /rl highest`) entegrasyonuyla bilgisayar açılışında UAC uyarısı vermeden otomatik başlar.
 
 ---
 
-## 🛠️ Kurulum ve Kullanım
-
-### 🚀 Hızlı Başlangıç (Kurulum Paketi — Önerilen)
-1. GitHub [Releases](https://github.com/KeremKuyucu/copilot-button/releases) sayfasından en son `CopilotButton-Setup.exe` dosyasını indirin.
-2. Kurulum sihirbazını çalıştırıp tamamlayın.
-3. Uygulama otomatik olarak başlayacak ve sistem tepsinizde (sağ alt) aktifleşecektir.
-
-### 📜 Kaynak Kodu ile Çalıştırma (.ahk)
-1. Bilgisayarınızda [AutoHotkey v2](https://www.autohotkey.com/) yüklü olduğundan emin olun.
-2. Repoyu klonlayın veya zip olarak indirin.
-3. `copilot-buton.ahk` dosyasına çift tıklayarak çalıştırın.
-
----
-
-## ⚙️ Tıklama Eylem Seçenekleri
+## 🎯 Tıklama Eylem Seçenekleri
 
 | Eylem Adı | Açıklama |
 |---|---|
-| `MicMute` | Mikrofonu Sustur / Aç *(Varsayılan 1 Tık)* |
-| `PlayPause` | Şarkıyı Durdur / Oynat *(Varsayılan 2 Tık)* |
+| `MicMute` | Sistem Mikrofonunu Sustur / Aç *(Varsayılan 1 Tık)* |
+| `PlayPause` | Medyayı Oynat / Duraklat *(Varsayılan 2 Tık)* |
 | `NextTrack` | Sonraki Şarkı *(Varsayılan 3 Tık)* |
 | `PrevTrack` | Önceki Şarkı |
-| `MasterMute` | Sistem Genel Sesini Kapat / Aç |
+| `MasterMute` | Sistem Genel Sesini Aç / Kapat |
 | `ToggleDeafen` | Hem Sistem Sesini Hem Mikrofonu Aynı Anda Sustur / Aç |
 | `LockScreen` | Bilgisayarı Kilitle |
+| `PushToTalk` | Bas-Konuş Modu *(Varsayılan Basılı Tutma)* |
+| `CustomApp` | Özel Uygulama veya URL Başlatıcı |
 | `None` | Eylem Yok *(Varsayılan 4 Tık)* |
 
-*Tüm bu eylemler Ayarlar menüsünden (`⚙️ Ayarlar`) veya `config.ini` dosyasından 1, 2, 3 ve 4 tık için ayrı ayrı atanabilir.*
+*Tüm bu eylemler Sistem Tepsisindeki `⚙️ Ayarlar` menüsünden veya `config.ini` dosyasından 1, 2, 3, 4 tık ve basılı tutma için kolayca yapılandırılabilir.*
+
+---
+
+## 🚀 İndirme ve Kullanım
+
+### Hızlı Başlangıç
+1. [Releases](https://github.com/KeremKuyucu/copilot-button/releases) sayfasından en son `CopilotButton.exe` veya taşınabilir `.zip` paketini indirin.
+2. `CopilotButton.exe` dosyasını çalıştırın.
+3. Uygulama sistem tepsisinde (sağ alt) aktifleşir.
+4. Ayarları değiştirmek için tepsi simgesine sağ tıklayıp **⚙️ Ayarlar** seçeneğini seçin.
+
+---
+
+## 🛠️ Kaynak Koddan Derleme (Build)
+
+Projeyi yerel olarak MinGW-w64 ile derlemek için:
+
+```cmd
+git clone https://github.com/KeremKuyucu/copilot-button.git
+cd copilot-button\engine
+build_mingw.bat
+```
+
+Derleme tamamlandığında ana dizinde tek parça, bağımsız `CopilotButton.exe` oluşturulacaktır.
 
 ---
 
 ## 📄 Yapılandırma (`config.ini`)
 
-Uygulama ilk çalıştırıldığında aşağıdaki `config.ini` dosyasını otomatik oluşturur:
+Uygulama ilk kez çalıştırıldığında kendi dizininde otomatik olarak aşağıdaki `config.ini` dosyasını oluşturur:
 
 ```ini
 [Settings]
 
+; ── Donanım ve Tıklama Eylemleri ──
 ; Tıklama için maksimum bekleme süresi (milisaniye)
 DoubleTapMs=250
 
 ; Basılı tutma için minimum süre (milisaniye)
 HoldMs=250
 
-; Müzik Uygulaması: Yalnızca Spotify desteklenmektedir
-MusicApp=Spotify
+; 1 Tık Eylemi (MicMute, PlayPause, NextTrack, PrevTrack, MasterMute, ToggleDeafen, LockScreen, None)
+Action1=MicMute
 
+; 2 Tık Eylemi
+Action2=PlayPause
+
+; 3 Tık Eylemi
+Action3=NextTrack
+
+; 4 Tık Eylemi
+Action4=None
+
+; Basılı Tutma Eylemi (PushToTalk: bas-konuş, CustomApp: özel uygulama/URL)
+HoldAction=PushToTalk
+
+; CustomApp seçildiğinde açılacak uygulama yolu veya URL
+CustomAppPath=
+
+; ── Sistem ve Başlangıç ──
 ; Windows başlangıcında otomatik çalıştır (1 = Açık, 0 = Kapalı)
 AutoStart=1
 
-; Spotify Ayarları
-SpotifyCmd=spotify:
-SpotifyWindowTitle=ahk_exe spotify.exe
+; Ses Efektleri (Mikrofon susturulduğunda/açıldığında Windows sesini çal)
+SoundFxEnabled=1
+
+; ── Spotify ve OSD Ayarları ──
+; Spotify Şarkı Değişiminde OSD Göster (1 = Açık, 0 = Kapalı)
 SpotifyTrackOsd=1
 
-; ── OSD & Görünüm Ayarları ──
-Theme=Dark
+; OSD Konumu: TopLeft, TopRight, BottomLeft, BottomRight, Center
 OsdPosition=TopLeft
+
+; OSD Metin Rengi (hex, # olmadan)
 OsdColor=00E5FF
+
+; OSD Font Boyutu (varsayılan: 10)
 OsdFontSize=10
+
+; OSD Gösterim Süresi (milisaniye, varsayılan: 1500)
 OsdDurationMs=1500
+
+; OSD Fade Animasyonu (1 = Açık, 0 = Kapalı)
 OsdFadeEnabled=1
-
-; ── Basılı Tutma Eylemi ──
-; Options: PushToTalk, CustomApp
-HoldAction=PushToTalk
-CustomAppPath=
-
-; ── Tık Eylem Atamaları ──
-; Options: MicMute, PlayPause, NextTrack, PrevTrack, MasterMute, ToggleDeafen, LockScreen, None
-Action1=MicMute
-Action2=PlayPause
-Action3=NextTrack
-Action4=None
-
-; ── Ses Efektleri ──
-SoundFxEnabled=1
 ```
 
 ---
@@ -118,4 +142,3 @@ SoundFxEnabled=1
 ## 📜 Lisans
 
 Bu proje **GNU General Public License v3.0 (GPL-3.0)** altında lisanslanmıştır. Detaylar için [LICENSE](LICENSE) dosyasına göz atabilirsiniz.
-
