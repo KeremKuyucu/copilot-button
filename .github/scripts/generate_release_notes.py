@@ -25,17 +25,32 @@ if sys.platform == "win32":
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 def get_current_version() -> str:
-    globals_file = PROJECT_ROOT / "lib" / "Globals.ahk"
-    if not globals_file.exists():
-        globals_file = PROJECT_ROOT / "copilot-buton.ahk"
-    if not globals_file.exists():
-        raise FileNotFoundError(f"Globals.ahk not found at {globals_file}")
+    # 1. Environment variable
+    if os.environ.get("APP_VERSION"):
+        return os.environ["APP_VERSION"].lstrip("v").strip()
 
-    content = globals_file.read_text(encoding="utf-8", errors="ignore")
-    match = re.search(r'(?:global\s+)?APP_VERSION\s*:=\s*["\']([^"\']+)["\']', content)
-    if not match:
-        raise ValueError("Could not extract APP_VERSION from Globals.ahk")
-    return match.group(1).strip()
+    # 2. engine/app.rc
+    rc_file = PROJECT_ROOT / "engine" / "app.rc"
+    if rc_file.exists():
+        content = rc_file.read_text(encoding="utf-8", errors="ignore")
+        match = re.search(r'VALUE\s+"ProductVersion",\s*"([^"\\\r\n]+)', content)
+        if match:
+            return match.group(1).strip()
+
+    # 3. Git tag fallback
+    try:
+        tag = subprocess.check_output(
+            ["git", "describe", "--tags", "--abbrev=0"],
+            cwd=PROJECT_ROOT,
+            stderr=subprocess.DEVNULL,
+            text=True
+        ).strip().lstrip("v")
+        if tag:
+            return tag
+    except Exception:
+        pass
+
+    return "2.0.0"
 
 def get_git_context() -> tuple[str, str]:
     """Returns (last_tag, commit_log)"""
