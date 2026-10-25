@@ -4,55 +4,140 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Copilot Button Ayarları</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #0A0E17;
-  --surface: rgba(18, 24, 38, 0.85);
-  --surface-border: rgba(255, 255, 255, 0.08);
-  --surface-hover: rgba(30, 41, 59, 0.6);
+  --bg-base: #080B11;
+  --bg-surface: rgba(15, 23, 42, 0.72);
+  --bg-card: rgba(18, 26, 47, 0.65);
+  --bg-card-hover: rgba(30, 41, 69, 0.75);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-hover: rgba(139, 92, 246, 0.35);
+  
   --primary: #8B5CF6;
-  --primary-glow: rgba(139, 92, 246, 0.4);
+  --primary-light: #A78BFA;
+  --primary-glow: rgba(139, 92, 246, 0.35);
   --accent: #06B6D4;
-  --text: #F8FAFC;
+  --accent-glow: rgba(6, 182, 212, 0.3);
+  --spotify: #1DB954;
+  --spotify-glow: rgba(29, 185, 84, 0.35);
+  
+  --text-main: #F8FAFC;
   --text-muted: #94A3B8;
-  --success: #10B981;
+  --text-dim: #64748B;
+  
+  --radius-xl: 18px;
+  --radius-lg: 14px;
+  --radius-md: 10px;
+  --radius-pill: 9999px;
+  
+  --shadow-card: 0 8px 32px -4px rgba(0, 0, 0, 0.45);
+  --shadow-glow: 0 0 25px rgba(139, 92, 246, 0.25);
 }
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
+
 body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-base);
+  color: var(--text-main);
+  font-family: 'Plus Jakarta Sans', 'Segoe UI Variable Text', -apple-system, sans-serif;
   line-height: 1.5;
   padding: 24px;
   user-select: none;
-  background-image: radial-gradient(circle at 10% 10%, rgba(139, 92, 246, 0.12) 0%, transparent 40%),
-                    radial-gradient(circle at 90% 90%, rgba(6, 182, 212, 0.1) 0%, transparent 40%);
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
   overflow-y: auto;
 }
+
+/* Ambient Arka Plan Işıkları (Mesh Gradient) */
+.ambient-glow-1 {
+  position: fixed;
+  top: -120px;
+  left: -120px;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.18) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+  filter: blur(40px);
+}
+.ambient-glow-2 {
+  position: fixed;
+  bottom: -150px;
+  right: -100px;
+  width: 450px;
+  height: 450px;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.14) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+  filter: blur(50px);
+}
+
+.app-wrapper {
+  position: relative;
+  z-index: 1;
+  max-width: 630px;
+  margin: 0 auto;
+}
+
+/* Header */
 .header {
   display: flex;
   align-items: center;
   gap: 16px;
-  margin-bottom: 24px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--surface-border);
+  margin-bottom: 20px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border-subtle);
 }
-.header-icon {
+
+.header-icon-box {
   width: 52px;
   height: 52px;
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   background: linear-gradient(135deg, #8B5CF6, #06B6D4);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26px;
-  box-shadow: 0 8px 24px var(--primary-glow);
+  box-shadow: var(--shadow-glow);
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+.header-icon-box::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%; width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  animation: shine 4s infinite;
+}
+@keyframes shine {
+  0% { left: -100%; }
+  20% { left: 100%; }
+  100% { left: 100%; }
+}
+.header-icon-svg {
+  width: 28px;
+  height: 28px;
+  fill: #FFFFFF;
+}
+
+.header-titles {
+  flex: 1;
+}
+.header-titles-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 2px;
 }
 .header-titles h1 {
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 21px;
+  font-weight: 800;
   letter-spacing: -0.02em;
-  background: linear-gradient(to right, #F8FAFC, #CBD5E1);
+  background: linear-gradient(135deg, #FFFFFF 30%, #CBD5E1 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -60,290 +145,69 @@ body {
   font-size: 13px;
   color: var(--text-muted);
 }
-.card {
-  background: var(--surface);
-  border: 1px solid var(--surface-border);
-  backdrop-filter: blur(16px);
-  border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-}
-.card-title {
-  font-size: 14px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--accent);
-  margin-bottom: 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.grid-2 {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
-}
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-select, input[type="text"] {
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  color: var(--text);
-  padding: 10px 14px;
-  font-size: 13px;
-  outline: none;
-  transition: all 0.2s ease;
-}
-select:focus, input[type="text"]:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--primary-glow);
-}
-.input-group {
-  display: flex;
-  gap: 8px;
-}
-.input-group input { flex: 1; }
-.btn-browse {
-  background: rgba(30, 41, 59, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: var(--text);
-  padding: 10px 16px;
-  border-radius: 10px;
-  font-size: 13px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.2s;
-}
-.btn-browse:hover {
-  background: rgba(51, 65, 85, 0.9);
-  border-color: var(--accent);
-}
-.slider-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.slider-header {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-.slider-val {
-  color: var(--accent);
-  font-family: monospace;
-  font-size: 13px;
-}
-input[type="range"] {
-  accent-color: var(--primary);
-  height: 6px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.1);
-  cursor: pointer;
-}
-.switch-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-.switch-row:last-child { border-bottom: none; }
-.switch-label {
-  display: flex;
-  flex-direction: column;
-}
-.switch-label span:first-child {
-  font-size: 13px;
-  font-weight: 600;
-}
-.switch-label span:last-child {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 44px;
-  height: 24px;
-}
-.switch input { opacity: 0; width: 0; height: 0; }
-.slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background-color: rgba(51, 65, 85, 0.8);
-  transition: .3s;
-  border-radius: 24px;
-}
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 18px;
-  width: 18px;
-  left: 3px;
-  bottom: 3px;
-  background-color: white;
-  transition: .3s;
-  border-radius: 50%;
-}
-input:checked + .slider {
-  background: linear-gradient(135deg, #8B5CF6, #06B6D4);
-}
-input:checked + .slider:before {
-  transform: translateX(20px);
-}
-.footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 24px;
-  padding-bottom: 24px;
-}
-.btn-save {
-  background: linear-gradient(135deg, #8B5CF6, #06B6D4);
-  color: #fff;
-  border: none;
-  border-radius: 12px;
-  padding: 12px 28px;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 4px 18px var(--primary-glow);
-  transition: all 0.25s ease;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.btn-save:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px var(--primary-glow);
-}
-.btn-save:active {
-  transform: translateY(0);
-}
-.btn-close {
-  background: rgba(239, 68, 68, 0.15);
-  color: #FCA5A5;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: 12px;
-  padding: 12px 22px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.25s ease;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.btn-close:hover {
-  background: rgba(239, 68, 68, 0.28);
-  border-color: rgba(239, 68, 68, 0.6);
-  color: #fff;
-  transform: translateY(-2px);
-}
-.btn-close:active {
-  transform: translateY(0);
-}
-.toast {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  background: #10B981;
-  color: white;
-  padding: 12px 20px;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 600;
-  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  opacity: 0;
-  transform: translateY(20px);
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  pointer-events: none;
-}
-.toast.show {
-  opacity: 1;
-  transform: translateY(0);
-}
-.color-picker-wrap {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-input[type="color"] {
-  border: none;
-  width: 38px;
-  height: 38px;
-  border-radius: 8px;
-  cursor: pointer;
-  background: none;
-}
+
+/* Versiyon Rozeti */
 .version-badge {
   background: rgba(139, 92, 246, 0.15);
   border: 1px solid rgba(139, 92, 246, 0.35);
   color: #C4B5FD;
+  font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
   font-weight: 700;
   padding: 3px 9px;
-  border-radius: 12px;
+  border-radius: var(--radius-pill);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
 }
 .version-badge:hover {
   background: rgba(139, 92, 246, 0.3);
   border-color: var(--primary);
-  color: #fff;
-  transform: scale(1.04);
+  color: #FFFFFF;
+  transform: translateY(-1px);
 }
+.version-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10B981;
+  display: inline-block;
+  box-shadow: 0 0 8px #10B981;
+}
+
+/* Güncelleme Banner */
 .update-card {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(6, 182, 212, 0.2));
-  border: 1px solid rgba(139, 92, 246, 0.45);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(6, 182, 212, 0.15));
+  border: 1px solid rgba(16, 185, 129, 0.4);
   backdrop-filter: blur(16px);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   padding: 14px 18px;
   margin-bottom: 20px;
   display: flex;
   align-items: center;
   gap: 14px;
-  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.25);
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.2);
   animation: pulseCard 3s infinite alternate ease-in-out;
 }
 @keyframes pulseCard {
-  0% { border-color: rgba(139, 92, 246, 0.35); box-shadow: 0 4px 18px rgba(139, 92, 246, 0.2); }
+  0% { border-color: rgba(16, 185, 129, 0.35); box-shadow: 0 4px 18px rgba(16, 185, 129, 0.2); }
   100% { border-color: rgba(6, 182, 212, 0.6); box-shadow: 0 4px 24px rgba(6, 182, 212, 0.25); }
 }
 .update-icon {
   font-size: 24px;
-  background: rgba(139, 92, 246, 0.25);
+  background: rgba(16, 185, 129, 0.2);
   border-radius: 10px;
-  width: 44px;
-  height: 44px;
+  width: 42px;
+  height: 42px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
-.update-content {
-  flex: 1;
-}
+.update-content { flex: 1; }
 .update-header {
   display: flex;
   align-items: center;
@@ -353,36 +217,31 @@ input[type="color"] {
 .update-title {
   font-size: 14px;
   font-weight: 700;
-  color: #F8FAFC;
+  color: #FFFFFF;
 }
 .update-tag {
   background: #10B981;
-  color: #fff;
+  color: #FFFFFF;
   font-size: 11px;
   font-weight: 700;
   padding: 2px 7px;
   border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
 }
 .update-desc {
   font-size: 12px;
   color: var(--text-muted);
 }
-.update-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
 .btn-update {
   background: linear-gradient(135deg, #10B981, #06B6D4);
-  color: #fff;
+  color: #FFFFFF;
   border: none;
-  border-radius: 9px;
-  padding: 8px 15px;
+  border-radius: 8px;
+  padding: 8px 14px;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
   box-shadow: 0 2px 10px rgba(16, 185, 129, 0.3);
   text-decoration: none;
   display: inline-flex;
@@ -391,7 +250,7 @@ input[type="color"] {
 }
 .btn-update:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.45);
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.5);
 }
 .btn-dismiss {
   background: rgba(255, 255, 255, 0.08);
@@ -403,243 +262,828 @@ input[type="color"] {
   border-radius: 8px;
   transition: all 0.2s;
 }
-.btn-dismiss:hover {
-  background: rgba(255, 255, 255, 0.15);
-  color: #fff;
+.btn-dismiss:hover { background: rgba(255, 255, 255, 0.15); color: #FFFFFF; }
+
+/* Sekme Gezintisi (Modern Tabs) */
+.tabs-nav {
+  display: flex;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 5px;
+  gap: 6px;
+  margin-bottom: 22px;
+  backdrop-filter: blur(16px);
+}
+.tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.tab-btn:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.04);
+}
+.tab-btn.active {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(6, 182, 212, 0.2));
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  color: #FFFFFF;
+  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.2);
+}
+.tab-pane {
+  display: none;
+  animation: fadeInPane 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.tab-pane.active {
+  display: block;
+}
+@keyframes fadeInPane {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Kart Mimarisi (Glassmorphism) */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  backdrop-filter: blur(20px);
+  border-radius: var(--radius-xl);
+  padding: 20px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow-card);
+  transition: border-color 0.25s;
+}
+.card:hover {
+  border-color: var(--border-hover);
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.card-title {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-title-icon {
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(139, 92, 246, 0.15);
+  color: var(--primary-light);
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+/* Form Elemanları */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+select, input[type="text"] {
+  background: rgba(10, 15, 29, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  color: var(--text-main);
+  padding: 11px 14px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+select:focus, input[type="text"]:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-glow);
+  background: rgba(15, 23, 42, 0.95);
+}
+select option {
+  background: #0F172A;
+  color: #FFFFFF;
+}
+
+.input-group {
+  display: flex;
+  gap: 8px;
+}
+.input-group input { flex: 1; }
+.btn-browse {
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #FFFFFF;
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn-browse:hover {
+  background: rgba(51, 65, 85, 0.95);
+  border-color: var(--accent);
+}
+
+/* Slider Grupları */
+.slider-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.slider-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.slider-val {
+  color: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  background: rgba(6, 182, 212, 0.12);
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(6, 182, 212, 0.25);
+}
+input[type="range"] {
+  accent-color: var(--primary);
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  width: 100%;
+}
+
+/* Modern Switch Satırları */
+.switch-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.switch-row:last-child { border-bottom: none; }
+.switch-label {
+  display: flex;
+  flex-direction: column;
+  padding-right: 16px;
+}
+.switch-label span:first-child {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+.switch-label span:last-child {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(51, 65, 85, 0.8);
+  transition: .25s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 24px;
+}
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .25s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+input:checked + .slider {
+  background: linear-gradient(135deg, #8B5CF6, #06B6D4);
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.4);
+}
+input:checked + .slider:before {
+  transform: translateX(20px);
+}
+
+/* CANLI OSD ÖNİZLEME (Interactive Live Preview) */
+.osd-preview-card {
+  background: rgba(11, 15, 26, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-lg);
+  padding: 24px 20px;
+  margin-bottom: 20px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: inset 0 2px 10px rgba(0,0,0,0.4);
+}
+.osd-preview-card::before {
+  content: 'CANLI OSD ÖNİZLEME';
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  font-family: 'JetBrains Mono', monospace;
+}
+.osd-pill-mockup {
+  height: 36px;
+  background: #121824;
+  border: 1px solid #1E293B;
+  border-radius: 18px;
+  padding: 0 12px 0 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  margin-top: 8px;
+}
+.osd-mockup-badge {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #1DB954;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.osd-mockup-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #F8FAFC;
+  white-space: nowrap;
+}
+.osd-mockup-sep {
+  font-size: 11px;
+  color: #64748B;
+}
+.osd-mockup-artist {
+  font-size: 12px;
+  font-weight: 600;
+  color: #00E5FF;
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+.osd-mockup-eq {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+.osd-mockup-eq span {
+  width: 2px;
+  background: #1DB954;
+  border-radius: 1px;
+}
+.osd-mockup-eq span:nth-child(1) { height: 8px; }
+.osd-mockup-eq span:nth-child(2) { height: 14px; }
+.osd-mockup-eq span:nth-child(3) { height: 10px; }
+
+/* Renk Seçici ve Hızlı Palet */
+.palette-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+.palette-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.2s;
+  position: relative;
+}
+.palette-swatch:hover {
+  transform: scale(1.18);
+}
+.palette-swatch.active {
+  border-color: #FFFFFF;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
+  transform: scale(1.12);
+}
+.color-picker-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+input[type="color"] {
+  border: none;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  background: none;
+  padding: 0;
+}
+
+/* Footer / Kaydet Butonları */
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 26px;
+  padding-bottom: 24px;
+}
+.btn-save {
+  background: linear-gradient(135deg, #8B5CF6, #06B6D4);
+  color: #FFFFFF;
+  border: none;
+  border-radius: var(--radius-lg);
+  padding: 13px 30px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 20px var(--primary-glow);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-save:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 26px var(--primary-glow);
+}
+.btn-save:active {
+  transform: translateY(0);
+}
+.btn-close {
+  background: rgba(239, 68, 68, 0.12);
+  color: #FCA5A5;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--radius-lg);
+  padding: 13px 22px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-close:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #FFFFFF;
+}
+
+/* Toast Bildirimi */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #10B981;
+  color: #FFFFFF;
+  padding: 12px 20px;
+  border-radius: var(--radius-lg);
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+  z-index: 999;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Küçük Detay İpuçları */
+.info-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
 }
 </style>
 </head>
 <body>
 
-<div class="header">
-  <div class="header-icon">✨</div>
-  <div class="header-titles">
-    <div style="display: flex; align-items: center; gap: 10px;">
-      <h1>Copilot Button Denetleyicisi</h1>
-      <span class="version-badge" id="versionBadge" onclick="checkForUpdates(true)" title="Tıklayarak güncellemeleri kontrol et">v2.0.0</span>
-    </div>
-    <p>Donanım Tuşu, Medya & Mikrofon Yönetimi</p>
-  </div>
-</div>
+<div class="ambient-glow-1"></div>
+<div class="ambient-glow-2"></div>
 
-<!-- GÜNCELLEME BİLDİRİM KARTI -->
-<div id="updateCard" class="update-card" style="display: none;">
-  <div class="update-icon">🚀</div>
-  <div class="update-content">
-    <div class="update-header">
-      <span class="update-title">Yeni Sürüm Mevcut!</span>
-      <span class="update-tag" id="updateTag">v2.1.0</span>
+<div class="app-wrapper">
+  <!-- Üst Başlık Bölümü -->
+  <header class="header">
+    <div class="header-icon-box">
+      <svg class="header-icon-svg" viewBox="0 0 24 24">
+        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+      </svg>
     </div>
-    <p class="update-desc" id="updateDesc">GitHub üzerinde yeni bir sürüm yayınlandı. Güncellemeyi hemen edinebilirsiniz.</p>
-  </div>
-  <div class="update-actions">
-    <button type="button" class="btn-update" onclick="openUpdateUrl()">Güncellemeyi İndir ↗</button>
-    <button type="button" class="btn-dismiss" onclick="dismissUpdate()" title="Bildirimi gizle">✕</button>
-  </div>
-</div>
-
-<!-- TIKLAMA EYLEMLERİ -->
-<div class="card">
-  <div class="card-title">🎯 Tıklama Eylem Atamaları</div>
-  <div class="grid-2">
-    <div class="form-group">
-      <label>1 Tık (Tek Basım)</label>
-      <select id="action1">
-        <option value="MicMute">🎙️ Mikrofon Sustur / Aç</option>
-        <option value="PlayPause">⏯️ Oynat / Duraklat</option>
-        <option value="NextTrack">⏭️ Sonraki Parça</option>
-        <option value="PrevTrack">⏮️ Önceki Parça</option>
-        <option value="MasterMute">🔇 Sistem Sesini Sustur</option>
-        <option value="ToggleDeafen">🔕 Sağırlaştır (Ses & Mic)</option>
-        <option value="LockScreen">🔒 Bilgisayarı Kilitle</option>
-        <option value="None">⚪ Eylem Yok</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>2 Tık (Çift Basım)</label>
-      <select id="action2">
-        <option value="MicMute">🎙️ Mikrofon Sustur / Aç</option>
-        <option value="PlayPause">⏯️ Oynat / Duraklat</option>
-        <option value="NextTrack">⏭️ Sonraki Parça</option>
-        <option value="PrevTrack">⏮️ Önceki Parça</option>
-        <option value="MasterMute">🔇 Sistem Sesini Sustur</option>
-        <option value="ToggleDeafen">🔕 Sağırlaştır (Ses & Mic)</option>
-        <option value="LockScreen">🔒 Bilgisayarı Kilitle</option>
-        <option value="None">⚪ Eylem Yok</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>3 Tık (Üçlü Basım)</label>
-      <select id="action3">
-        <option value="MicMute">🎙️ Mikrofon Sustur / Aç</option>
-        <option value="PlayPause">⏯️ Oynat / Duraklat</option>
-        <option value="NextTrack">⏭️ Sonraki Parça</option>
-        <option value="PrevTrack">⏮️ Önceki Parça</option>
-        <option value="MasterMute">🔇 Sistem Sesini Sustur</option>
-        <option value="ToggleDeafen">🔕 Sağırlaştır (Ses & Mic)</option>
-        <option value="LockScreen">🔒 Bilgisayarı Kilitle</option>
-        <option value="None">⚪ Eylem Yok</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>4 Tık (Dörtlü Basım)</label>
-      <select id="action4">
-        <option value="None">⚪ Eylem Yok</option>
-        <option value="MicMute">🎙️ Mikrofon Sustur / Aç</option>
-        <option value="PlayPause">⏯️ Oynat / Duraklat</option>
-        <option value="NextTrack">⏭️ Sonraki Parça</option>
-        <option value="PrevTrack">⏮️ Önceki Parça</option>
-        <option value="MasterMute">🔇 Sistem Sesini Sustur</option>
-        <option value="ToggleDeafen">🔕 Sağırlaştır (Ses & Mic)</option>
-        <option value="LockScreen">🔒 Bilgisayarı Kilitle</option>
-      </select>
-    </div>
-  </div>
-</div>
-
-<!-- BASILI TUTMA EYLEMİ -->
-<div class="card">
-  <div class="card-title">⏱️ Basılı Tutma Eylemi</div>
-  <div class="form-group" style="margin-bottom: 14px;">
-    <label>Tuşa Basılı Tutulduğunda Ne Yapılsın?</label>
-    <select id="holdAction" onchange="toggleCustomAppPath()">
-      <option value="PushToTalk">🎙️ Push-to-Talk (Bas-Konuş Mikrofon)</option>
-      <option value="CustomApp">🚀 Özel Uygulama / URL Başlat</option>
-    </select>
-  </div>
-  <div class="form-group" id="customAppGroup" style="display: none;">
-    <label>Uygulama Yolu veya URL</label>
-    <div class="input-group">
-      <input type="text" id="customAppPath" placeholder="Örn: C:\Program Files\Discord\Discord.exe">
-      <button type="button" class="btn-browse" onclick="browseApp()">📁 Gözat...</button>
-    </div>
-  </div>
-</div>
-
-<!-- ZAMANLAMA VE GECİKMELER -->
-<div class="card">
-  <div class="card-title">⏳ Zamanlama ve Gecikmeler</div>
-  <div class="grid-2">
-    <div class="slider-group">
-      <div class="slider-header">
-        <span>Çift Tık Süresi (DoubleTapMs)</span>
-        <span class="slider-val" id="valDoubleTap">250 ms</span>
+    <div class="header-titles">
+      <div class="header-titles-top">
+        <h1>Copilot Button</h1>
+        <span class="version-badge" id="versionBadge" onclick="checkForUpdates(true)" title="Tıklayarak güncellemeleri denetle">v2.0.0</span>
       </div>
-      <input type="range" id="doubleTapMs" min="100" max="500" step="10" value="250" oninput="updateVal('doubleTapMs', 'valDoubleTap', 'ms')">
+      <p>Donanım Tuşu, Medya & Mikrofon Denetleyicisi</p>
     </div>
-    <div class="slider-group">
-      <div class="slider-header">
-        <span>Basılı Tutma Süresi (HoldMs)</span>
-        <span class="slider-val" id="valHold">250 ms</span>
+  </header>
+
+  <!-- Güncelleme Kartı (Varsa Otomatik Görünür) -->
+  <div id="updateCard" class="update-card" style="display: none;">
+    <div class="update-icon">🚀</div>
+    <div class="update-content">
+      <div class="update-header">
+        <span class="update-title">Yeni Sürüm Mevcut!</span>
+        <span class="update-tag" id="updateTag">v2.1.0</span>
       </div>
-      <input type="range" id="holdMs" min="150" max="1000" step="25" value="250" oninput="updateVal('holdMs', 'valHold', 'ms')">
+      <p class="update-desc" id="updateDesc">GitHub üzerinde yeni bir sürüm yayınlandı. Güncellemeyi hemen edinebilirsiniz.</p>
+    </div>
+    <div class="update-actions" style="display: flex; align-items: center; gap: 8px;">
+      <button type="button" class="btn-update" onclick="openUpdateUrl()">Güncellemeyi İndir ↗</button>
+      <button type="button" class="btn-dismiss" onclick="dismissUpdate()" title="Bildirimi gizle">✕</button>
     </div>
   </div>
-</div>
 
-<!-- SİSTEM VE BAŞLANGIÇ -->
-<div class="card">
-  <div class="card-title">⚙️ Sistem ve Başlangıç</div>
-  <div class="switch-row">
-    <div class="switch-label">
-      <span>Windows Başlangıcında Otomatik Çalıştır (AutoStart)</span>
-      <span>Bilgisayar açıldığında Copilot Button arka planda sessizce başlasın</span>
-    </div>
-    <label class="switch">
-      <input type="checkbox" id="autoStart">
-      <span class="slider"></span>
-    </label>
-  </div>
-  <div class="switch-row">
-    <div class="switch-label">
-      <span>Ses Efektleri (Sound FX)</span>
-      <span>Mikrofon susturulduğunda veya açıldığında Windows sesini çal</span>
-    </div>
-    <label class="switch">
-      <input type="checkbox" id="soundFxEnabled">
-      <span class="slider"></span>
-    </label>
-  </div>
-</div>
+  <!-- Sekme Navigasyonu -->
+  <nav class="tabs-nav">
+    <button type="button" class="tab-btn active" onclick="switchTab('tab-actions', this)">
+      <span>⚡</span> Tuş Eylemleri
+    </button>
+    <button type="button" class="tab-btn" onclick="switchTab('tab-osd', this)">
+      <span>🖥️</span> OSD & Görünüm
+    </button>
+    <button type="button" class="tab-btn" onclick="switchTab('tab-system', this)">
+      <span>⚙️</span> Sistem & Ayarlar
+    </button>
+  </nav>
 
-<!-- OSD VE GÖRÜNÜM AYARLARI -->
-<div class="card">
-  <div class="card-title">🖥️ OSD & Ekran Bildirimleri</div>
-  <div class="grid-2" style="margin-bottom: 14px;">
-    <div class="form-group">
-      <label>OSD Ekran Konumu</label>
-      <select id="osdPosition">
-        <option value="TopLeft">Sol Üst (TopLeft)</option>
-        <option value="TopRight">Sağ Üst (TopRight)</option>
-        <option value="BottomLeft">Sol Alt (BottomLeft)</option>
-        <option value="BottomRight">Sağ Alt (BottomRight)</option>
-        <option value="Center">Ekran Ortası (Center)</option>
-      </select>
+  <!-- SEKME 1: TUŞ EYLEMLERİ -->
+  <div id="tab-actions" class="tab-pane active">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <span class="card-title-icon">🎯</span>
+          <span>Tıklama Eylemleri</span>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label>1 Tık (Tek Basım)</label>
+          <select id="action1">
+            <option value="MicMute">🎙️ Mikrofon Sustur / Aç</option>
+            <option value="PlayPause">⏯️ Oynat / Duraklat</option>
+            <option value="NextTrack">⏭️ Sonraki Parça</option>
+            <option value="PrevTrack">⏮️ Önceki Parça</option>
+            <option value="MasterMute">🔇 Sistem Sesini Sustur</option>
+            <option value="ToggleDeafen">🔕 Sağırlaştır (Ses & Mic)</option>
+            <option value="LockScreen">🔒 Bilgisayarı Kilitle</option>
+            <option value="None">⚪ Eylem Yok</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>2 Tık (Çift Basım)</label>
+          <select id="action2">
+            <option value="MicMute">🎙️ Mikrofon Sustur / Aç</option>
+            <option value="PlayPause">⏯️ Oynat / Duraklat</option>
+            <option value="NextTrack">⏭️ Sonraki Parça</option>
+            <option value="PrevTrack">⏮️ Önceki Parça</option>
+            <option value="MasterMute">🔇 Sistem Sesini Sustur</option>
+            <option value="ToggleDeafen">🔕 Sağırlaştır (Ses & Mic)</option>
+            <option value="LockScreen">🔒 Bilgisayarı Kilitle</option>
+            <option value="None">⚪ Eylem Yok</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>3 Tık (Üçlü Basım)</label>
+          <select id="action3">
+            <option value="MicMute">🎙️ Mikrofon Sustur / Aç</option>
+            <option value="PlayPause">⏯️ Oynat / Duraklat</option>
+            <option value="NextTrack">⏭️ Sonraki Parça</option>
+            <option value="PrevTrack">⏮️ Önceki Parça</option>
+            <option value="MasterMute">🔇 Sistem Sesini Sustur</option>
+            <option value="ToggleDeafen">🔕 Sağırlaştır (Ses & Mic)</option>
+            <option value="LockScreen">🔒 Bilgisayarı Kilitle</option>
+            <option value="None">⚪ Eylem Yok</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>4 Tık (Dörtlü Basım)</label>
+          <select id="action4">
+            <option value="None">⚪ Eylem Yok</option>
+            <option value="MicMute">🎙️ Mikrofon Sustur / Aç</option>
+            <option value="PlayPause">⏯️ Oynat / Duraklat</option>
+            <option value="NextTrack">⏭️ Sonraki Parça</option>
+            <option value="PrevTrack">⏮️ Önceki Parça</option>
+            <option value="MasterMute">🔇 Sistem Sesini Sustur</option>
+            <option value="ToggleDeafen">🔕 Sağırlaştır (Ses & Mic)</option>
+            <option value="LockScreen">🔒 Bilgisayarı Kilitle</option>
+          </select>
+        </div>
+      </div>
     </div>
-    <div class="form-group">
-      <label>OSD Metin Rengi</label>
-      <div class="color-picker-wrap">
-        <input type="color" id="osdColorPicker" oninput="syncColorFromPicker()">
-        <input type="text" id="osdColor" maxlength="6" style="width: 100px; text-transform: uppercase;" oninput="syncColorFromText()">
+
+    <!-- Basılı Tutma Kartı -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <span class="card-title-icon">⏱️</span>
+          <span>Basılı Tutma Eylemi</span>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom: 14px;">
+        <label>Tuşa Basılı Tutulduğunda Gerçekleşecek İşlem</label>
+        <select id="holdAction" onchange="toggleCustomAppPath()">
+          <option value="PushToTalk">🎙️ Push-to-Talk (Bas-Konuş Mikrofon)</option>
+          <option value="CustomApp">🚀 Özel Uygulama / URL Başlat</option>
+        </select>
+      </div>
+      <div class="form-group" id="customAppGroup" style="display: none;">
+        <label>Uygulama Yolu veya Web URL</label>
+        <div class="input-group">
+          <input type="text" id="customAppPath" placeholder="Örn: C:\Program Files\Discord\Discord.exe">
+          <button type="button" class="btn-browse" onclick="browseApp()">📁 Gözat...</button>
+        </div>
+        <span class="info-hint">💡 Bir .exe program dosyası veya 'https://...' web adresi yazabilirsiniz.</span>
       </div>
     </div>
   </div>
 
-  <div class="slider-group" style="margin-bottom: 16px;">
-    <div class="slider-header">
-      <span>OSD Gösterim Süresi (OsdDurationMs)</span>
-      <span class="slider-val" id="valOsdDuration">1500 ms</span>
+  <!-- SEKME 2: OSD & GÖRÜNÜM -->
+  <div id="tab-osd" class="tab-pane">
+    <!-- Canlı OSD Önizleme Alanı -->
+    <div class="osd-preview-card">
+      <div class="osd-pill-mockup" id="osdLiveMockup">
+        <div class="osd-mockup-badge">♪</div>
+        <span class="osd-mockup-title">Bohemian Rhapsody</span>
+        <span class="osd-mockup-sep">•</span>
+        <span class="osd-mockup-artist" id="mockupArtist">Queen</span>
+        <div class="osd-mockup-eq">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
     </div>
-    <input type="range" id="osdDurationMs" min="500" max="5000" step="100" value="1500" oninput="updateVal('osdDurationMs', 'valOsdDuration', 'ms')">
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <span class="card-title-icon">🎨</span>
+          <span>Ekran & Renk Ayarları</span>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-bottom: 16px;">
+        <div class="form-group">
+          <label>OSD Ekran Konumu</label>
+          <select id="osdPosition">
+            <option value="TopLeft">Sol Üst (TopLeft)</option>
+            <option value="TopRight">Sağ Üst (TopRight)</option>
+            <option value="BottomLeft">Sol Alt (BottomLeft)</option>
+            <option value="BottomRight">Sağ Alt (BottomRight)</option>
+            <option value="Center">Ekran Ortası (Center)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>OSD Vurgu Rengi</label>
+          <div class="color-picker-wrap">
+            <input type="color" id="osdColorPicker" oninput="syncColorFromPicker()">
+            <input type="text" id="osdColor" maxlength="6" style="text-transform: uppercase;" oninput="syncColorFromText()">
+          </div>
+          <!-- Hızlı Palet Seçenekleri -->
+          <div class="palette-row">
+            <div class="palette-swatch" style="background: #00E5FF;" onclick="selectPaletteColor('00E5FF')" title="Cyber Cyan"></div>
+            <div class="palette-swatch" style="background: #1DB954;" onclick="selectPaletteColor('1DB954')" title="Spotify Green"></div>
+            <div class="palette-swatch" style="background: #A855F7;" onclick="selectPaletteColor('A855F7')" title="Neon Purple"></div>
+            <div class="palette-swatch" style="background: #F59E0B;" onclick="selectPaletteColor('F59E0B')" title="Amber Flame"></div>
+            <div class="palette-swatch" style="background: #F43F5E;" onclick="selectPaletteColor('F43F5E')" title="Hot Rose"></div>
+            <div class="palette-swatch" style="background: #FFFFFF;" onclick="selectPaletteColor('FFFFFF')" title="Pure White"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="slider-group" style="margin-bottom: 16px;">
+        <div class="slider-header">
+          <span>Bildirim Gösterim Süresi</span>
+          <span class="slider-val" id="valOsdDuration">1500 ms</span>
+        </div>
+        <input type="range" id="osdDurationMs" min="500" max="5000" step="100" value="1500" oninput="updateVal('osdDurationMs', 'valOsdDuration', 'ms')">
+      </div>
+
+      <div class="switch-row">
+        <div class="switch-label">
+          <span>Yumuşak Geçiş (Fade Animasyonu)</span>
+          <span>Bildirimler ekranda belirip kaybolurken yumuşakça kararır</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="osdFadeEnabled">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="switch-row">
+        <div class="switch-label">
+          <span>Spotify Şarkı Değişim Kapsülü</span>
+          <span>Şarkı değiştiğinde şarkı adı ve sanatçıyı kapsül olarak göster</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="spotifyTrackOsd" onchange="updateMockupVisibility()">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
   </div>
 
-  <div class="switch-row">
-    <div class="switch-label">
-      <span>Yumuşak Geçiş (Fade Animasyonu)</span>
-      <span>Bildirimler ekrana belirip kaybolurken yumuşakça kararır</span>
+  <!-- SEKME 3: SİSTEM & AYARLAR -->
+  <div id="tab-system" class="tab-pane">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <span class="card-title-icon">⚙️</span>
+          <span>Sistem Davranışı</span>
+        </div>
+      </div>
+      <div class="switch-row">
+        <div class="switch-label">
+          <span>Windows Açılışında Otomatik Başlat (AutoStart)</span>
+          <span>Bilgisayar açıldığında Copilot Button arka planda otomatik başlasın</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="autoStart">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="switch-row">
+        <div class="switch-label">
+          <span>Ses Efektleri (Sound FX)</span>
+          <span>Mikrofon açılıp kapandığında Windows bildirim sesini çal</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="soundFxEnabled">
+          <span class="slider"></span>
+        </label>
+      </div>
     </div>
-    <label class="switch">
-      <input type="checkbox" id="osdFadeEnabled">
-      <span class="slider"></span>
-    </label>
+
+    <!-- Zamanlama Ayarları -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <span class="card-title-icon">⏳</span>
+          <span>Zamanlama ve Hassasiyet</span>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="slider-group">
+          <div class="slider-header">
+            <span>Çift Tık Algılama Süresi</span>
+            <span class="slider-val" id="valDoubleTap">250 ms</span>
+          </div>
+          <input type="range" id="doubleTapMs" min="100" max="500" step="10" value="250" oninput="updateVal('doubleTapMs', 'valDoubleTap', 'ms')">
+          <span class="info-hint">Hızlı tıklamaları tanıma aralığı</span>
+        </div>
+        <div class="slider-group">
+          <div class="slider-header">
+            <span>Basılı Tutma Eşiği</span>
+            <span class="slider-val" id="valHold">250 ms</span>
+          </div>
+          <input type="range" id="holdMs" min="150" max="1000" step="25" value="250" oninput="updateVal('holdMs', 'valHold', 'ms')">
+          <span class="info-hint">Uzun basım için bekleme süresi</span>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <div class="switch-row">
-    <div class="switch-label">
-      <span>Spotify Şarkı Değişim OSD'si</span>
-      <span>Yeni şarkıya geçildiğinde şarkı ve sanatçı kartını göster</span>
+  <!-- Alt Buton Çubuğu -->
+  <footer class="footer">
+    <div style="display: flex; gap: 12px; align-items: center;">
+      <button type="button" class="btn-save" onclick="saveSettings()">💾 Ayarları Kaydet</button>
+      <button type="button" class="btn-close" onclick="closeWindow()">✕ Kapat</button>
     </div>
-    <label class="switch">
-      <input type="checkbox" id="spotifyTrackOsd">
-      <span class="slider"></span>
-    </label>
-  </div>
-</div>
-
-<div class="footer">
-  <div style="display: flex; gap: 12px; align-items: center;">
-    <button type="button" class="btn-save" onclick="saveSettings()">💾 Ayarları Kaydet</button>
-    <button type="button" class="btn-close" onclick="closeWindow()">✕ Kapat</button>
-  </div>
-  <span style="font-size: 12px; color: var(--text-muted);">Değişiklikler anında motora uygulanır</span>
+    <span style="font-size: 12px; color: var(--text-dim);">Değişiklikler anında motora aktarılır</span>
+  </footer>
 </div>
 
 <div class="toast" id="toast">✅ Ayarlar başarıyla kaydedildi!</div>
 
 <script>
+// Sekme Geçiş Mantığı
+function switchTab(tabId, btn) {
+  document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  
+  const target = document.getElementById(tabId);
+  if (target) target.classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
 function updateVal(sliderId, labelId, unit) {
   document.getElementById(labelId).innerText = document.getElementById(sliderId).value + ' ' + unit;
+}
+
+// Renk ve Canlı Önizleme Senkronizasyonu
+function updateMockupColor(hex) {
+  const cleanHex = hex.replace('#', '');
+  const el = document.getElementById('mockupArtist');
+  if (el) {
+    el.style.color = '#' + cleanHex;
+  }
 }
 
 function syncColorFromPicker() {
   const c = document.getElementById('osdColorPicker').value.replace('#', '').toUpperCase();
   document.getElementById('osdColor').value = c;
+  updateMockupColor(c);
+  highlightActiveSwatch(c);
 }
 
 function syncColorFromText() {
   let c = document.getElementById('osdColor').value.replace('#', '');
   if (c.length === 6) {
     document.getElementById('osdColorPicker').value = '#' + c;
+    updateMockupColor(c);
+    highlightActiveSwatch(c);
+  }
+}
+
+function selectPaletteColor(hex) {
+  document.getElementById('osdColor').value = hex.toUpperCase();
+  document.getElementById('osdColorPicker').value = '#' + hex;
+  updateMockupColor(hex);
+  highlightActiveSwatch(hex);
+}
+
+function highlightActiveSwatch(hex) {
+  const norm = hex.toUpperCase();
+  document.querySelectorAll('.palette-swatch').forEach(swatch => {
+    const bg = swatch.getAttribute('onclick') || '';
+    if (bg.toUpperCase().includes(norm)) {
+      swatch.classList.add('active');
+    } else {
+      swatch.classList.remove('active');
+    }
+  });
+}
+
+function updateMockupVisibility() {
+  const chk = document.getElementById('spotifyTrackOsd');
+  const mock = document.getElementById('osdLiveMockup');
+  if (mock && chk) {
+    mock.style.opacity = chk.checked ? '1' : '0.35';
   }
 }
 
@@ -655,6 +1099,7 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 3000);
 }
 
+// Sürüm ve GitHub Güncelleme Denetimi
 let g_currentVersion = '2.0.0';
 let g_latestReleaseUrl = 'https://github.com/KeremKuyucu/copilot-button/releases';
 
@@ -728,7 +1173,7 @@ function dismissUpdate() {
   document.getElementById('updateCard').style.display = 'none';
 }
 
-// WebView2 mesaj dinleyicisi (Doğrudan bellek içi mesajlaşma, HTTP yok)
+// WebView2 Mesajlaşma (Native IPC)
 if (window.chrome && window.chrome.webview) {
   window.chrome.webview.addEventListener('message', event => {
     const msg = event.data;
@@ -775,12 +1220,15 @@ function applyConfig(data) {
   const hex = (data.osdColor || '00E5FF').replace('#', '').toUpperCase();
   document.getElementById('osdColor').value = hex;
   document.getElementById('osdColorPicker').value = '#' + hex;
+  updateMockupColor(hex);
+  highlightActiveSwatch(hex);
 
   document.getElementById('osdDurationMs').value = data.osdDurationMs || 1500;
   updateVal('osdDurationMs', 'valOsdDuration', 'ms');
 
   document.getElementById('osdFadeEnabled').checked = !!data.osdFadeEnabled;
   document.getElementById('spotifyTrackOsd').checked = !!data.spotifyTrackOsd;
+  updateMockupVisibility();
 
   toggleCustomAppPath();
 }
