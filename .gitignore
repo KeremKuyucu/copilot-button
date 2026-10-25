@@ -2,6 +2,8 @@
 *.exe
 *.zip
 *.res
+*.dll
+!engine/WebView2Loader.dll
 build_zip_temp/
 update_temp/
 tools/

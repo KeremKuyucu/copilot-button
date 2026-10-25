@@ -192,6 +192,41 @@ void WebViewSettingsWindow::OnSize(int width, int height) {
 // ─────────────────────────────────────────────
 //  Pencereyi Aç ve WebView2'yi Başlat
 // ─────────────────────────────────────────────
+static constexpr UINT IDR_WEBVIEW2_LOADER = 102;
+static constexpr UINT IDR_SETTINGS_HTML   = 103;
+
+static bool ExtractResourceToFile(int resourceId, const std::wstring& destPath) {
+    HINSTANCE hInst = GetModuleHandleW(nullptr);
+    HRSRC hRsrc = FindResourceW(hInst, MAKEINTRESOURCEW(resourceId), RT_RCDATA);
+    if (!hRsrc) return false;
+
+    HGLOBAL hGlobal = LoadResource(hInst, hRsrc);
+    if (!hGlobal) return false;
+
+    DWORD size = SizeofResource(hInst, hRsrc);
+    const void* pData = LockResource(hGlobal);
+    if (!pData || size == 0) return false;
+
+    HANDLE hFile = CreateFileW(
+        destPath.c_str(),
+        GENERIC_WRITE,
+        FILE_SHARE_READ,
+        nullptr,
+        CREATE_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL,
+        nullptr
+    );
+    if (hFile == INVALID_HANDLE_VALUE) return false;
+
+    DWORD written = 0;
+    BOOL ok = WriteFile(hFile, pData, size, &written, nullptr);
+    CloseHandle(hFile);
+    return (ok && written == size);
+}
+
+// ─────────────────────────────────────────────
+//  Pencereyi Aç ve WebView2'yi Başlat
+// ─────────────────────────────────────────────
 bool WebViewSettingsWindow::Open(const std::wstring& iniPath) {
     m_iniPath = iniPath;
 
@@ -205,21 +240,32 @@ bool WebViewSettingsWindow::Open(const std::wstring& iniPath) {
 
     HINSTANCE hInst = GetModuleHandleW(nullptr);
 
-    // 1. HTML klasör yolunu belirle (html/index.html)
+    // Dizinleri ve %LOCALAPPDATA% yolunu al
     wchar_t exePath[MAX_PATH] = {};
     GetModuleFileNameW(nullptr, exePath, MAX_PATH);
     wchar_t* last = wcsrchr(exePath, L'\\');
     if (last) *last = L'\0';
 
+    wchar_t localApp[MAX_PATH] = {};
+    GetEnvironmentVariableW(L"LOCALAPPDATA", localApp, MAX_PATH);
+    std::wstring appDataRoot = std::wstring(localApp) + L"\\CopilotButton";
+    CreateDirectoryW(appDataRoot.c_str(), nullptr);
+
+    // 1. HTML klasör yolunu belirle (html/index.html veya gömülü kaynaktan)
     std::wstring directHtml = std::wstring(exePath) + L"\\html";
     std::wstring parentHtml = std::wstring(exePath) + L"\\..\\html";
 
-    if (GetFileAttributesW(directHtml.c_str()) != INVALID_FILE_ATTRIBUTES) {
+    if (GetFileAttributesW((directHtml + L"\\index.html").c_str()) != INVALID_FILE_ATTRIBUTES) {
         m_htmlDir = directHtml;
-    } else if (GetFileAttributesW(parentHtml.c_str()) != INVALID_FILE_ATTRIBUTES) {
+    } else if (GetFileAttributesW((parentHtml + L"\\index.html").c_str()) != INVALID_FILE_ATTRIBUTES) {
         m_htmlDir = parentHtml;
     } else {
-        m_htmlDir = directHtml;
+        // Disk üzerinde html klasörü yoksa %LOCALAPPDATA%\CopilotButton\html içerisine gömülü kaynaktan çıkart
+        std::wstring appDataHtml = appDataRoot + L"\\html";
+        CreateDirectoryW(appDataHtml.c_str(), nullptr);
+        std::wstring appDataIndex = appDataHtml + L"\\index.html";
+        ExtractResourceToFile(IDR_SETTINGS_HTML, appDataIndex);
+        m_htmlDir = appDataHtml;
     }
 
     // 2. Win32 Pencere Sınıfını Kaydet
@@ -271,19 +317,22 @@ bool WebViewSettingsWindow::Open(const std::wstring& iniPath) {
     ShowWindow(m_hWnd, SW_SHOWNORMAL);
     UpdateWindow(m_hWnd);
 
-    // 4. WebView2Loader.dll yükle
+    // 4. WebView2Loader.dll yükle (önce diskte ara, yoksa gömülü kaynaktan %LOCALAPPDATA%'ya çıkart)
     HMODULE hLoader = LoadLibraryW(L"WebView2Loader.dll");
     if (!hLoader) {
         std::wstring loaderInExe = std::wstring(exePath) + L"\\WebView2Loader.dll";
         hLoader = LoadLibraryW(loaderInExe.c_str());
     }
     if (!hLoader) {
-        std::wstring loaderInParent = std::wstring(exePath) + L"\\..\\WebView2Loader.dll";
-        hLoader = LoadLibraryW(loaderInParent.c_str());
+        std::wstring appDataLoader = appDataRoot + L"\\WebView2Loader.dll";
+        if (GetFileAttributesW(appDataLoader.c_str()) == INVALID_FILE_ATTRIBUTES) {
+            ExtractResourceToFile(IDR_WEBVIEW2_LOADER, appDataLoader);
+        }
+        hLoader = LoadLibraryW(appDataLoader.c_str());
     }
     if (!hLoader) {
         MessageBoxW(m_hWnd,
-                    L"WebView2Loader.dll bulunamadı!\nLütfen uygulamanın kurulu olduğu dizini kontrol edin.",
+                    L"WebView2Loader başlatılamadı!\nLütfen sisteminizde Microsoft Edge WebView2 Runtime yüklü olduğundan emin olun.",
                     L"Hata", MB_ICONERROR);
         return false;
     }
@@ -293,10 +342,7 @@ bool WebViewSettingsWindow::Open(const std::wstring& iniPath) {
     if (!pfnCreate) return false;
 
     // WebView2 Kullanıcı Veri Klasörü (%LOCALAPPDATA%\CopilotButton\WebView2Data)
-    wchar_t localApp[MAX_PATH] = {};
-    GetEnvironmentVariableW(L"LOCALAPPDATA", localApp, MAX_PATH);
-    std::wstring userDataFolder = std::wstring(localApp) + L"\\CopilotButton\\WebView2Data";
-    CreateDirectoryW((std::wstring(localApp) + L"\\CopilotButton").c_str(), nullptr);
+    std::wstring userDataFolder = appDataRoot + L"\\WebView2Data";
 
     // 5. WebView2 Ortamını Oluştur
     HWND hwndTarget = m_hWnd;

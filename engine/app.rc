@@ -3,9 +3,14 @@
 
 #include <windows.h>
 
-// ── İkon ve Manifest gömme ──────────────────────────────────────────
-#define IDI_APP_ICON 101
-IDI_APP_ICON ICON "..\\assets\\logo.ico"
+// ── İkon, Manifest ve Gömülü Kaynaklar ──────────────────────────────
+#define IDI_APP_ICON        101
+#define IDR_WEBVIEW2_LOADER 102
+#define IDR_SETTINGS_HTML   103
+
+IDI_APP_ICON        ICON   "..\\assets\\logo.ico"
+IDR_WEBVIEW2_LOADER RCDATA "WebView2Loader.dll"
+IDR_SETTINGS_HTML   RCDATA "..\\html\\index.html"
 
 // ID 1 = RT_MANIFEST
 1 RT_MANIFEST "app.manifest"
