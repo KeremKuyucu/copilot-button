@@ -293,6 +293,120 @@ input[type="color"] {
   cursor: pointer;
   background: none;
 }
+.version-badge {
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  color: #C4B5FD;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.version-badge:hover {
+  background: rgba(139, 92, 246, 0.3);
+  border-color: var(--primary);
+  color: #fff;
+  transform: scale(1.04);
+}
+.update-card {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(6, 182, 212, 0.2));
+  border: 1px solid rgba(139, 92, 246, 0.45);
+  backdrop-filter: blur(16px);
+  border-radius: 14px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.25);
+  animation: pulseCard 3s infinite alternate ease-in-out;
+}
+@keyframes pulseCard {
+  0% { border-color: rgba(139, 92, 246, 0.35); box-shadow: 0 4px 18px rgba(139, 92, 246, 0.2); }
+  100% { border-color: rgba(6, 182, 212, 0.6); box-shadow: 0 4px 24px rgba(6, 182, 212, 0.25); }
+}
+.update-icon {
+  font-size: 24px;
+  background: rgba(139, 92, 246, 0.25);
+  border-radius: 10px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.update-content {
+  flex: 1;
+}
+.update-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+.update-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #F8FAFC;
+}
+.update-tag {
+  background: #10B981;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+.update-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.update-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.btn-update {
+  background: linear-gradient(135deg, #10B981, #06B6D4);
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  padding: 8px 15px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.3);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-update:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.45);
+}
+.btn-dismiss {
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+.btn-dismiss:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
 </style>
 </head>
 <body>
@@ -300,8 +414,27 @@ input[type="color"] {
 <div class="header">
   <div class="header-icon">✨</div>
   <div class="header-titles">
-    <h1>Copilot Button Denetleyicisi</h1>
-    <p>Donanım Tuşu, Medya & Mikrofon Yönetimi • v2.0</p>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <h1>Copilot Button Denetleyicisi</h1>
+      <span class="version-badge" id="versionBadge" onclick="checkForUpdates(true)" title="Tıklayarak güncellemeleri kontrol et">v2.0.0</span>
+    </div>
+    <p>Donanım Tuşu, Medya & Mikrofon Yönetimi</p>
+  </div>
+</div>
+
+<!-- GÜNCELLEME BİLDİRİM KARTI -->
+<div id="updateCard" class="update-card" style="display: none;">
+  <div class="update-icon">🚀</div>
+  <div class="update-content">
+    <div class="update-header">
+      <span class="update-title">Yeni Sürüm Mevcut!</span>
+      <span class="update-tag" id="updateTag">v2.1.0</span>
+    </div>
+    <p class="update-desc" id="updateDesc">GitHub üzerinde yeni bir sürüm yayınlandı. Güncellemeyi hemen edinebilirsiniz.</p>
+  </div>
+  <div class="update-actions">
+    <button type="button" class="btn-update" onclick="openUpdateUrl()">Güncellemeyi İndir ↗</button>
+    <button type="button" class="btn-dismiss" onclick="dismissUpdate()" title="Bildirimi gizle">✕</button>
   </div>
 </div>
 
@@ -522,12 +655,90 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 3000);
 }
 
+let g_currentVersion = '2.0.0';
+let g_latestReleaseUrl = 'https://github.com/KeremKuyucu/copilot-button/releases';
+
+function compareVersions(v1, v2) {
+  const clean1 = (v1 || '').replace(/^v/i, '').split('.').map(x => parseInt(x, 10) || 0);
+  const clean2 = (v2 || '').replace(/^v/i, '').split('.').map(x => parseInt(x, 10) || 0);
+  
+  for (let i = 0; i < Math.max(clean1.length, clean2.length); i++) {
+    const num1 = clean1[i] || 0;
+    const num2 = clean2[i] || 0;
+    if (num1 > num2) return 1;
+    if (num1 < num2) return -1;
+  }
+  return 0;
+}
+
+async function checkForUpdates(manual = false) {
+  const badge = document.getElementById('versionBadge');
+  if (manual) {
+    badge.innerText = 'Kontrol ediliyor...';
+  }
+
+  try {
+    const resp = await fetch('https://api.github.com/repos/KeremKuyucu/copilot-button/releases/latest', {
+      headers: { 'Accept': 'application/vnd.github.v3+json' }
+    });
+    if (!resp.ok) {
+      if (manual) showToast('⚠️ GitHub sürüm kontrolü yapılamadı.');
+      badge.innerText = 'v' + g_currentVersion;
+      return;
+    }
+
+    const data = await resp.json();
+    const latestTag = data.tag_name || '';
+    g_latestReleaseUrl = data.html_url || g_latestReleaseUrl;
+
+    if (compareVersions(latestTag, g_currentVersion) > 0) {
+      document.getElementById('updateTag').innerText = latestTag;
+      document.getElementById('updateCard').style.display = 'flex';
+      badge.innerText = 'v' + g_currentVersion + ' (Güncelleme var!)';
+      badge.style.borderColor = '#10B981';
+      badge.style.color = '#10B981';
+
+      if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage({
+          type: 'update_found',
+          version: latestTag,
+          url: g_latestReleaseUrl
+        });
+      }
+    } else {
+      if (manual) showToast('✅ En güncel sürümü kullanıyorsunuz: v' + g_currentVersion);
+      badge.innerText = 'v' + g_currentVersion;
+    }
+  } catch (e) {
+    console.error('Update check failed:', e);
+    badge.innerText = 'v' + g_currentVersion;
+    if (manual) showToast('⚠️ İnternet bağlantısı kurulamadı.');
+  }
+}
+
+function openUpdateUrl() {
+  if (window.chrome && window.chrome.webview) {
+    window.chrome.webview.postMessage({ type: 'open_url', url: g_latestReleaseUrl });
+  } else {
+    window.open(g_latestReleaseUrl, '_blank');
+  }
+}
+
+function dismissUpdate() {
+  document.getElementById('updateCard').style.display = 'none';
+}
+
 // WebView2 mesaj dinleyicisi (Doğrudan bellek içi mesajlaşma, HTTP yok)
 if (window.chrome && window.chrome.webview) {
   window.chrome.webview.addEventListener('message', event => {
     const msg = event.data;
     if (msg.type === 'config') {
+      if (msg.appVersion) {
+        g_currentVersion = msg.appVersion;
+        document.getElementById('versionBadge').innerText = 'v' + g_currentVersion;
+      }
       applyConfig(msg.data);
+      checkForUpdates(false);
     } else if (msg.type === 'browse_result') {
       if (msg.path) {
         document.getElementById('customAppPath').value = msg.path;

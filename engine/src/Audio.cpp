@@ -115,7 +115,7 @@ void PlayMicSound(bool muted) {
 
     auto try_play = [&](const wchar_t* file) -> bool {
         wchar_t path[MAX_PATH];
-        wsprintf(path, L"%s\\Media\\%s", winDir, file);
+        wsprintfW(path, L"%s\\Media\\%s", winDir, file);
         return PlaySoundW(path, nullptr, SND_FILENAME | SND_ASYNC | SND_NODEFAULT) != FALSE;
     };
 

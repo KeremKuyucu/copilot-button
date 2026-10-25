@@ -151,6 +151,14 @@ static std::wstring GetIniPath() {
 //  WinMain – mesaj penceresi + mesaj döngüsü
 // ─────────────────────────────────────────────
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
+    // ── Kendi kendini %LOCALAPPDATA%\CopilotButton klasörüne taşıma / güncelleme denetimi ──
+    if (CheckAndPerformSelfRelocate()) {
+        return 0; // Taşındı ve kalıcı konumdaki exe başlatıldı; geçici örneği kapat
+    }
+
+    // Eğer --delete-source ile başlatıldıysak eski geçici dosyayı temizle
+    CleanupOldSourceIfRequested();
+
     if (!EnsureSingleInstance()) return 1;
 
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);

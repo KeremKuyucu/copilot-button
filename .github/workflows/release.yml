@@ -223,34 +223,18 @@ jobs:
       - name: Package Distribution Files
         shell: pwsh
         run: |
-          $v = "${{ steps.ver.outputs.version }}"
           $distDir = "${{ github.workspace }}\dist"
           New-Item -ItemType Directory -Path $distDir -Force | Out-Null
 
           $exe = "${{ github.workspace }}\CopilotButton.exe"
           Copy-Item $exe -Destination "$distDir\CopilotButton.exe"
 
-          # Portable zip archive (CopilotButton.exe + config.ini if available)
-          $zipName = "CopilotButton-v$v-portable.zip"
-          $zipPath = "$distDir\$zipName"
-          $zipFiles = @($exe)
-          if (Test-Path "config.ini") {
-            $zipFiles += "${{ github.workspace }}\config.ini"
-          }
-          Compress-Archive -Path $zipFiles -DestinationPath $zipPath
-          Write-Host "Created portable archive: $zipName"
-
-          # Generate SHA-256 checksums
-          $items = @(
-            "$distDir\CopilotButton.exe",
-            $zipPath
-          )
-          foreach ($item in $items) {
-            $hash = (Get-FileHash -Path $item -Algorithm SHA256).Hash.ToLower()
-            $fileName = Split-Path $item -Leaf
-            "$hash  $fileName" | Set-Content -Path "$item.sha256" -Encoding ascii
-            Write-Host "SHA256 ($fileName): $hash"
-          }
+          # Generate SHA-256 checksum
+          $target = "$distDir\CopilotButton.exe"
+          $hash = (Get-FileHash -Path $target -Algorithm SHA256).Hash.ToLower()
+          $fileName = Split-Path $target -Leaf
+          "$hash  $fileName" | Set-Content -Path "$target.sha256" -Encoding ascii
+          Write-Host "SHA256 ($fileName): $hash"
 
       # ── Upload Artifacts ──────────────────────────────────
       - name: Upload Build Artifacts
@@ -273,8 +257,6 @@ jobs:
           files: |
             dist/CopilotButton.exe
             dist/CopilotButton.exe.sha256
-            dist/CopilotButton-v${{ steps.ver.outputs.version }}-portable.zip
-            dist/CopilotButton-v${{ steps.ver.outputs.version }}-portable.zip.sha256
           draft: false
           prerelease: false
           generate_release_notes: ${{ hashFiles(format('.github/releases/RELEASE_{0}.md', steps.ver.outputs.version)) == '' }}

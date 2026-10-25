@@ -25,7 +25,7 @@ bool TrayManager::Install(HWND hWnd, std::function<void()> onSettings, std::func
     HICON hIcon = (HICON)LoadImageW(hInst, MAKEINTRESOURCEW(IDI_APP_ICON),
                                     IMAGE_ICON, cx, cy, LR_DEFAULTCOLOR);
     if (!hIcon) {
-        hIcon = LoadIconW(nullptr, IDI_APPLICATION);
+        hIcon = LoadIconW(nullptr, MAKEINTRESOURCEW(32512));
     }
 
     ZeroMemory(&m_nid, sizeof(m_nid));

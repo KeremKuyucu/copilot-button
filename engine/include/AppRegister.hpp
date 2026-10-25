@@ -12,3 +12,11 @@ void RegisterAppWithWindows();
 // Windows başlangıcında otomatik çalışma ayarı (HKCU\...\Run)
 void SetAutoStartRegistry(bool enable);
 bool GetAutoStartRegistry();
+
+// Uygulamanın %LOCALAPPDATA%\CopilotButton altında çalışmasını denetler.
+// Farklı bir konumdan (ör. İndirilenler) açıldıysa kendini hedef klasöre kopyalar/günceller,
+// eski örnekleri kapatır, kısayol ve autostart'ı bağlar, yeni exe'yi başlatır ve true döner.
+bool CheckAndPerformSelfRelocate();
+
+// İndirilen geçici dosyanın silinmesi istenmişse (--delete-source) arka planda siler
+void CleanupOldSourceIfRequested();

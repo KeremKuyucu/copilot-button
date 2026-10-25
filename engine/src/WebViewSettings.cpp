@@ -2,11 +2,13 @@
 // Yerel HTTP sunucusu KULLANILMAZ. Yerel HTML doğrudan 'https://settings.local' sanal alan adına bağlanır.
 #include "WebViewSettings.hpp"
 #include "AppRegister.hpp"
+#include "Osd.hpp"
 #include "WebView2.h"
 #include <wrl/client.h>
 #include <commdlg.h>
 #include <dwmapi.h>
 #include <shlobj.h>
+#include <shellapi.h>
 #include <sstream>
 #include <atomic>
 #include <functional>
@@ -244,7 +246,7 @@ static constexpr UINT IDR_SETTINGS_HTML   = 103;
 
 static bool ExtractResourceToFile(int resourceId, const std::wstring& destPath) {
     HINSTANCE hInst = GetModuleHandleW(nullptr);
-    HRSRC hRsrc = FindResourceW(hInst, MAKEINTRESOURCEW(resourceId), RT_RCDATA);
+    HRSRC hRsrc = FindResourceW(hInst, MAKEINTRESOURCEW(resourceId), MAKEINTRESOURCEW(10));
     if (!hRsrc) return false;
 
     HGLOBAL hGlobal = LoadResource(hInst, hRsrc);
@@ -298,16 +300,14 @@ bool WebViewSettingsWindow::Open(const std::wstring& iniPath) {
     std::wstring appDataRoot = std::wstring(localApp) + L"\\CopilotButton";
     CreateDirectoryW(appDataRoot.c_str(), nullptr);
 
-    // 1. HTML klasör yolunu belirle (html/index.html veya gömülü kaynaktan)
-    std::wstring directHtml = std::wstring(exePath) + L"\\html";
+    // 1. HTML klasör yolunu belirle (Geliştirici ortamı veya gömülü kaynaktan)
     std::wstring parentHtml = std::wstring(exePath) + L"\\..\\html";
 
-    if (GetFileAttributesW((directHtml + L"\\index.html").c_str()) != INVALID_FILE_ATTRIBUTES) {
-        m_htmlDir = directHtml;
-    } else if (GetFileAttributesW((parentHtml + L"\\index.html").c_str()) != INVALID_FILE_ATTRIBUTES) {
+    if (GetFileAttributesW((parentHtml + L"\\index.html").c_str()) != INVALID_FILE_ATTRIBUTES) {
+        // Geliştirici kaynak kodu dizini (canlı düzenleme için)
         m_htmlDir = parentHtml;
     } else {
-        // Disk üzerinde html klasörü yoksa %LOCALAPPDATA%\CopilotButton\html içerisine gömülü kaynaktan çıkart
+        // Her zaman en güncel gömülü HTML'i %LOCALAPPDATA%\CopilotButton\html\index.html içine çıkart
         std::wstring appDataHtml = appDataRoot + L"\\html";
         CreateDirectoryW(appDataHtml.c_str(), nullptr);
         std::wstring appDataIndex = appDataHtml + L"\\index.html";
@@ -323,14 +323,14 @@ bool WebViewSettingsWindow::Open(const std::wstring& iniPath) {
         wc.hInstance     = hInst;
         wc.lpfnWndProc   = WndProc;
         wc.lpszClassName = L"CopilotButtonSettingsWnd";
-        wc.hCursor       = LoadCursorW(nullptr, IDC_ARROW);
+        wc.hCursor       = LoadCursorW(nullptr, MAKEINTRESOURCEW(32512));
         wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
 
         int cx = GetSystemMetrics(SM_CXSMICON);
         int cy = GetSystemMetrics(SM_CYSMICON);
         wc.hIcon = (HICON)LoadImageW(hInst, MAKEINTRESOURCEW(IDI_APP_ICON),
                                     IMAGE_ICON, cx, cy, LR_DEFAULTCOLOR);
-        if (!wc.hIcon) wc.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
+        if (!wc.hIcon) wc.hIcon = LoadIconW(nullptr, MAKEINTRESOURCEW(32512));
         wc.hIconSm = wc.hIcon;
 
         RegisterClassExW(&wc);
@@ -515,6 +515,16 @@ void WebViewSettingsWindow::OnWebMessage(const std::wstring& jsonMsg) {
         if (m_hWnd) {
             PostMessageW(m_hWnd, WM_CLOSE, 0, 0);
         }
+    } else if (type == "open_url") {
+        std::string url = ExtractJsonString(utf8, "url");
+        if (!url.empty()) {
+            ShellExecuteW(nullptr, L"open", Utf8ToWString(url).c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+        }
+    } else if (type == "update_found") {
+        std::string ver = ExtractJsonString(utf8, "version");
+        if (!ver.empty()) {
+            OsdManager::Instance().ShowTip(L"Yeni Sürüm Mevcut: " + Utf8ToWString(ver));
+        }
     }
 }
 
@@ -534,7 +544,7 @@ void WebViewSettingsWindow::SendCurrentConfig() {
         return GetPrivateProfileIntW(L"Settings", key, def, p);
     };
 
-    std::string json = "{\"type\":\"config\",\"data\":{";
+    std::string json = "{\"type\":\"config\",\"appVersion\":\"" + std::string(APP_VERSION) + "\",\"data\":{";
     json += "\"doubleTapMs\":" + std::to_string(ReadInt(L"DoubleTapMs", 250)) + ",";
     json += "\"holdMs\":" + std::to_string(ReadInt(L"HoldMs", 250)) + ",";
     json += "\"action1\":\"" + WStringToUtf8Str(ReadStr(L"Action1", L"MicMute")) + "\",";
@@ -574,7 +584,7 @@ void WebViewSettingsWindow::HandleSaveConfig(const std::string& jsonBody) {
 
     auto WriteInt = [p](const wchar_t* key, int val) {
         wchar_t buf[32] = {};
-        wsprintf(buf, L"%d", val);
+        wsprintfW(buf, L"%d", val);
         WritePrivateProfileStringW(L"Settings", key, buf, p);
     };
 

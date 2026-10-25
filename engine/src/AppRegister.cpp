@@ -3,6 +3,9 @@
 #include <shlobj.h>
 #include <propvarutil.h>
 #include <propkey.h>
+#include <tlhelp32.h>
+#include <thread>
+#include <chrono>
 
 #pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "advapi32.lib")
@@ -177,4 +180,200 @@ bool GetAutoStartRegistry() {
         RegCloseKey(hKey);
     }
     return exists;
+}
+
+// ─────────────────────────────────────────────
+//  Kendi Kendini %LOCALAPPDATA%\CopilotButton Klasörüne Taşıma / Güncelleme
+// ─────────────────────────────────────────────
+static constexpr UINT IDR_SETTINGS_HTML_RES = 103;
+
+static bool ExtractEmbeddedHtml(const std::wstring& destPath) {
+    HINSTANCE hInst = GetModuleHandleW(nullptr);
+    HRSRC hRsrc = FindResourceW(hInst, MAKEINTRESOURCEW(IDR_SETTINGS_HTML_RES), MAKEINTRESOURCEW(10));
+    if (!hRsrc) return false;
+
+    HGLOBAL hGlobal = LoadResource(hInst, hRsrc);
+    if (!hGlobal) return false;
+
+    DWORD size = SizeofResource(hInst, hRsrc);
+    const void* pData = LockResource(hGlobal);
+    if (!pData || size == 0) return false;
+
+    HANDLE hFile = CreateFileW(
+        destPath.c_str(),
+        GENERIC_WRITE,
+        FILE_SHARE_READ,
+        nullptr,
+        CREATE_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL,
+        nullptr
+    );
+    if (hFile == INVALID_HANDLE_VALUE) return false;
+
+    DWORD written = 0;
+    BOOL ok = WriteFile(hFile, pData, size, &written, nullptr);
+    CloseHandle(hFile);
+    return (ok && written == size);
+}
+
+bool CheckAndPerformSelfRelocate() {
+    wchar_t currentExe[MAX_PATH] = {};
+    GetModuleFileNameW(nullptr, currentExe, MAX_PATH);
+
+    // 1. Hedef dizini belirle: %LOCALAPPDATA%\CopilotButton
+    wchar_t localApp[MAX_PATH] = {};
+    if (FAILED(SHGetFolderPathW(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, localApp))) {
+        return false;
+    }
+
+    std::wstring targetDir = std::wstring(localApp) + L"\\CopilotButton";
+    std::wstring targetExe = targetDir + L"\\CopilotButton.exe";
+
+    // 2. Zaten hedef dizinden mi çalışıyoruz?
+    if (_wcsicmp(currentExe, targetExe.c_str()) == 0) {
+        return false; // Zaten kalıcı dizindeyiz
+    }
+
+    // 3. Portable mod veya geliştirici ortamı koruması
+    const wchar_t* cmdLine = GetCommandLineW();
+    if (wcsstr(cmdLine, L"--portable") || wcsstr(cmdLine, L"--no-relocate")) {
+        return false; // Kullanıcı portable çalıştırmak istiyor
+    }
+
+    // Geliştirici çalışma ortamı koruması (CMakeLists.txt veya .git varsa taşıma)
+    wchar_t curDir[MAX_PATH] = {};
+    wcscpy_s(curDir, currentExe);
+    wchar_t* lastSlash = wcsrchr(curDir, L'\\');
+    if (lastSlash) *lastSlash = L'\0';
+
+    std::wstring check1 = std::wstring(curDir) + L"\\CMakeLists.txt";
+    std::wstring check2 = std::wstring(curDir) + L"\\..\\CMakeLists.txt";
+    std::wstring check3 = std::wstring(curDir) + L"\\..\\.git";
+    if (GetFileAttributesW(check1.c_str()) != INVALID_FILE_ATTRIBUTES ||
+        GetFileAttributesW(check2.c_str()) != INVALID_FILE_ATTRIBUTES ||
+        GetFileAttributesW(check3.c_str()) != INVALID_FILE_ATTRIBUTES) {
+        return false; // Geliştirici ortamı, dosyayı yerinde çalıştır
+    }
+
+    // 4. Hedef klasörleri oluştur
+    CreateDirectoryW(targetDir.c_str(), nullptr);
+    std::wstring htmlDir = targetDir + L"\\html";
+    CreateDirectoryW(htmlDir.c_str(), nullptr);
+
+    // 5. Sistemde çalışan eski CopilotButton örneklerini sonlandır
+    // (Böylece CopyFileW dosya kilitlenme / erişim engellendi hatası vermez)
+    DWORD currentPid = GetCurrentProcessId();
+    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (snap != INVALID_HANDLE_VALUE) {
+        PROCESSENTRY32W pe = { sizeof(pe) };
+        if (Process32FirstW(snap, &pe)) {
+            do {
+                if (pe.th32ProcessID != currentPid && _wcsicmp(pe.szExeFile, L"CopilotButton.exe") == 0) {
+                    HANDLE hProc = OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, FALSE, pe.th32ProcessID);
+                    if (hProc) {
+                        TerminateProcess(hProc, 0);
+                        WaitForSingleObject(hProc, 1000);
+                        CloseHandle(hProc);
+                    }
+                }
+            } while (Process32NextW(snap, &pe));
+        }
+        CloseHandle(snap);
+    }
+    Sleep(150); // İşletim sisteminin dosya kilitlerini serbest bırakması için bekleme
+
+    // 6. Exe'yi hedefe kopyala (varsa üzerine yaz - güncelleme)
+    bool copied = false;
+    for (int retry = 0; retry < 5; ++retry) {
+        if (CopyFileW(currentExe, targetExe.c_str(), FALSE)) {
+            copied = true;
+            break;
+        }
+        Sleep(200);
+    }
+
+    if (!copied) {
+        return false; // Kopyalanamadıysa yerinde çalışmaya devam etsin
+    }
+
+    // 7. Gömülü güncel HTML dosyasını hedef klasöre çıkart (HTML'i de güncelle)
+    ExtractEmbeddedHtml(htmlDir + L"\\index.html");
+
+    // 8. Varsa mevcut config.ini dosyasını taşı / koru
+    std::wstring curConfig = std::wstring(curDir) + L"\\config.ini";
+    std::wstring targetConfig = targetDir + L"\\config.ini";
+    if (GetFileAttributesW(curConfig.c_str()) != INVALID_FILE_ATTRIBUTES &&
+        GetFileAttributesW(targetConfig.c_str()) == INVALID_FILE_ATTRIBUTES) {
+        CopyFileW(curConfig.c_str(), targetConfig.c_str(), TRUE);
+    }
+
+    // 9. Başlat menüsü kısayolunu ve Windows kayıtlarını yeni kalıcı exe'ye bağla
+    CreateStartMenuShortcut(targetExe);
+
+    HKEY hKey = nullptr;
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, APP_PATHS_KEY, 0, nullptr,
+                        REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, nullptr, &hKey, nullptr) == ERROR_SUCCESS) {
+        RegSetValueExW(hKey, nullptr, 0, REG_SZ,
+                       reinterpret_cast<const BYTE*>(targetExe.c_str()),
+                       static_cast<DWORD>((targetExe.length() + 1) * sizeof(wchar_t)));
+        RegSetValueExW(hKey, L"Path", 0, REG_SZ,
+                       reinterpret_cast<const BYTE*>(targetDir.c_str()),
+                       static_cast<DWORD>((targetDir.length() + 1) * sizeof(wchar_t)));
+        RegCloseKey(hKey);
+    }
+
+    // AutoStart açıksa kayıt defterini ve görev zamanlayıcıyı hedef exe ile güncelle
+    if (GetAutoStartRegistry()) {
+        SetAutoStartRegistry(true);
+    }
+
+    // 10. Hedefteki CopilotButton.exe'yi çalıştır
+    // İndirilen eski geçici exe'yi silmesi için --delete-source parametresi veriyoruz
+    std::wstring cmdArgs = L"\"" + targetExe + L"\" --delete-source \"" + currentExe + L"\"";
+    STARTUPINFOW si = { sizeof(si) };
+    PROCESS_INFORMATION pi = {};
+    if (CreateProcessW(targetExe.c_str(), cmdArgs.data(), nullptr, nullptr, FALSE, 0, nullptr, targetDir.c_str(), &si, &pi)) {
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+    }
+
+    return true; // Yeni konumdaki uygulama başlatıldı, bu geçici örneği kapat
+}
+
+void CleanupOldSourceIfRequested() {
+    const wchar_t* cmdLine = GetCommandLineW();
+    const wchar_t* flag = L"--delete-source ";
+    const wchar_t* p = wcsstr(cmdLine, flag);
+    if (!p) return;
+
+    p += wcslen(flag);
+    while (*p == L' ') p++;
+
+    std::wstring sourcePath;
+    if (*p == L'\"') {
+        p++;
+        const wchar_t* end = wcschr(p, L'\"');
+        if (end) {
+            sourcePath.assign(p, end - p);
+        }
+    } else {
+        const wchar_t* end = wcschr(p, L' ');
+        if (end) {
+            sourcePath.assign(p, end - p);
+        } else {
+            sourcePath = p;
+        }
+    }
+
+    if (sourcePath.empty()) return;
+
+    // Arka plan iş parçacığında eski dosyanın kapanmasını bekleyip sil
+    std::thread([sourcePath]() {
+        for (int i = 0; i < 20; ++i) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(300));
+            if (DeleteFileW(sourcePath.c_str())) {
+                break;
+            }
+        }
+    }).detach();
 }
