@@ -317,15 +317,15 @@ bool OsdManager::CreateSpotWindow() {
         }
     }
 
-    int w = 360;
-    int h = 74;
+    int w = 240;
+    int h = 42;
 
     m_spotHwnd = CreateWindowExW(
         WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE,
         SPOT_CLASS_NAME,
         L"CopilotSpotOSD",
         WS_POPUP,
-        24, 55, w, h,
+        20, 55, w, h,
         nullptr, nullptr, hInst, this
     );
 
@@ -334,40 +334,44 @@ bool OsdManager::CreateSpotWindow() {
     DWORD cornerPref = DWMWCP_ROUND;
     DwmSetWindowAttribute(m_spotHwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &cornerPref, sizeof(cornerPref));
 
-    HRGN hRgn = CreateRoundRectRgn(0, 0, w + 1, h + 1, 10, 10);
-    if (hRgn) SetWindowRgn(m_spotHwnd, hRgn, TRUE);
-
     return true;
 }
 
-void OsdManager::PositionSpotWindow() {
+void OsdManager::PositionSpotWindow(int textW, int textH) {
+    (void)textH;
     int screenW = GetSystemMetrics(SM_CXSCREEN);
     int screenH = GetSystemMetrics(SM_CYSCREEN);
 
-    int w = 360;
-    int h = 74;
-    int x = 24;
+    // İkon rozeti + Metin uzunluğu + Padding (Dinamik Genişlik)
+    int padX = 52;
+    m_spotWidth  = (std::clamp)(textW + padX + 16, 200, 460);
+    m_spotHeight = 42;
+
+    int x = 20;
     int y = 55;
 
     if (m_cfg.osdPosition == L"TopRight") {
-        x = screenW - w - 24;
+        x = screenW - m_spotWidth - 24;
         y = 55;
     } else if (m_cfg.osdPosition == L"BottomLeft") {
         x = 24;
-        y = screenH - h - 55;
+        y = screenH - m_spotHeight - 55;
     } else if (m_cfg.osdPosition == L"BottomRight") {
-        x = screenW - w - 24;
-        y = screenH - h - 55;
+        x = screenW - m_spotWidth - 24;
+        y = screenH - m_spotHeight - 55;
     } else if (m_cfg.osdPosition == L"Center") {
-        x = (screenW - w) / 2;
-        y = (screenH - h) / 2;
+        x = (screenW - m_spotWidth) / 2;
+        y = (screenH - m_spotHeight) / 2;
     } else {
         // TopLeft
-        x = 24;
+        x = 20;
         y = 55;
     }
 
-    SetWindowPos(m_spotHwnd, HWND_TOPMOST, x, y, w, h, SWP_NOACTIVATE);
+    SetWindowPos(m_spotHwnd, HWND_TOPMOST, x, y, m_spotWidth, m_spotHeight, SWP_NOACTIVATE);
+
+    HRGN hRgn = CreateRoundRectRgn(0, 0, m_spotWidth + 1, m_spotHeight + 1, 12, 12);
+    if (hRgn) SetWindowRgn(m_spotHwnd, hRgn, TRUE);
 }
 
 void OsdManager::ShowSpotifyTrack(const std::wstring& songTitle,
@@ -376,23 +380,50 @@ void OsdManager::ShowSpotifyTrack(const std::wstring& songTitle,
     if (!m_spotHwnd) CreateSpotWindow();
     if (!m_spotHwnd) return;
 
-    // Şarkı adını kısalt (max 34 karakter)
     std::wstring title = (!songTitle.empty()) ? songTitle : L"Bilinmeyen Parça";
-    if (title.length() > 34) {
-        title = title.substr(0, 32) + L"...";
+    if (title.length() > 38) {
+        title = title.substr(0, 36) + L"...";
     }
     m_spotTitle = title;
 
-    // Sanatçı adını kısalt (max 42 karakter)
     std::wstring artist = (!artistName.empty()) ? artistName : L"Spotify";
     if (artist.length() > 42) {
         artist = artist.substr(0, 40) + L"...";
     }
     m_spotArtist = artist;
 
-    m_spotDuration = (durationMs > 0) ? durationMs : (std::max)(m_cfg.osdDurationMs, static_cast<DWORD>(2800));
+    m_spotDuration = (durationMs > 0) ? durationMs : (std::max)(m_cfg.osdDurationMs, static_cast<DWORD>(2500));
 
-    PositionSpotWindow();
+    // Metin genişliğini ölç
+    HDC hdc = GetDC(m_spotHwnd);
+    HFONT fontBold = CreateFontW(
+        -12, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
+        L"Segoe UI"
+    );
+    HFONT fontRegular = CreateFontW(
+        -11, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
+        L"Segoe UI"
+    );
+
+    RECT rcT = { 0, 0, 0, 0 };
+    HGDIOBJ oldFont = SelectObject(hdc, fontBold);
+    DrawTextW(hdc, m_spotTitle.c_str(), -1, &rcT, DT_CALCRECT | DT_SINGLELINE);
+
+    RECT rcA = { 0, 0, 0, 0 };
+    SelectObject(hdc, fontRegular);
+    DrawTextW(hdc, m_spotArtist.c_str(), -1, &rcA, DT_CALCRECT | DT_SINGLELINE);
+
+    SelectObject(hdc, oldFont);
+    DeleteObject(fontBold);
+    DeleteObject(fontRegular);
+    ReleaseDC(m_spotHwnd, hdc);
+
+    int textW = (std::max)(rcT.right - rcT.left, rcA.right - rcA.left);
+    PositionSpotWindow(textW, 42);
 
     KillTimer(m_spotHwnd, TIMER_ID_SPOT_FADE_IN);
     KillTimer(m_spotHwnd, TIMER_ID_SPOT_HOLD);
@@ -407,8 +438,8 @@ void OsdManager::ShowSpotifyTrack(const std::wstring& songTitle,
         SetLayeredWindowAttributes(m_spotHwnd, 0, 0, LWA_ALPHA);
         SetTimer(m_spotHwnd, TIMER_ID_SPOT_FADE_IN, 15, nullptr);
     } else {
-        m_spotAlpha = 245;
-        SetLayeredWindowAttributes(m_spotHwnd, 0, 245, LWA_ALPHA);
+        m_spotAlpha = 240;
+        SetLayeredWindowAttributes(m_spotHwnd, 0, 240, LWA_ALPHA);
         SetTimer(m_spotHwnd, TIMER_ID_SPOT_HOLD, m_spotDuration, nullptr);
     }
 }
@@ -426,83 +457,73 @@ void OsdManager::OnPaintSpot(HWND hwnd) {
     HBITMAP memBmp = CreateCompatibleBitmap(hdc, w, h);
     HGDIOBJ oldBmp = SelectObject(memDC, memBmp);
 
-    // Koyu modern arka plan (#0E131F) ve kenarlık (#1E293B)
-    HBRUSH bgBrush = CreateSolidBrush(RGB(14, 19, 31));
+    // 1. Bildirim OSD'siyle birebir aynı modern koyu arka plan (#121824) ve kenarlık (#1E293B)
+    HBRUSH bgBrush = CreateSolidBrush(RGB(18, 24, 36));
     HPEN borderPen = CreatePen(PS_SOLID, 1, RGB(30, 41, 59));
     HGDIOBJ oldBrush = SelectObject(memDC, bgBrush);
     HGDIOBJ oldPen   = SelectObject(memDC, borderPen);
 
-    RoundRect(memDC, 0, 0, w, h, 10, 10);
+    RoundRect(memDC, 0, 0, w, h, 12, 12);
 
-    // Sol kenar Spotify yeşili vurgu şeridi (#1DB954)
-    HBRUSH greenBrush = CreateSolidBrush(RGB(29, 185, 84));
-    RECT barRc = { 0, 0, 4, h };
-    FillRect(memDC, &barRc, greenBrush);
-    DeleteObject(greenBrush);
+    // 2. Sol Spotify Vurgu Rozeti (24x24 px Spotify yeşili daire)
+    int iconSize = 24;
+    int iconX = 10;
+    int iconY = (h - iconSize) / 2;
 
+    HBRUSH spotBrush = CreateSolidBrush(RGB(29, 185, 84));
+    HPEN spotPen = CreatePen(PS_SOLID, 1, RGB(29, 185, 84));
+    SelectObject(memDC, spotBrush);
+    SelectObject(memDC, spotPen);
+    Ellipse(memDC, iconX, iconY, iconX + iconSize, iconY + iconSize);
+
+    // Rozet içi müzik sembolü: ♪
     SetBkMode(memDC, TRANSPARENT);
-
-    // İkon: 🎧
-    HFONT iconFont = CreateFontW(
-        22, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
-        L"Segoe UI Emoji"
-    );
-    HGDIOBJ oldFont = SelectObject(memDC, iconFont);
-    SetTextColor(memDC, RGB(29, 185, 84));
-    RECT iconRc = { 14, 18, 46, 56 };
-    DrawTextW(memDC, L"🎧", -1, &iconRc, DT_SINGLELINE | DT_CENTER | DT_VCENTER);
-    SelectObject(memDC, oldFont);
-    DeleteObject(iconFont);
-
-    // Rozet Başlığı: SPOTIFY • ŞİMDİ ÇALIYOR
-    HFONT badgeFont = CreateFontW(
-        11, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+    HFONT noteFont = CreateFontW(
+        -13, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
         CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
         L"Segoe UI"
     );
-    oldFont = SelectObject(memDC, badgeFont);
-    SetTextColor(memDC, RGB(29, 185, 84));
-    RECT badgeRc = { 54, 10, w - 10, 24 };
-    DrawTextW(memDC, L"SPOTIFY  •  ŞİMDİ ÇALIYOR", -1, &badgeRc, DT_SINGLELINE | DT_LEFT);
-    SelectObject(memDC, oldFont);
-    DeleteObject(badgeFont);
+    HGDIOBJ oldFont = SelectObject(memDC, noteFont);
+    SetTextColor(memDC, RGB(10, 15, 22)); // Kontrastlı koyu zemin
+    RECT noteRc = { iconX, iconY - 1, iconX + iconSize, iconY + iconSize };
+    DrawTextW(memDC, L"♪", -1, &noteRc, DT_SINGLELINE | DT_CENTER | DT_VCENTER);
 
-    // Şarkı Adı (Bold, Beyaz)
+    // 3. Şarkı Adı (Üst Satır, Bold Beyaz)
     HFONT titleFont = CreateFontW(
-        15, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+        -12, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
         CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
         L"Segoe UI"
     );
-    oldFont = SelectObject(memDC, titleFont);
-    SetTextColor(memDC, RGB(255, 255, 255));
-    RECT titleRc = { 54, 26, w - 12, 48 };
-    DrawTextW(memDC, m_spotTitle.c_str(), -1, &titleRc, DT_SINGLELINE | DT_LEFT | DT_VCENTER);
-    SelectObject(memDC, oldFont);
-    DeleteObject(titleFont);
+    SelectObject(memDC, titleFont);
+    SetTextColor(memDC, RGB(248, 250, 252));
+    RECT titleRc = { 42, 4, w - 12, 23 };
+    DrawTextW(memDC, m_spotTitle.c_str(), -1, &titleRc, DT_SINGLELINE | DT_LEFT | DT_VCENTER | DT_END_ELLIPSIS);
 
-    // Sanatçı Adı (#94A3B8 Slate 400)
+    // 4. Sanatçı Adı (Alt Satır, Kullanıcının seçtiği OSD rengi)
     HFONT artistFont = CreateFontW(
-        13, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+        -11, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
         CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
         L"Segoe UI"
     );
-    oldFont = SelectObject(memDC, artistFont);
-    SetTextColor(memDC, RGB(148, 163, 184));
-    RECT artistRc = { 54, 49, w - 12, 68 };
-    DrawTextW(memDC, m_spotArtist.c_str(), -1, &artistRc, DT_SINGLELINE | DT_LEFT | DT_VCENTER);
-    SelectObject(memDC, oldFont);
-    DeleteObject(artistFont);
+    SelectObject(memDC, artistFont);
+    SetTextColor(memDC, m_cfg.osdColor);
+    RECT artistRc = { 42, 21, w - 12, 38 };
+    DrawTextW(memDC, m_spotArtist.c_str(), -1, &artistRc, DT_SINGLELINE | DT_LEFT | DT_VCENTER | DT_END_ELLIPSIS);
 
     BitBlt(hdc, 0, 0, w, h, memDC, 0, 0, SRCCOPY);
 
+    SelectObject(memDC, oldFont);
+    DeleteObject(titleFont);
+    DeleteObject(artistFont);
+    DeleteObject(noteFont);
     SelectObject(memDC, oldPen);
+    DeleteObject(spotPen);
     DeleteObject(borderPen);
     SelectObject(memDC, oldBrush);
+    DeleteObject(spotBrush);
     DeleteObject(bgBrush);
     SelectObject(memDC, oldBmp);
     DeleteObject(memBmp);

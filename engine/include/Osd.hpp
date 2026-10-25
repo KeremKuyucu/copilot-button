@@ -34,7 +34,7 @@ private:
 
     // ── Spotify Kart Penceresi ────────────────────────────────────────
     bool CreateSpotWindow();
-    void PositionSpotWindow();
+    void PositionSpotWindow(int textW, int textH);
     void OnPaintSpot(HWND hwnd);
     static LRESULT CALLBACK SpotWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -53,6 +53,8 @@ private:
     HWND         m_spotHwnd      = nullptr;
     std::wstring m_spotTitle;
     std::wstring m_spotArtist;
+    int          m_spotWidth     = 0;
+    int          m_spotHeight    = 0;
     int          m_spotAlpha     = 0;
     DWORD        m_spotDuration  = 2800;
 };
