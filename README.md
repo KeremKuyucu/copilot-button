@@ -14,16 +14,13 @@ Windows 11 klavyelerindeki **Copilot tuşunu (`Win + Shift + F23`)** gelişmiş 
 - 🛡️ **Oyun & Uygulama Koruması (Anti-Modifier Leak Hook):** Donanımsal Copilot tuşunun gönderdiği `Shift` ve `Win` tuşlarını kanca seviyesinde tamamen yakalar ve bastırır. Oyun oynarken veya tam ekran uygulamalarda Copilot tuşuna basıldığında oyunların Shift (koşma/çömelme) veya Windows tuşunu (başlat menüsü) algılayıp takılması kesin olarak engellenir.
 - 🎙️ **1 Tık — Mikrofon Kontrolü:** Sistem mikrofonunu anında açar / susturur. 
   - Discord tarzı ses efekti çalar.
-  - Sol üstte mikrofon durumunu gösteren özel OSD açılır.
-  - Sistem tepsisindeki (Tray) ikon mikrofon kapalıyken otomatik olarak **kırmızı mikrofon ikonuna** dönüşür.
-- ⏸️ **2 Tık — Durdur / Oynat + Now Playing:** Şarkıyı oynatır / durdurur ve aktif şarkı adını ekranda gösterir (Spotify & YouTube Music destekli).
+  - Ekranda mikrofon durumunu gösteren özel OSD açılır.
+- ⏸️ **2 Tık — Durdur / Oynat + Now Playing:** Şarkıyı oynatır / durdurur ve aktif şarkı adını estetik OSD ile ekranda gösterir (Spotify destekli).
 - ⏭️ **3 Tık — Sonraki Parça:** Sonraki şarkıya geçer ve yeni şarkı adını OSD'de görüntüler.
 - ⏮️ **4 Tık — Önceki Parça / Özel Eylem:** Önceki şarkıya geçer veya atadığınız özel eylemi çalıştırır.
 - 🗣️ **Basılı Tutma (Hold) Modları:**
-  - **MusicApp:** Spotify veya YouTube Music'i açar / öne getirir.
   - **PushToTalk:** Tuşa basılı tuttuğunuz sürece mikrofon açılır, bırakınca otomatik kapanır.
   - **CustomApp:** Belirlediğiniz herhangi bir `.exe` uygulamasını veya internet bağlantısını (`URL`) açar.
-- 🎹 **İnteraktif Makro Kaydedici (Key & Macro Recorder):** İstediğiniz tuş veya kısayol kombinasyonunu (`Ctrl+C`, `Alt+F4`, `Win+Shift+S`, `F11` vb.) ya da sıralı tuş dizilerini klavyenizden canlı yakalayan görsel makro kaydedici penceresi ile kolayca atayın. Elle kod yazma zorunluluğunu tamamen ortadan kaldırır.
 - 💬 **Gelişmiş OSD Bildirimleri:**
   - **Konum Seçimi:** Sol Üst, Sağ Üst, Sol Alt, Sağ Alt, Merkez.
   - **Renk & Font:** Özelleştirilebilir Hex renk kodu ve font boyutu.
@@ -56,18 +53,12 @@ Windows 11 klavyelerindeki **Copilot tuşunu (`Win + Shift + F23`)** gelişmiş 
 | Eylem Adı | Açıklama |
 |---|---|
 | `MicMute` | Mikrofonu Sustur / Aç *(Varsayılan 1 Tık)* |
-| `PlayPause` | Şarkıyı Durdur / Oynat + Now Playing OSD *(Varsayılan 2 Tık)* |
-| `NextTrack` | Sonraki Şarkı + Şarkı İsmi OSD *(Varsayılan 3 Tık)* |
+| `PlayPause` | Şarkıyı Durdur / Oynat *(Varsayılan 2 Tık)* |
+| `NextTrack` | Sonraki Şarkı *(Varsayılan 3 Tık)* |
 | `PrevTrack` | Önceki Şarkı |
-| `VolumeUp` | Sistem Sesini 5 Birim Artır |
-| `VolumeDown` | Sistem Sesini 5 Birim Azalt |
 | `MasterMute` | Sistem Genel Sesini Kapat / Aç |
 | `ToggleDeafen` | Hem Sistem Sesini Hem Mikrofonu Aynı Anda Sustur / Aç |
-| `VoiceTyping` | Windows 11 Sesle Yazma / Dikte Aracını Aç (`Win + H`) |
-| `Screenshot` | Windows Ekran Alıntısı Aracını Başlat (`Win + Shift + S`) |
-| `TaskView` | Görev Görünümünü Aç (`Win + Tab`) |
 | `LockScreen` | Bilgisayarı Kilitle |
-| `CustomMacro` | Özel Tuş Makrosu (Görsel Makro Kaydedici ile) |
 | `None` | Eylem Yok *(Varsayılan 4 Tık)* |
 
 *Tüm bu eylemler Ayarlar menüsünden (`⚙️ Ayarlar`) veya `config.ini` dosyasından 1, 2, 3 ve 4 tık için ayrı ayrı atanabilir.*
@@ -87,19 +78,16 @@ DoubleTapMs=250
 ; Basılı tutma için minimum süre (milisaniye)
 HoldMs=250
 
-; Müzik Uygulaması Seçimi: YTM veya Spotify
+; Müzik Uygulaması: Yalnızca Spotify desteklenmektedir
 MusicApp=Spotify
 
 ; Windows başlangıcında otomatik çalıştır (1 = Açık, 0 = Kapalı)
 AutoStart=1
 
-; YouTube Music Ayarları
-YtmURL=https://music.youtube.com
-YtmWindowTitle=YouTube Music
-
 ; Spotify Ayarları
 SpotifyCmd=spotify:
 SpotifyWindowTitle=ahk_exe spotify.exe
+SpotifyTrackOsd=1
 
 ; ── OSD & Görünüm Ayarları ──
 Theme=Dark
@@ -110,28 +98,20 @@ OsdDurationMs=1500
 OsdFadeEnabled=1
 
 ; ── Basılı Tutma Eylemi ──
-; Options: MusicApp, PushToTalk, CustomApp, CustomMacro, CommandPalette
-HoldAction=MusicApp
+; Options: PushToTalk, CustomApp
+HoldAction=PushToTalk
 CustomAppPath=
-CustomMacroHold=
 
 ; ── Tık Eylem Atamaları ──
-; Options: MicMute, PlayPause, NextTrack, PrevTrack, VolumeUp, VolumeDown, MasterMute, ToggleDeafen, VoiceTyping, Screenshot, TaskView, LockScreen, CommandPalette, CustomMacro, TextTemplate, None
+; Options: MicMute, PlayPause, NextTrack, PrevTrack, MasterMute, ToggleDeafen, LockScreen, None
 Action1=MicMute
 Action2=PlayPause
 Action3=NextTrack
 Action4=None
 
-; ── Tray İkonu & Ses Efektleri ──
-TrayIconMicState=1
+; ── Ses Efektleri ──
 SoundFxEnabled=1
 ```
-
----
-
-## 🤖 Geliştirme Notu
-
-Bu proje, yapay zeka (AI) asistanı desteğiyle tasarlanmış ve geliştirilmiştir.
 
 ---
 

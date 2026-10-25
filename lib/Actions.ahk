@@ -10,71 +10,20 @@ RunAction(actionName, tapIndex := 0) {
             ToggleMasterMute()
         case "ToggleDeafen":
             ToggleDeafen()
-        case "VoiceTyping":
-            ShowTip("🎙️ Sesle Yazma Açılıyor...")
-            Send "#h"
-        case "Screenshot":
-            ShowTip("✂️ Ekran Alıntısı")
-            Send "#+s"
-        case "TaskView":
-            Send "#{Tab}"
+        case "PlayPause":
+            Send "{Blind}{Media_Play_Pause}"
+        case "NextTrack":
+            Send "{Blind}{Media_Next}"
+        case "PrevTrack":
+            Send "{Blind}{Media_Prev}"
         case "LockScreen":
             ShowTip("🔒 Bilgisayar Kilitleniyor...")
             Sleep 200
             DllCall("LockWorkStation")
-        case "PlayPause":
-            Send "{Blind}{Media_Play_Pause}"
-            SetTimer(ShowPlayPauseTrackInfo, -400)
-        case "NextTrack":
-            Send "{Blind}{Media_Next}"
-            ; Kısa gecikme sonrası güncel şarkı bilgisini göster
-            SetTimer(ShowNextTrackInfo, -600)
-        case "PrevTrack":
-            Send "{Blind}{Media_Prev}"
-            SetTimer(ShowPrevTrackInfo, -600)
-        case "VolumeUp":
-            Send "{Blind}{Volume_Up 5}"
-            ShowVolumeOSD()
-        case "VolumeDown":
-            Send "{Blind}{Volume_Down 5}"
-            ShowVolumeOSD()
-        case "TextTemplate":
-            SendTextTemplate(tapIndex)
-        case "CommandPalette":
-            ShowCommandPalette()
-        case "CustomMacro":
-            RunCustomMacro(tapIndex)
         case "None":
             ; Eylem yok
         default:
             ShowTip("⚠️ Bilinmeyen eylem: " actionName)
-    }
-}
-
-; ══════════════════════════════════════════
-;  ÖZEL MAKRO ÇALIŞTIRMA
-; ══════════════════════════════════════════
-RunCustomMacro(tapIndex) {
-    global customMacro1, customMacro2, customMacro3, customMacro4
-
-    macro := ""
-    switch tapIndex {
-        case 1: macro := customMacro1
-        case 2: macro := customMacro2
-        case 3: macro := customMacro3
-        case 4: macro := customMacro4
-    }
-
-    if (macro = "") {
-        ShowTip("⚠️ Makro tanımlı değil! Ayarlardan makro girin.", 2500)
-        return
-    }
-
-    try {
-        Send macro
-        ShowTip("🎹 Makro gönderildi: " macro)
-    } catch as err {
-        ShowTip("⚠️ Makro hatası: " err.Message, 2500)
     }
 }
 
@@ -126,55 +75,59 @@ GetMicMuteState() {
         }
     }
 
-    ; Yedek Strateji: Bilinen cihaz adları
-    micNames := ["Microphone", "Mikrofon", "Microphone Array", "Mikrofon Dizisi", "Headset Microphone"]
-    for _, name in micNames {
-        try {
-            return (SoundGetMute(, name) != 0)
-        }
-    }
-
     return false
 }
 
 SetMicMuteState(muteState) {
     global micDevice
-    success := false
-
     val := muteState ? 1 : 0
 
     ; Kullanıcı belirli bir cihaz seçtiyse
     if (micDevice != "Auto" && micDevice != "") {
         try {
             SoundSetMute(val, , micDevice)
-            success := true
+            return true
         }
     }
 
     ; Windows Varsayılan Kayıt Cihazı (Core Audio COM)
-    if (!success) {
-        try {
-            epv := GetDefaultCaptureEndpointVolume()
-            if (epv) {
-                ComCall(14, epv, "int", val, "ptr", 0) ; IAudioEndpointVolume::SetMute
-                success := true
-            }
+    try {
+        epv := GetDefaultCaptureEndpointVolume()
+        if (epv) {
+            ComCall(14, epv, "int", val, "ptr", 0) ; IAudioEndpointVolume::SetMute
+            return true
         }
     }
 
-    ; Yedek Strateji
-    if (!success) {
-        micNames := ["Microphone", "Mikrofon", "Microphone Array", "Mikrofon Dizisi", "Headset Microphone"]
-        for _, name in micNames {
-            try {
-                SoundSetMute(val, , name)
-                success := true
-                break
-            }
-        }
+    return false
+}
+
+; ══════════════════════════════════════════
+;  DURUM YÖNETİCİLERİ
+; ══════════════════════════════════════════
+
+ToggleMicrophoneMute() {
+    global lastKnownMicMute
+
+    curState := GetMicMuteState()
+    newState := !curState
+    SetMicMuteState(newState)
+
+    ; Güncel durumu doğrula
+    isMuted := GetMicMuteState()
+
+    ; Discord benzeri yumuşak ses efekti
+    PlayMicSound(isMuted)
+
+    ; Ekranda bildirim göster
+    if isMuted {
+        ShowTip("🎙️ Mikrofon Susturuldu (MUTE)")
+    } else {
+        ShowTip("🎙️ Mikrofon Açıldı (UNMUTE)")
     }
 
-    return success
+    UpdateMicOverlay(isMuted)
+    lastKnownMicMute := isMuted
 }
 
 ToggleMasterMute() {
@@ -199,7 +152,7 @@ ToggleDeafen() {
         curMaster := (SoundGetMute() != 0)
     }
 
-    ; Herhangi biri açıksa ikisini de sustur (Deafen); ikisi de zaten susturulmuşsa aç (Undeafen)
+    ; Herhangi biri açıksa ikisini de sustur (Deafen); ikisi de susturulmuşsa aç (Undeafen)
     shouldMute := (!curMic || !curMaster) ? true : false
 
     SetMicMuteState(shouldMute)
@@ -214,7 +167,6 @@ ToggleDeafen() {
 
     PlayMicSound(isMicMuted)
     UpdateMicOverlay(isMicMuted)
-    UpdateTrayIcon(isMicMuted)
     lastKnownMicMute := isMicMuted
 
     if (isMicMuted && isMasterMuted)
@@ -225,88 +177,43 @@ ToggleDeafen() {
         ShowTip("🔕 Ses & Mikrofon Güncellendi")
 }
 
-ShowPlayPauseTrackInfo() {
-    nowPlaying := GetNowPlaying()
-    if (nowPlaying != "")
-        ShowTip("⏯️ " nowPlaying)
-    else
-        ShowTip("⏯️ Oynat / Duraklat")
-}
-
-ShowNextTrackInfo() {
-    nowPlaying := GetNowPlaying()
-    if (nowPlaying != "")
-        ShowTip("⏭️ " nowPlaying)
-    else
-        ShowTip("⏭️ Sonraki Parça")
-}
-
-ShowPrevTrackInfo() {
-    nowPlaying := GetNowPlaying()
-    if (nowPlaying != "")
-        ShowTip("⏮️ " nowPlaying)
-    else
-        ShowTip("⏮️ Önceki Parça")
-}
-
-; ══════════════════════════════════════════
-;  NOW PLAYING — Aktif müzik pencere başlığı
-; ══════════════════════════════════════════
-GetNowPlaying() {
-    global musicApp, ytmTitle, spotifyTitle
-
-    targetTitle := (musicApp = "Spotify") ? spotifyTitle : ytmTitle
-
-    try {
-        if WinExist(targetTitle) {
-            fullTitle := WinGetTitle(targetTitle)
-
-            ; Spotify: "Şarkı Adı - Sanatçı" veya "Spotify Premium" / "Spotify Free"
-            ; YTM: "Şarkı Adı - Sanatçı - YouTube Music" veya sadece "YouTube Music"
-            if (musicApp = "Spotify") {
-                ; "Spotify" tek kelimesiyle başlıyorsa çalmıyor demektir
-                if (fullTitle = "Spotify" || fullTitle = "Spotify Premium" || fullTitle = "Spotify Free")
-                    return ""
-                return fullTitle
-            } else {
-                ; YTM: Sondaki " - YouTube Music" ve olası tarayıcı eklerini (örn. " - Google Chrome") kaldır
-                cleaned := RegExReplace(fullTitle, "\s*-\s*YouTube Music(?:\s*-\s*.*)?$", "")
-                if (cleaned = "" || cleaned = "YouTube Music")
-                    return ""
-                return cleaned
-            }
-        }
-    }
-    return ""
-}
-
-; ══════════════════════════════════════════
-;  MİKROFON SUSTURMA / AÇMA
-; ══════════════════════════════════════════
-ToggleMicrophoneMute() {
+SetMicMute(muteState) {
     global lastKnownMicMute
-
-    curState := GetMicMuteState()
-    newState := !curState
-    SetMicMuteState(newState)
-
-    ; Güncel durumu doğrula
+    SetMicMuteState(muteState)
     isMuted := GetMicMuteState()
-
-    ; Discord benzeri yumuşak ses efekti
-    PlayMicSound(isMuted)
-
-    ; Ekranda bildirim göster
-    if isMuted {
-        ShowTip("🎙️ Mikrofon Susturuldu (MUTE)")
-    } else {
-        ShowTip("🎙️ Mikrofon Açıldı (UNMUTE)")
-    }
-
     UpdateMicOverlay(isMuted)
-    UpdateTrayIcon(isMuted)
     lastKnownMicMute := isMuted
 }
+
+SyncMicState(silent := true) {
+    global lastKnownMicMute
+
+    currentMute := GetMicMuteState()
+
+    ; İlk çalışma senkronizasyonu
+    if (lastKnownMicMute == -1) {
+        lastKnownMicMute := currentMute
+        UpdateMicOverlay(currentMute)
+        return
+    }
+
+    ; Durum dışarıdan (Windows/kulaklık/donanım düğmesi) değiştiyse
+    if (currentMute != lastKnownMicMute) {
+        lastKnownMicMute := currentMute
+        UpdateMicOverlay(currentMute)
+        if (!silent) {
+            PlayMicSound(currentMute)
+            if (currentMute)
+                ShowTip("🎙️ Mikrofon Susturuldu (MUTE)")
+            else
+                ShowTip("🎙️ Mikrofon Açıldı (UNMUTE)")
+        }
+    }
+}
+
+; ══════════════════════════════════════════
+;  SES, İKON VE OVERLAY YARDIMCILARI
+; ══════════════════════════════════════════
 
 PlayMicSound(isMuted) {
     global soundFxEnabled
@@ -314,7 +221,6 @@ PlayMicSound(isMuted) {
         return
 
     if isMuted {
-        ; Discord tarzı Mute sesi (Speech Off / Hardware Remove / Pop-up Blocked)
         if FileExist(A_WinDir "\Media\Speech Off.wav")
             SoundPlay A_WinDir "\Media\Speech Off.wav"
         else if FileExist(A_WinDir "\Media\Windows Pop-up Blocked.wav")
@@ -322,7 +228,6 @@ PlayMicSound(isMuted) {
         else
             SoundPlay "*16"
     } else {
-        ; Discord tarzı Unmute sesi (Speech On / Navigation Start / Hardware Insert)
         if FileExist(A_WinDir "\Media\Speech On.wav")
             SoundPlay A_WinDir "\Media\Speech On.wav"
         else if FileExist(A_WinDir "\Media\Windows Navigation Start.wav")
@@ -332,46 +237,10 @@ PlayMicSound(isMuted) {
     }
 }
 
-UpdateTrayIcon(isMuted) {
-    global trayIconMicState
-    if (!trayIconMicState)
-        return
-
-    try {
-        if (isMuted) {
-            if FileExist(A_ScriptDir "\assets\logo_muted.ico")
-                TraySetIcon A_ScriptDir "\assets\logo_muted.ico"
-            else if FileExist(A_ScriptDir "\logo_muted.ico")
-                TraySetIcon A_ScriptDir "\logo_muted.ico"
-            else if A_IsCompiled
-                TraySetIcon A_ScriptFullPath  ; EXE'nin gömülü ikonunu kullan
-        } else {
-            if FileExist(A_ScriptDir "\assets\logo.ico")
-                TraySetIcon A_ScriptDir "\assets\logo.ico"
-            else if FileExist(A_ScriptDir "\logo.ico")
-                TraySetIcon A_ScriptDir "\logo.ico"
-            else if A_IsCompiled
-                TraySetIcon A_ScriptFullPath  ; EXE'nin gömülü ikonunu kullan
-        }
-    } catch {
-        ; İkon yüklenemezse çökme engellenir
-    }
-}
-
-SetMicMute(muteState) {
-    global lastKnownMicMute
-    SetMicMuteState(muteState)
-    isMuted := GetMicMuteState()
-    UpdateMicOverlay(isMuted)
-    UpdateTrayIcon(isMuted)
-    lastKnownMicMute := isMuted
-}
-
 UpdateMicOverlay(isMuted) {
     global micOverlayGui
 
     if (isMuted) {
-        ; Overlay yoksa oluştur; varsa sadece göster
         if (!IsObject(micOverlayGui)) {
             try {
                 if (IsObject(micOverlayGui))
@@ -394,110 +263,30 @@ UpdateMicOverlay(isMuted) {
     }
 }
 
-SyncMicState(silent := true) {
-    global lastKnownMicMute
+; ══════════════════════════════════════════
+;  SPOTIFY YARDIMCILARI
+; ══════════════════════════════════════════
 
-    currentMute := GetMicMuteState()
-
-    ; İlk çalışma senkronizasyonu
-    if (lastKnownMicMute == -1) {
-        lastKnownMicMute := currentMute
-        UpdateMicOverlay(currentMute)
-        UpdateTrayIcon(currentMute)
-        return
+ParseSpotifyTrack(fullTitle) {
+    if InStr(fullTitle, " - ") {
+        parts := StrSplit(fullTitle, " - ", , 2)
+        return { artist: Trim(parts[1]), title: Trim(parts[2]) }
     }
-
-    ; Durum dışarıdan (Windows/kulaklık/donanım düğmesi) değiştiyse
-    if (currentMute != lastKnownMicMute) {
-        lastKnownMicMute := currentMute
-        UpdateMicOverlay(currentMute)
-        UpdateTrayIcon(currentMute)
-        if (!silent) {
-            PlayMicSound(currentMute)
-            if (currentMute)
-                ShowTip("🎙️ Mikrofon Susturuldu (MUTE)")
-            else
-                ShowTip("🎙️ Mikrofon Açıldı (UNMUTE)")
-        }
-    }
+    return { artist: "Spotify", title: fullTitle }
 }
 
-OpenMusicApp() {
-    global musicApp, spotifyTitle, spotifyCmd, ytmTitle, ytmUrl
-    if (musicApp = "Spotify") {
-        if WinExist(spotifyTitle) {
-            WinActivate spotifyTitle
-            ShowTip("🎧 Spotify öne getirildi")
-        } else {
-            try {
-                Run spotifyCmd
-            } catch {
-                Run "spotify.exe"
-            }
-            ShowTip("🎧 Spotify açılıyor...")
-        }
-    } else {
-        if WinExist(ytmTitle) {
-            WinActivate ytmTitle
-            ShowTip("🎵 YouTube Music öne getirildi")
-        } else {
-            Run ytmUrl
-            ShowTip("🎵 YouTube Music açılıyor...")
-        }
-    }
-}
-
-; ══════════════════════════════════════════
-;  SES DÜZEYİ OSD (Yüzde + İlerleme Çubuğu)
-; ══════════════════════════════════════════
-ShowVolumeOSD() {
-    try {
-        vol := Round(SoundGetVolume())
-    } catch {
-        vol := 0
-    }
-
-    ; İlerleme çubuğu: 20 blok, her blok = %5
-    filled := Round(vol / 5)
-    empty  := 20 - filled
-
-    bar := ""
-    loop filled
-        bar .= "█"
-    loop empty
-        bar .= "░"
-
-    icon := (vol = 0) ? "🔇" : (vol < 30) ? "🔈" : (vol < 70) ? "🔉" : "🔊"
-
-    ShowTip(icon " Ses: %" vol "`n" bar)
-}
-
-; ══════════════════════════════════════════
-;  METİN ŞABLONU GÖNDER (Text Template)
-; ══════════════════════════════════════════
-SendTextTemplate(tapIndex) {
-    global textTemplate1, textTemplate2, textTemplate3, textTemplate4
-
-    tmpl := ""
-    switch tapIndex {
-        case 1: tmpl := textTemplate1
-        case 2: tmpl := textTemplate2
-        case 3: tmpl := textTemplate3
-        case 4: tmpl := textTemplate4
-    }
-
-    if (tmpl = "") {
-        ShowTip("⚠️ Metin şablonu tanımlı değil! Ayarlardan şablonu girin.", 2500)
-        return
-    }
+GetNowPlaying() {
+    global spotifyTitle
 
     try {
-        ; Panoya kopyala ve yapıştır (uzun metinler için güvenilir)
-        A_Clipboard := tmpl
-        ClipWait(1)
-        Send "^v"
-        ShowTip("📄 Şablon yapıştırıldı: " SubStr(tmpl, 1, 40) (StrLen(tmpl) > 40 ? "..." : ""))
-    } catch as err {
-        ShowTip("⚠️ Şablon hatası: " err.Message, 2500)
+        windows := WinGetList(spotifyTitle)
+        for hwnd in windows {
+            fullTitle := WinGetTitle(hwnd)
+            if (fullTitle = "" || fullTitle = "Spotify" || fullTitle = "Spotify Premium" || fullTitle = "Spotify Free"
+                || fullTitle = "Default IME" || fullTitle = "MSCTFIME UI" || InStr(fullTitle, "GDI+"))
+                continue
+            return fullTitle
+        }
     }
+    return ""
 }

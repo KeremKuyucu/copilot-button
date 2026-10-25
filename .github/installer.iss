@@ -68,7 +68,6 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Files]
 Source: "{#SourceExePath}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\assets\logo.ico"; DestDir: "{app}\assets"; Flags: ignoreversion
-Source: "..\assets\logo_muted.ico"; DestDir: "{app}\assets"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\assets\logo.ico"

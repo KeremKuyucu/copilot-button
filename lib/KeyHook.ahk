@@ -199,8 +199,7 @@ CheckMultiPress() {
 }
 
 CheckHoldTimer() {
-    global holdTriggered, holdAction, pttActive
-    global musicApp, ytmUrl, ytmTitle, spotifyCmd, spotifyTitle, customAppPath, customMacroHold
+    global holdTriggered, holdAction, pttActive, customAppPath
 
     holdTriggered := true
     SetTimer(CheckHoldTimer, 0)
@@ -214,7 +213,7 @@ CheckHoldTimer() {
         return
     }
 
-    ; Özel uygulama / URL modu
+    ; Özel uygulama / URL modu (CustomApp)
     if (holdAction = "CustomApp") {
         if (customAppPath != "") {
             try {
@@ -228,9 +227,15 @@ CheckHoldTimer() {
 
                 Run customAppPath
                 ; Dosya adını veya URL'yi OSD'de göster
-                displayName := RegExReplace(customAppPath, "^.*\\", "")  ; Son \\ sonrasını al
-                if (displayName = "")
-                    displayName := customAppPath
+                if InStr(customAppPath, "Gemini")
+                    displayName := "Gemini"
+                else if InStr(customAppPath, "spotify:")
+                    displayName := "Spotify"
+                else {
+                    displayName := RegExReplace(customAppPath, "^.*\\", "")
+                    if (displayName = "")
+                        displayName := customAppPath
+                }
                 ShowTip("🚀 " displayName " açılıyor...")
             } catch as err {
                 ShowTip("⚠️ Açılamadı: " err.Message, 2500)
@@ -240,28 +245,4 @@ CheckHoldTimer() {
         }
         return
     }
-
-    ; Özel Makro modu
-    if (holdAction = "CustomMacro") {
-        if (customMacroHold != "") {
-            try {
-                Send customMacroHold
-                ShowTip("🎹 Makro gönderildi: " customMacroHold)
-            } catch as err {
-                ShowTip("⚠️ Makro hatası: " err.Message, 2500)
-            }
-        } else {
-            ShowTip("⚠️ Basılı tutma makrosu tanımlı değil! Ayarlardan makro girin.", 2500)
-        }
-        return
-    }
-
-    ; Hızlı Komut Paleti (Spotlight) modu
-    if (holdAction = "CommandPalette") {
-        ShowCommandPalette()
-        return
-    }
-
-    ; Müzik uygulaması modu
-    OpenMusicApp()
 }

@@ -3,7 +3,7 @@
 ; ══════════════════════════════════════════
 
 ; ── Uygulama Bilgileri & Sabitler ──
-global APP_VERSION := "1.3.4"
+global APP_VERSION := "1.4.0"
 global EXPECTED_CERT_THUMBPRINT := "037728AEA36D0BB09D2D1EE111C70A2D423CC6B4"
 global configFile := A_ScriptDir "\config.ini"
 
@@ -16,12 +16,12 @@ global doubleTapThreshold := ReadConfigInt("Settings", "DoubleTapMs", 250)
 global holdThreshold := ReadConfigInt("Settings", "HoldMs", 250)
 global autoStart := ReadConfigInt("Settings", "AutoStart", 1)
 
-; ── Müzik Oynatıcı Ayarları ──
-global musicApp := IniRead(configFile, "Settings", "MusicApp", "YTM")
-global ytmUrl := IniRead(configFile, "Settings", "YtmURL", "https://music.youtube.com")
-global ytmTitle := IniRead(configFile, "Settings", "YtmWindowTitle", "YouTube Music")
+; ── Müzik Oynatıcı Ayarları (Sadece Spotify) ──
+global musicApp := "Spotify"
 global spotifyCmd := IniRead(configFile, "Settings", "SpotifyCmd", "spotify:")
 global spotifyTitle := IniRead(configFile, "Settings", "SpotifyWindowTitle", "ahk_exe spotify.exe")
+global spotifyTrackOsdEnabled := ReadConfigInt("Settings", "SpotifyTrackOsd", 1)
+global lastSpotifyTrack := ""
 
 ; ── OSD & Tema Ayarları ──
 global themeMode := IniRead(configFile, "Settings", "Theme", "Dark")
@@ -32,32 +32,17 @@ global osdDurationMs := ReadConfigInt("Settings", "OsdDurationMs", 1500)
 global osdFadeEnabled := ReadConfigInt("Settings", "OsdFadeEnabled", 1)
 
 ; ── Basılı Tutma & Eylem Atamaları ──
-global holdAction := IniRead(configFile, "Settings", "HoldAction", "MusicApp")
+global holdAction := IniRead(configFile, "Settings", "HoldAction", "PushToTalk")
 global customAppPath := IniRead(configFile, "Settings", "CustomAppPath", "")
 global action1 := IniRead(configFile, "Settings", "Action1", "MicMute")
 global action2 := IniRead(configFile, "Settings", "Action2", "PlayPause")
 global action3 := IniRead(configFile, "Settings", "Action3", "NextTrack")
 global action4 := IniRead(configFile, "Settings", "Action4", "PrevTrack")
-global trayIconMicState := ReadConfigInt("Settings", "TrayIconMicState", 1)
 global soundFxEnabled := ReadConfigInt("Settings", "SoundFxEnabled", 1)
 global telemetryEnabled := ReadConfigInt("Settings", "TelemetryEnabled", 1)
 
 ; ── Mikrofon Cihaz Seçimi ──
 global micDevice := IniRead(configFile, "Settings", "MicDevice", "Auto")
-
-; ── Özel Makro Tuş Dizileri ──
-global customMacro1 := IniRead(configFile, "Settings", "CustomMacro1", "")
-global customMacro2 := IniRead(configFile, "Settings", "CustomMacro2", "")
-global customMacro3 := IniRead(configFile, "Settings", "CustomMacro3", "")
-global customMacro4 := IniRead(configFile, "Settings", "CustomMacro4", "")
-global customMacroHold := IniRead(configFile, "Settings", "CustomMacroHold", "")
-
-; ── Metin Şablonu Dizileri ──
-global textTemplate1 := IniRead(configFile, "Settings", "TextTemplate1", "")
-global textTemplate2 := IniRead(configFile, "Settings", "TextTemplate2", "")
-global textTemplate3 := IniRead(configFile, "Settings", "TextTemplate3", "")
-global textTemplate4 := IniRead(configFile, "Settings", "TextTemplate4", "")
-
 
 ; ── Çalışma Zamanı (Runtime) Durum Değişkenleri ──
 global isKeyDown := false
