@@ -71,5 +71,8 @@ endif()
 # ── Çıktı adı ────────────────────────────────────────────────────────
 set_target_properties(CopilotButton PROPERTIES
     OUTPUT_NAME "CopilotButton"
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/.."
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/.."
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_CURRENT_SOURCE_DIR}/.."
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_CURRENT_SOURCE_DIR}/.."
 )
+

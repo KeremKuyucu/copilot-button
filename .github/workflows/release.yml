@@ -9,7 +9,7 @@
 #   1. Resolve release version (from tag, app.rc, or input)
 #   2. Generate release notes with Gemini API if missing
 #   3. Setup MinGW C++20 toolchain (GCC + windres)
-#   4. Compile native engine into standalone CopilotButton.exe
+#   4. Configure & Build engine with CMake
 #   5. Code sign CopilotButton.exe (SignTool + RFC 3161 timestamping)
 #   6. Package distribution files (CopilotButton.exe + portable zip)
 #   7. Generate SHA-256 checksums
@@ -105,19 +105,31 @@ jobs:
           }
           g++ --version
           windres --version
+          cmake --version
 
-      # ── Compile Native C++20 Standalone Engine ────────────
-      - name: Compile CopilotButton.exe
-        shell: cmd
-        working-directory: engine
+      # ── Configure & Build with CMake ──────────────────────
+      - name: Configure CMake
+        shell: pwsh
         run: |
-          call build_mingw.bat
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -G "MinGW Makefiles"
+
+      - name: Build CopilotButton.exe (CMake)
+        shell: pwsh
+        run: |
+          cmake --build build --config Release --parallel
 
       # ── Verify Built Binary ───────────────────────────────
       - name: Verify Binary
         shell: pwsh
         run: |
           $exe = "${{ github.workspace }}\CopilotButton.exe"
+          if (-not (Test-Path $exe)) {
+            $found = Get-ChildItem -Path "${{ github.workspace }}" -Recurse -Filter "CopilotButton.exe" -ErrorAction SilentlyContinue |
+              Select-Object -First 1 -ExpandProperty FullName
+            if ($found) {
+              Copy-Item $found -Destination $exe
+            }
+          }
           if (-not (Test-Path $exe)) {
             throw "Compilation failed: CopilotButton.exe not found at $exe"
           }
@@ -218,10 +230,14 @@ jobs:
           $exe = "${{ github.workspace }}\CopilotButton.exe"
           Copy-Item $exe -Destination "$distDir\CopilotButton.exe"
 
-          # Portable zip archive (CopilotButton.exe + config.ini)
+          # Portable zip archive (CopilotButton.exe + config.ini if available)
           $zipName = "CopilotButton-v$v-portable.zip"
           $zipPath = "$distDir\$zipName"
-          Compress-Archive -Path "$exe", "config.ini" -DestinationPath $zipPath
+          $zipFiles = @($exe)
+          if (Test-Path "config.ini") {
+            $zipFiles += "${{ github.workspace }}\config.ini"
+          }
+          Compress-Archive -Path $zipFiles -DestinationPath $zipPath
           Write-Host "Created portable archive: $zipName"
 
           # Generate SHA-256 checksums

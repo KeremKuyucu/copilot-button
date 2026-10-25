@@ -70,8 +70,9 @@ Projeyi yerel olarak MinGW-w64 ile derlemek için:
 
 ```cmd
 git clone https://github.com/KeremKuyucu/copilot-button.git
-cd copilot-button\engine
-build_mingw.bat
+cd copilot-button
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
 ```
 
 Derleme tamamlandığında ana dizinde tek parça, bağımsız `CopilotButton.exe` oluşturulacaktır.
