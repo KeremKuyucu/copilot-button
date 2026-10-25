@@ -1,6 +1,7 @@
 # Build & Compilation Artifacts
 *.exe
 *.zip
+*.res
 build_zip_temp/
 update_temp/
 tools/

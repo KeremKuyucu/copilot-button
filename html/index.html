@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Copilot Button Ayarları</title>
+<style>
+:root {
+  --bg: #0A0E17;
+  --surface: rgba(18, 24, 38, 0.85);
+  --surface-border: rgba(255, 255, 255, 0.08);
+  --surface-hover: rgba(30, 41, 59, 0.6);
+  --primary: #8B5CF6;
+  --primary-glow: rgba(139, 92, 246, 0.4);
+  --accent: #06B6D4;
+  --text: #F8FAFC;
+  --text-muted: #94A3B8;
+  --success: #10B981;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  padding: 24px;
+  user-select: none;
+  background-image: radial-gradient(circle at 10% 10%, rgba(139, 92, 246, 0.12) 0%, transparent 40%),
+                    radial-gradient(circle at 90% 90%, rgba(6, 182, 212, 0.1) 0%, transparent 40%);
+  overflow-y: auto;
+}
+.header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--surface-border);
+}
+.header-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #8B5CF6, #06B6D4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  box-shadow: 0 8px 24px var(--primary-glow);
+}
+.header-titles h1 {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  background: linear-gradient(to right, #F8FAFC, #CBD5E1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.header-titles p {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  backdrop-filter: blur(16px);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+.card-title {
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+select, input[type="text"] {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 10px 14px;
+  font-size: 13px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+select:focus, input[type="text"]:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+.input-group {
+  display: flex;
+  gap: 8px;
+}
+.input-group input { flex: 1; }
+.btn-browse {
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text);
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+.btn-browse:hover {
+  background: rgba(51, 65, 85, 0.9);
+  border-color: var(--accent);
+}
+.slider-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.slider-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.slider-val {
+  color: var(--accent);
+  font-family: monospace;
+  font-size: 13px;
+}
+input[type="range"] {
+  accent-color: var(--primary);
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+}
+.switch-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.switch-row:last-child { border-bottom: none; }
+.switch-label {
+  display: flex;
+  flex-direction: column;
+}
+.switch-label span:first-child {
+  font-size: 13px;
+  font-weight: 600;
+}
+.switch-label span:last-child {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(51, 65, 85, 0.8);
+  transition: .3s;
+  border-radius: 24px;
+}
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .3s;
+  border-radius: 50%;
+}
+input:checked + .slider {
+  background: linear-gradient(135deg, #8B5CF6, #06B6D4);
+}
+input:checked + .slider:before {
+  transform: translateX(20px);
+}
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 24px;
+  padding-bottom: 24px;
+}
+.btn-save {
+  background: linear-gradient(135deg, #8B5CF6, #06B6D4);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 28px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 18px var(--primary-glow);
+  transition: all 0.25s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-save:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px var(--primary-glow);
+}
+.btn-save:active {
+  transform: translateY(0);
+}
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #10B981;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+.color-picker-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+input[type="color"] {
+  border: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  cursor: pointer;
+  background: none;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-icon">✨</div>
+  <div class="header-titles">
+    <h1>Copilot Button Denetleyicisi</h1>
+    <p>Donanım Tuşu, Medya & Mikrofon Yönetimi • v2.0</p>
+  </div>
+</div>
+
+<!-- TIKLAMA EYLEMLERİ -->
+<div class="card">
+  <div class="card-title">🎯 Tıklama Eylem Atamaları</div>
+  <div class="grid-2">
+    <div class="form-group">
+      <label>1 Tık (Tek Basım)</label>
+      <select id="action1">
+        <option value="MicMute">🎙️ Mikrofon Sustur / Aç</option>
+        <option value="PlayPause">⏯️ Oynat / Duraklat</option>
+        <option value="NextTrack">⏭️ Sonraki Parça</option>
+        <option value="PrevTrack">⏮️ Önceki Parça</option>
+        <option value="MasterMute">🔇 Sistem Sesini Sustur</option>
+        <option value="ToggleDeafen">🔕 Sağırlaştır (Ses & Mic)</option>
+        <option value="LockScreen">🔒 Bilgisayarı Kilitle</option>
+        <option value="None">⚪ Eylem Yok</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>2 Tık (Çift Basım)</label>
+      <select id="action2">
+        <option value="MicMute">🎙️ Mikrofon Sustur / Aç</option>
+        <option value="PlayPause">⏯️ Oynat / Duraklat</option>
+        <option value="NextTrack">⏭️ Sonraki Parça</option>
+        <option value="PrevTrack">⏮️ Önceki Parça</option>
+        <option value="MasterMute">🔇 Sistem Sesini Sustur</option>
+        <option value="ToggleDeafen">🔕 Sağırlaştır (Ses & Mic)</option>
+        <option value="LockScreen">🔒 Bilgisayarı Kilitle</option>
+        <option value="None">⚪ Eylem Yok</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>3 Tık (Üçlü Basım)</label>
+      <select id="action3">
+        <option value="MicMute">🎙️ Mikrofon Sustur / Aç</option>
+        <option value="PlayPause">⏯️ Oynat / Duraklat</option>
+        <option value="NextTrack">⏭️ Sonraki Parça</option>
+        <option value="PrevTrack">⏮️ Önceki Parça</option>
+        <option value="MasterMute">🔇 Sistem Sesini Sustur</option>
+        <option value="ToggleDeafen">🔕 Sağırlaştır (Ses & Mic)</option>
+        <option value="LockScreen">🔒 Bilgisayarı Kilitle</option>
+        <option value="None">⚪ Eylem Yok</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>4 Tık (Dörtlü Basım)</label>
+      <select id="action4">
+        <option value="None">⚪ Eylem Yok</option>
+        <option value="MicMute">🎙️ Mikrofon Sustur / Aç</option>
+        <option value="PlayPause">⏯️ Oynat / Duraklat</option>
+        <option value="NextTrack">⏭️ Sonraki Parça</option>
+        <option value="PrevTrack">⏮️ Önceki Parça</option>
+        <option value="MasterMute">🔇 Sistem Sesini Sustur</option>
+        <option value="ToggleDeafen">🔕 Sağırlaştır (Ses & Mic)</option>
+        <option value="LockScreen">🔒 Bilgisayarı Kilitle</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<!-- BASILI TUTMA EYLEMİ -->
+<div class="card">
+  <div class="card-title">⏱️ Basılı Tutma Eylemi</div>
+  <div class="form-group" style="margin-bottom: 14px;">
+    <label>Tuşa Basılı Tutulduğunda Ne Yapılsın?</label>
+    <select id="holdAction" onchange="toggleCustomAppPath()">
+      <option value="PushToTalk">🎙️ Push-to-Talk (Bas-Konuş Mikrofon)</option>
+      <option value="CustomApp">🚀 Özel Uygulama / URL Başlat</option>
+    </select>
+  </div>
+  <div class="form-group" id="customAppGroup" style="display: none;">
+    <label>Uygulama Yolu veya URL</label>
+    <div class="input-group">
+      <input type="text" id="customAppPath" placeholder="Örn: C:\Program Files\Discord\Discord.exe">
+      <button type="button" class="btn-browse" onclick="browseApp()">📁 Gözat...</button>
+    </div>
+  </div>
+</div>
+
+<!-- ZAMANLAMA VE GECİKMELER -->
+<div class="card">
+  <div class="card-title">⏳ Zamanlama ve Gecikmeler</div>
+  <div class="grid-2">
+    <div class="slider-group">
+      <div class="slider-header">
+        <span>Çift Tık Süresi (DoubleTapMs)</span>
+        <span class="slider-val" id="valDoubleTap">250 ms</span>
+      </div>
+      <input type="range" id="doubleTapMs" min="100" max="500" step="10" value="250" oninput="updateVal('doubleTapMs', 'valDoubleTap', 'ms')">
+    </div>
+    <div class="slider-group">
+      <div class="slider-header">
+        <span>Basılı Tutma Süresi (HoldMs)</span>
+        <span class="slider-val" id="valHold">250 ms</span>
+      </div>
+      <input type="range" id="holdMs" min="150" max="1000" step="25" value="250" oninput="updateVal('holdMs', 'valHold', 'ms')">
+    </div>
+  </div>
+</div>
+
+<!-- SİSTEM VE BAŞLANGIÇ -->
+<div class="card">
+  <div class="card-title">⚙️ Sistem ve Başlangıç</div>
+  <div class="switch-row">
+    <div class="switch-label">
+      <span>Windows Başlangıcında Otomatik Çalıştır (AutoStart)</span>
+      <span>Bilgisayar açıldığında Copilot Button arka planda sessizce başlasın</span>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="autoStart">
+      <span class="slider"></span>
+    </label>
+  </div>
+  <div class="switch-row">
+    <div class="switch-label">
+      <span>Ses Efektleri (Sound FX)</span>
+      <span>Mikrofon susturulduğunda veya açıldığında Windows sesini çal</span>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="soundFxEnabled">
+      <span class="slider"></span>
+    </label>
+  </div>
+</div>
+
+<!-- OSD VE GÖRÜNÜM AYARLARI -->
+<div class="card">
+  <div class="card-title">🖥️ OSD & Ekran Bildirimleri</div>
+  <div class="grid-2" style="margin-bottom: 14px;">
+    <div class="form-group">
+      <label>OSD Ekran Konumu</label>
+      <select id="osdPosition">
+        <option value="TopLeft">Sol Üst (TopLeft)</option>
+        <option value="TopRight">Sağ Üst (TopRight)</option>
+        <option value="BottomLeft">Sol Alt (BottomLeft)</option>
+        <option value="BottomRight">Sağ Alt (BottomRight)</option>
+        <option value="Center">Ekran Ortası (Center)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>OSD Metin Rengi</label>
+      <div class="color-picker-wrap">
+        <input type="color" id="osdColorPicker" oninput="syncColorFromPicker()">
+        <input type="text" id="osdColor" maxlength="6" style="width: 100px; text-transform: uppercase;" oninput="syncColorFromText()">
+      </div>
+    </div>
+  </div>
+
+  <div class="slider-group" style="margin-bottom: 16px;">
+    <div class="slider-header">
+      <span>OSD Gösterim Süresi (OsdDurationMs)</span>
+      <span class="slider-val" id="valOsdDuration">1500 ms</span>
+    </div>
+    <input type="range" id="osdDurationMs" min="500" max="5000" step="100" value="1500" oninput="updateVal('osdDurationMs', 'valOsdDuration', 'ms')">
+  </div>
+
+  <div class="switch-row">
+    <div class="switch-label">
+      <span>Yumuşak Geçiş (Fade Animasyonu)</span>
+      <span>Bildirimler ekrana belirip kaybolurken yumuşakça kararır</span>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="osdFadeEnabled">
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="switch-row">
+    <div class="switch-label">
+      <span>Spotify Şarkı Değişim OSD'si</span>
+      <span>Yeni şarkıya geçildiğinde şarkı ve sanatçı kartını göster</span>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="spotifyTrackOsd">
+      <span class="slider"></span>
+    </label>
+  </div>
+</div>
+
+<div class="footer">
+  <button type="button" class="btn-save" onclick="saveSettings()">💾 Ayarları Kaydet</button>
+  <span style="font-size: 12px; color: var(--text-muted);">Değişiklikler anında motora uygulanır</span>
+</div>
+
+<div class="toast" id="toast">✅ Ayarlar başarıyla kaydedildi!</div>
+
+<script>
+function updateVal(sliderId, labelId, unit) {
+  document.getElementById(labelId).innerText = document.getElementById(sliderId).value + ' ' + unit;
+}
+
+function syncColorFromPicker() {
+  const c = document.getElementById('osdColorPicker').value.replace('#', '').toUpperCase();
+  document.getElementById('osdColor').value = c;
+}
+
+function syncColorFromText() {
+  let c = document.getElementById('osdColor').value.replace('#', '');
+  if (c.length === 6) {
+    document.getElementById('osdColorPicker').value = '#' + c;
+  }
+}
+
+function toggleCustomAppPath() {
+  const val = document.getElementById('holdAction').value;
+  document.getElementById('customAppGroup').style.display = (val === 'CustomApp') ? 'flex' : 'none';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.innerText = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// WebView2 mesaj dinleyicisi (Doğrudan bellek içi mesajlaşma, HTTP yok)
+if (window.chrome && window.chrome.webview) {
+  window.chrome.webview.addEventListener('message', event => {
+    const msg = event.data;
+    if (msg.type === 'config') {
+      applyConfig(msg.data);
+    } else if (msg.type === 'browse_result') {
+      if (msg.path) {
+        document.getElementById('customAppPath').value = msg.path;
+      }
+    } else if (msg.type === 'save_result') {
+      if (msg.success) {
+        showToast('✅ Ayarlar kaydedildi ve motora uygulandı!');
+      } else {
+        showToast('❌ Kayıt hatası!');
+      }
+    }
+  });
+}
+
+function applyConfig(data) {
+  document.getElementById('action1').value = data.action1 || 'MicMute';
+  document.getElementById('action2').value = data.action2 || 'PlayPause';
+  document.getElementById('action3').value = data.action3 || 'NextTrack';
+  document.getElementById('action4').value = data.action4 || 'None';
+  document.getElementById('holdAction').value = data.holdAction || 'PushToTalk';
+  document.getElementById('customAppPath').value = data.customAppPath || '';
+
+  document.getElementById('doubleTapMs').value = data.doubleTapMs || 250;
+  updateVal('doubleTapMs', 'valDoubleTap', 'ms');
+
+  document.getElementById('holdMs').value = data.holdMs || 250;
+  updateVal('holdMs', 'valHold', 'ms');
+
+  document.getElementById('autoStart').checked = !!data.autoStart;
+  document.getElementById('soundFxEnabled').checked = !!data.soundFxEnabled;
+
+  document.getElementById('osdPosition').value = data.osdPosition || 'TopLeft';
+
+  const hex = (data.osdColor || '00E5FF').replace('#', '').toUpperCase();
+  document.getElementById('osdColor').value = hex;
+  document.getElementById('osdColorPicker').value = '#' + hex;
+
+  document.getElementById('osdDurationMs').value = data.osdDurationMs || 1500;
+  updateVal('osdDurationMs', 'valOsdDuration', 'ms');
+
+  document.getElementById('osdFadeEnabled').checked = !!data.osdFadeEnabled;
+  document.getElementById('spotifyTrackOsd').checked = !!data.spotifyTrackOsd;
+
+  toggleCustomAppPath();
+}
+
+function browseApp() {
+  if (window.chrome && window.chrome.webview) {
+    window.chrome.webview.postMessage({ type: 'browse' });
+  }
+}
+
+function saveSettings() {
+  const payload = {
+    action1: document.getElementById('action1').value,
+    action2: document.getElementById('action2').value,
+    action3: document.getElementById('action3').value,
+    action4: document.getElementById('action4').value,
+    holdAction: document.getElementById('holdAction').value,
+    customAppPath: document.getElementById('customAppPath').value,
+    doubleTapMs: parseInt(document.getElementById('doubleTapMs').value, 10),
+    holdMs: parseInt(document.getElementById('holdMs').value, 10),
+    autoStart: document.getElementById('autoStart').checked ? 1 : 0,
+    soundFxEnabled: document.getElementById('soundFxEnabled').checked ? 1 : 0,
+    osdPosition: document.getElementById('osdPosition').value,
+    osdColor: document.getElementById('osdColor').value.replace('#', '').toUpperCase(),
+    osdDurationMs: parseInt(document.getElementById('osdDurationMs').value, 10),
+    osdFadeEnabled: document.getElementById('osdFadeEnabled').checked ? 1 : 0,
+    spotifyTrackOsd: document.getElementById('spotifyTrackOsd').checked ? 1 : 0
+  };
+
+  if (window.chrome && window.chrome.webview) {
+    window.chrome.webview.postMessage({ type: 'save_config', payload: payload });
+  }
+}
+
+window.onload = () => {
+  if (window.chrome && window.chrome.webview) {
+    window.chrome.webview.postMessage({ type: 'get_config' });
+  }
+};
+</script>
+
+</body>
+</html>
