@@ -5,7 +5,7 @@
 #include <windows.h>
 #include <string>
 
-static constexpr const char* APP_VERSION = "2.0.1";
+static constexpr const char* APP_VERSION = "2.1.0";
 
 class WebViewSettingsWindow {
 public:
