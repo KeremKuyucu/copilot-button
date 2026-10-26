@@ -1,6 +1,7 @@
 <# :
 @echo off
 setlocal
+cd /d "%~dp0.."
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$content = [System.IO.File]::ReadAllText('%~f0'); $sb = [ScriptBlock]::Create($content); & $sb @args" %*
 set "EXIT_CODE=%ERRORLEVEL%"
 if "%~1"=="" (
@@ -48,8 +49,8 @@ if ([string]::IsNullOrWhiteSpace($currentBranch)) {
     Write-Host "[UYARI] Aktif bir git dali tespit edilemedi. HEAD uzerinde calisiliyor." -ForegroundColor Yellow
 }
 
-# Proje kök dizinine geç
-Set-Location (Join-Path $PSScriptRoot "..")
+# Proje kök dizinine geç (garanti)
+if ($PSScriptRoot) { Set-Location (Join-Path $PSScriptRoot "..") }
 
 $parts = $NewVersion.Split('.')
 $major = $parts[0]

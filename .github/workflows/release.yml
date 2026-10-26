@@ -231,11 +231,6 @@ jobs:
           $target = "$distDir\CopilotButton.exe"
           Copy-Item $exe -Destination $target
 
-          # Generate SHA-256 checksum
-          $hash = (Get-FileHash -Path $target -Algorithm SHA256).Hash.ToLower()
-          "$hash  CopilotButton.exe" | Set-Content -Path "$target.sha256" -Encoding ascii
-          Write-Host "SHA256 (CopilotButton.exe): $hash"
-
       # ── Upload Artifacts ──────────────────────────────────
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
@@ -256,7 +251,6 @@ jobs:
           body_path: ${{ hashFiles(format('.github/releases/RELEASE_{0}.md', steps.ver.outputs.version)) != '' && format('.github/releases/RELEASE_{0}.md', steps.ver.outputs.version) || '' }}
           files: |
             dist/CopilotButton.exe
-            dist/CopilotButton.exe.sha256
           draft: false
           prerelease: false
           generate_release_notes: ${{ hashFiles(format('.github/releases/RELEASE_{0}.md', steps.ver.outputs.version)) == '' }}
