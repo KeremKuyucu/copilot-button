@@ -17,10 +17,17 @@ public:
     // Eylem bildirimi (ShowTip)
     void ShowTip(const std::wstring& msg, DWORD durationMs = 0);
 
-    // Spotify parça değişim bildirimi (ShowSpotifyTrackOSD)
+    // Medya parça değişim bildirimi (ShowMediaTrack)
+    void ShowMediaTrack(const std::wstring& songTitle,
+                        const std::wstring& artistName = L"Media",
+                        DWORD durationMs = 0);
+
+    // Geriye dönük uyumluluk
     void ShowSpotifyTrack(const std::wstring& songTitle,
-                          const std::wstring& artistName = L"Spotify",
-                          DWORD durationMs = 0);
+                          const std::wstring& artistName = L"Media",
+                          DWORD durationMs = 0) {
+        ShowMediaTrack(songTitle, artistName, durationMs);
+    }
 
 private:
     OsdManager() = default;

@@ -13,10 +13,9 @@ void RegisterAppWithWindows();
 void SetAutoStartRegistry(bool enable);
 bool GetAutoStartRegistry();
 
-// Uygulamanın %LOCALAPPDATA%\CopilotButton altında çalışmasını denetler.
-// Farklı bir konumdan (ör. İndirilenler) açıldıysa kendini hedef klasöre kopyalar,
-// kısayol ve autostart'ı bağlar, yeni exe'yi başlatır ve true döner.
+// Uygulamanın her zaman %LOCALAPPDATA%\CopilotButton altında çalışmasını sağlar.
+// Farklı bir konumdan açıldıysa kendini hedef klasöre kopyalar, yeni exe'yi başlatır ve true döner.
 bool CheckAndPerformSelfRelocate();
 
-// İndirilen geçici dosyanın silinmesi istenmişse (--delete-source) arka planda siler
+// Eski kaynak dosyanın arka planda silinmesi
 void CleanupOldSourceIfRequested();

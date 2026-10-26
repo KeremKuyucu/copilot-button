@@ -16,7 +16,7 @@ g++ -std=c++20 -O2 -s -flto -ffunction-sections -fdata-sections -Wl,--gc-section
     src/main.cpp src/Tray.cpp src/AppRegister.cpp ^
     src/Config.cpp src/Audio.cpp ^
     src/KeyHook.cpp src/Actions.cpp src/MicOverlay.cpp ^
-    src/SpotifyTracker.cpp src/Osd.cpp resources/app.res ^
+    src/MediaTracker.cpp src/Osd.cpp resources/app.res ^
     -o CopilotButton.exe ^
     -luser32 -lshell32 -lole32 -loleaut32 -luuid -lwinmm -ladvapi32 -lgdi32 -ldwmapi -lcomdlg32 -lwindowsapp ^
     -static-libgcc -static-libstdc++ -static

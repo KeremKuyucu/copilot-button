@@ -13,7 +13,7 @@
 #include "Audio.hpp"
 #include "Actions.hpp"
 #include "MicOverlay.hpp"
-#include "SpotifyTracker.hpp"
+#include "MediaTracker.hpp"
 #include "Osd.hpp"
 #include "Tray.hpp"
 #include "AppRegister.hpp"
@@ -36,7 +36,7 @@ static const wchar_t* APP_WND_CLASS   = L"CopilotButtonHost";
 static const wchar_t* APP_MUTEX_NAME  = L"Global\\CopilotButton_SingleInstance_Mutex";
 
 static MicOverlay*     g_pMicOverlay     = nullptr;
-static SpotifyTracker* g_pSpotifyTracker = nullptr;
+static MediaTracker*   g_pMediaTracker   = nullptr;
 static ConfigManager*  g_pCfgMgr         = nullptr;
 static KeyHook*        g_pHook           = nullptr;
 static TrayManager*    g_pTray           = nullptr;
@@ -63,13 +63,13 @@ static LRESULT CALLBACK HostWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
             return 0;
 
         case WM_USER_TRACK_CHANGED:
-            if (g_pSpotifyTracker && g_pCfgMgr) {
+            if (g_pMediaTracker && g_pCfgMgr) {
                 Config cfg = g_pCfgMgr->GetConfig();
                 OsdManager::Instance().UpdateConfig(cfg);
-                if (cfg.spotifyTrackOsd) {
-                    TrackInfo track = g_pSpotifyTracker->GetCurrentTrack();
+                if (cfg.mediaTrackOsd || cfg.spotifyTrackOsd) {
+                    TrackInfo track = g_pMediaTracker->GetCurrentTrack();
                     if (track.isPlaying && !track.title.empty()) {
-                        OsdManager::Instance().ShowSpotifyTrack(track.title, track.artist);
+                        OsdManager::Instance().ShowMediaTrack(track.title, track.artist);
                     }
                 }
             }
@@ -82,6 +82,7 @@ static LRESULT CALLBACK HostWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
                     g_pHook->UpdateConfig(cfg);
                 }
                 OsdManager::Instance().UpdateConfig(cfg);
+                SetAutoStartRegistry(cfg.autoStart);
             }
             return 0;
 
@@ -141,7 +142,7 @@ static bool EnsureSingleInstance() {
 //  WinMain – Giriş noktası
 // ─────────────────────────────────────────────
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
-    // ── Kendi kendini %LOCALAPPDATA%\CopilotButton klasörüne taşıma denetimi ──
+    // ── Her zaman %LOCALAPPDATA%\CopilotButton klasörüne taşıma denetimi ──
     if (CheckAndPerformSelfRelocate()) {
         return 0;
     }
@@ -181,9 +182,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
     g_pCfgMgr = &cfgMgr;
 
     Config initialCfg = cfgMgr.GetConfig();
-    if (initialCfg.autoStart) {
-        SetAutoStartRegistry(true);
-    }
+    SetAutoStartRegistry(initialCfg.autoStart);
 
     // ── OSD Yöneticisi başlat ────────────────────────────────────────
     OsdManager::Instance().Init(hWnd);
@@ -219,10 +218,10 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
         }
     });
 
-    // ── Spotify Şarkı Takibi ──────────────────────────────────────────
-    SpotifyTracker spotifyTracker;
-    g_pSpotifyTracker = &spotifyTracker;
-    spotifyTracker.Start([hWnd](const TrackInfo&) {
+    // ── Evrensel Medya Takibi ─────────────────────────────────────────
+    MediaTracker mediaTracker;
+    g_pMediaTracker = &mediaTracker;
+    mediaTracker.Start([hWnd](const TrackInfo&) {
         if (hWnd && IsWindow(hWnd)) {
             PostMessageW(hWnd, WM_USER_TRACK_CHANGED, 0, 0);
         }
@@ -247,8 +246,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
     );
 
     if (!installed) {
-        spotifyTracker.Stop();
-        g_pSpotifyTracker = nullptr;
+        mediaTracker.Stop();
+        g_pMediaTracker = nullptr;
         UnregisterMicNotification();
         micOverlay.Destroy();
         g_pMicOverlay = nullptr;
@@ -269,8 +268,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
 
     hook.Uninstall();
     g_pHook = nullptr;
-    spotifyTracker.Stop();
-    g_pSpotifyTracker = nullptr;
+    mediaTracker.Stop();
+    g_pMediaTracker = nullptr;
     UnregisterMicNotification();
     micOverlay.Destroy();
     g_pMicOverlay = nullptr;

@@ -3,6 +3,7 @@
 #include <propvarutil.h>
 #include <propkey.h>
 #include <tlhelp32.h>
+#include <vector>
 #include <thread>
 #include <chrono>
 
@@ -172,12 +173,8 @@ bool CheckAndPerformSelfRelocate() {
     std::wstring targetDir = std::wstring(localApp) + L"\\CopilotButton";
     std::wstring targetExe = targetDir + L"\\CopilotButton.exe";
 
+    // Zaten hedef konumda (%LOCALAPPDATA%\CopilotButton\CopilotButton.exe) çalışıyorsa taşıma yapma
     if (_wcsicmp(currentExe, targetExe.c_str()) == 0) {
-        return false;
-    }
-
-    const wchar_t* cmdLine = GetCommandLineW();
-    if (wcsstr(cmdLine, L"--portable") || wcsstr(cmdLine, L"--no-relocate")) {
         return false;
     }
 
@@ -186,23 +183,9 @@ bool CheckAndPerformSelfRelocate() {
     wchar_t* lastSlash = wcsrchr(curDir, L'\\');
     if (lastSlash) *lastSlash = L'\0';
 
-    bool isDevEnv = false;
-    std::wstring check1 = std::wstring(curDir) + L"\\CMakeLists.txt";
-    std::wstring check2 = std::wstring(curDir) + L"\\..\\CMakeLists.txt";
-    std::wstring check3 = std::wstring(curDir) + L"\\..\\.git";
-    if (GetFileAttributesW(check1.c_str()) != INVALID_FILE_ATTRIBUTES ||
-        GetFileAttributesW(check2.c_str()) != INVALID_FILE_ATTRIBUTES ||
-        GetFileAttributesW(check3.c_str()) != INVALID_FILE_ATTRIBUTES) {
-        isDevEnv = true;
-    }
-
-    bool forceInstall = (wcsstr(cmdLine, L"--install") != nullptr || wcsstr(cmdLine, L"--force-relocate") != nullptr);
-    if (isDevEnv && !forceInstall) {
-        return false;
-    }
-
     CreateDirectoryW(targetDir.c_str(), nullptr);
 
+    // Hedef konumda eski çalışan bir örnek varsa sonlandır ki CopyFile kilitlenmesin
     DWORD currentPid = GetCurrentProcessId();
     HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (snap != INVALID_HANDLE_VALUE) {
@@ -239,6 +222,7 @@ bool CheckAndPerformSelfRelocate() {
         return false;
     }
 
+    // Kaynak dizinde config.ini varsa ve hedefte henüz yoksa kopyala
     std::wstring curConfig = std::wstring(curDir) + L"\\config.ini";
     std::wstring targetConfig = targetDir + L"\\config.ini";
     if (GetFileAttributesW(curConfig.c_str()) != INVALID_FILE_ATTRIBUTES &&
@@ -258,10 +242,6 @@ bool CheckAndPerformSelfRelocate() {
                        reinterpret_cast<const BYTE*>(targetDir.c_str()),
                        static_cast<DWORD>((targetDir.length() + 1) * sizeof(wchar_t)));
         RegCloseKey(hKey);
-    }
-
-    if (GetAutoStartRegistry()) {
-        SetAutoStartRegistry(true);
     }
 
     STARTUPINFOW si = { sizeof(si) };
@@ -308,3 +288,4 @@ void CleanupOldSourceIfRequested() {
         }
     }).detach();
 }
+

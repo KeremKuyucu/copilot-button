@@ -374,16 +374,16 @@ void OsdManager::PositionSpotWindow(int textW, int textH) {
     if (hRgn) SetWindowRgn(m_spotHwnd, hRgn, TRUE);
 }
 
-void OsdManager::ShowSpotifyTrack(const std::wstring& songTitle,
-                                  const std::wstring& artistName,
-                                  DWORD durationMs) {
+void OsdManager::ShowMediaTrack(const std::wstring& songTitle,
+                                const std::wstring& artistName,
+                                DWORD durationMs) {
     if (!m_spotHwnd) CreateSpotWindow();
     if (!m_spotHwnd) return;
 
     std::wstring title = (!songTitle.empty()) ? songTitle : L"Bilinmeyen Parça";
     m_spotTitle = title;
 
-    std::wstring artist = (!artistName.empty()) ? artistName : L"Spotify";
+    std::wstring artist = (!artistName.empty()) ? artistName : L"Media";
     m_spotArtist = artist;
 
     m_spotDuration = (durationMs > 0) ? durationMs : (std::max)(m_cfg.osdDurationMs, static_cast<DWORD>(2500));
@@ -449,16 +449,23 @@ void OsdManager::OnPaintSpot(HWND hwnd) {
 
     RoundRect(memDC, 0, 0, w, h, h, h);
 
-    // 2. Sol Spotify Rozeti (18x18 px Spotify yeşili daire)
+    // 2. Sol Medya Rozeti (18x18 px daire)
     int iconSize = 18;
     int iconX = 9;
     int iconY = (h - iconSize) / 2;
 
-    HBRUSH spotBrush = CreateSolidBrush(RGB(29, 185, 84));
-    HPEN spotPen = CreatePen(PS_SOLID, 1, RGB(29, 185, 84));
+    // Spotify ise Spotify yeşili, diğer medya oynatıcılarında OSD vurgu rengi
+    COLORREF badgeColor = (m_spotArtist.find(L"Spotify") != std::wstring::npos)
+                              ? RGB(29, 185, 84)
+                              : m_cfg.osdColor;
+
+    HBRUSH spotBrush = CreateSolidBrush(badgeColor);
+    HPEN spotPen = CreatePen(PS_SOLID, 1, badgeColor);
     SelectObject(memDC, spotBrush);
     SelectObject(memDC, spotPen);
     Ellipse(memDC, iconX, iconY, iconX + iconSize, iconY + iconSize);
+    DeleteObject(spotBrush);
+    DeleteObject(spotPen);
 
     // Rozet içi müzik sembolü: ♪
     SetBkMode(memDC, TRANSPARENT);
@@ -473,9 +480,9 @@ void OsdManager::OnPaintSpot(HWND hwnd) {
     RECT noteRc = { iconX, iconY - 1, iconX + iconSize, iconY + iconSize };
     DrawTextW(memDC, L"♪", -1, &noteRc, DT_SINGLELINE | DT_CENTER | DT_VCENTER);
 
-    // 3. Sağ Mini Ekolayzır (3 adet Spotify yeşili dikey çubuk)
+    // 3. Sağ Mini Ekolayzır (3 adet dikey çubuk)
     int eqX = w - 22;
-    HBRUSH eqBrush = CreateSolidBrush(RGB(29, 185, 84));
+    HBRUSH eqBrush = CreateSolidBrush(badgeColor);
     RECT b1 = { eqX,     14, eqX + 2,  22 };
     RECT b2 = { eqX + 4, 11, eqX + 6,  25 };
     RECT b3 = { eqX + 8, 13, eqX + 10, 23 };

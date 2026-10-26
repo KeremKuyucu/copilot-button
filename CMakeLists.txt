@@ -18,7 +18,7 @@ set(SOURCES
     src/KeyHook.cpp
     src/Actions.cpp
     src/MicOverlay.cpp
-    src/SpotifyTracker.cpp
+    src/MediaTracker.cpp
     src/Osd.cpp
     resources/app.rc
 )

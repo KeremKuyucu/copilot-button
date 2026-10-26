@@ -53,6 +53,7 @@ struct Config {
     int          osdFontSize     = 10;
     DWORD        osdDurationMs   = 1500;
     bool         osdFadeEnabled  = true;
+    bool         mediaTrackOsd   = true;
     bool         spotifyTrackOsd = true;
 };
 

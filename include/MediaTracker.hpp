@@ -19,19 +19,20 @@ struct TrackInfo {
     std::wstring artist;
     std::wstring title;
     std::wstring album;
+    std::wstring sourceApp;
     bool         isPlaying = false;
 };
 
 using TrackChangeCallback = std::function<void(const TrackInfo&)>;
 
-class SpotifyTracker {
+class MediaTracker {
 public:
-    SpotifyTracker();
-    ~SpotifyTracker();
+    MediaTracker();
+    ~MediaTracker();
 
     // Kopyalama ve taşımayı devre dışı bırak
-    SpotifyTracker(const SpotifyTracker&) = delete;
-    SpotifyTracker& operator=(const SpotifyTracker&) = delete;
+    MediaTracker(const MediaTracker&) = delete;
+    MediaTracker& operator=(const MediaTracker&) = delete;
 
     bool Start(TrackChangeCallback cb);
     void Stop();
@@ -55,6 +56,10 @@ private:
 
     // Event dinleme token'ları
     winrt::event_token m_sessionsChangedToken{};
+    winrt::event_token m_currentSessionChangedToken{};
     winrt::event_token m_mediaPropertiesToken{};
     winrt::event_token m_playbackInfoToken{};
 };
+
+// Geriye dönük uyumluluk takma adı
+using SpotifyTracker = MediaTracker;

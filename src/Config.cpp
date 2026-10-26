@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────
 //  Yardımcı: INI'den DWORD oku
 // ─────────────────────────────────────────────
-static DWORD ReadInt(const wchar_t* path, const wchar_t* key, DWORD def) {
+static DWORD ReadInt(const wchar_t* path, const wchar_t* key, DWORD def = 1) {
     return GetPrivateProfileIntW(L"Settings", key, static_cast<int>(def), path);
 }
 
@@ -142,9 +142,9 @@ void EnsureConfigExists(const std::wstring& path) {
         "; Ses Efektleri (Mikrofon susturulduğunda/açıldığında Windows sesini çal)\r\n"
         "SoundFxEnabled=1\r\n"
         "\r\n"
-        "; ── Spotify ve OSD Ayarları ──\r\n"
-        "; Spotify Şarkı Değişiminde OSD Göster (1 = Açık, 0 = Kapalı)\r\n"
-        "SpotifyTrackOsd=1\r\n"
+        "; ── Medya ve OSD Ayarları ──\r\n"
+        "; Medya (Spotify, YouTube, VLC vb.) Şarkı Değişiminde OSD Göster (1 = Açık, 0 = Kapalı)\r\n"
+        "MediaTrackOsd=1\r\n"
         "\r\n"
         "; OSD Konumu: TopLeft, TopRight, BottomLeft, BottomRight, Center\r\n"
         "OsdPosition=TopLeft\r\n"
@@ -224,7 +224,8 @@ void ConfigManager::Load() {
     c.osdFontSize     = static_cast<int>(ReadInt(p, L"OsdFontSize", 10));
     c.osdDurationMs   = ReadInt(p, L"OsdDurationMs", 1500);
     c.osdFadeEnabled  = (ReadInt(p, L"OsdFadeEnabled", 1) != 0);
-    c.spotifyTrackOsd = (ReadInt(p, L"SpotifyTrackOsd", 1) != 0);
+    c.mediaTrackOsd   = (ReadInt(p, L"MediaTrackOsd") != 0);
+    c.spotifyTrackOsd = c.mediaTrackOsd;
 
     {
         std::lock_guard<std::mutex> lk(m_mu);
