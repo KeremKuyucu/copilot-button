@@ -1,0 +1,164 @@
+<# :
+@echo off
+setlocal
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$content = [System.IO.File]::ReadAllText('%~f0'); $sb = [ScriptBlock]::Create($content); & $sb @args" %*
+set "EXIT_CODE=%ERRORLEVEL%"
+if "%~1"=="" (
+    echo.
+    pause
+)
+exit /b %EXIT_CODE%
+#>
+param (
+    [Parameter(Position = 0)]
+    [string]$NewVersion
+)
+
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    Write-Host "[HATA] Git bulunamadi! Lutfen Git'in kurulu ve PATH'e ekli oldugundan emin olun." -ForegroundColor Red
+    exit 1
+}
+
+if ([string]::IsNullOrWhiteSpace($NewVersion)) {
+    $NewVersion = Read-Host "Lutfen yeni surum numarasini girin (ornek: 2.1.1)"
+}
+
+if ([string]::IsNullOrWhiteSpace($NewVersion)) {
+    Write-Host "[HATA] Surum numarasi bos birakilamaz!" -ForegroundColor Red
+    exit 1
+}
+
+$NewVersion = $NewVersion.Trim().Trim('"', "'").TrimStart("v").TrimStart("V")
+if ($NewVersion -notmatch '^\d+\.\d+\.\d+$') {
+    Write-Host "[HATA] Gecersiz surum formati! Ornek format: 2.1.1 veya 2.2.0" -ForegroundColor Red
+    exit 1
+}
+
+$tagName = "v$NewVersion"
+
+# Tag'in yerel olarak mevcut olup olmadigini kontrol et
+$existingTag = git tag -l $tagName
+if ($existingTag) {
+    Write-Host "[HATA] '$tagName' etiketi zaten mevcut! Lutfen farkli bir surum girin." -ForegroundColor Red
+    exit 1
+}
+
+$currentBranch = (git branch --show-current).Trim()
+if ([string]::IsNullOrWhiteSpace($currentBranch)) {
+    Write-Host "[UYARI] Aktif bir git dali tespit edilemedi. HEAD uzerinde calisiliyor." -ForegroundColor Yellow
+}
+
+$parts = $NewVersion.Split('.')
+$major = $parts[0]
+$minor = $parts[1]
+$patch = $parts[2]
+$fourPart = "$major,$minor,$patch,0"
+$fourPartDot = "$major.$minor.$patch.0"
+
+Write-Host "Surum yukseltiliyor: $NewVersion ($fourPartDot)..." -ForegroundColor Cyan
+
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+
+# 1. gui/include/WebViewSettings.hpp
+$file = "gui/include/WebViewSettings.hpp"
+if (Test-Path $file) {
+    $content = [System.IO.File]::ReadAllText($file, [System.Text.Encoding]::UTF8)
+    $content = [regex]::Replace($content, 'APP_VERSION\s*=\s*"[^"]+"', "APP_VERSION = `"$NewVersion`"")
+    [System.IO.File]::WriteAllText($file, $content, $utf8NoBom)
+    Write-Host "  [OK] $file" -ForegroundColor Green
+}
+
+# 2. html/index.html
+$file = "html/index.html"
+if (Test-Path $file) {
+    $content = [System.IO.File]::ReadAllText($file, [System.Text.Encoding]::UTF8)
+    $content = [regex]::Replace($content, '(<span[^>]*id="versionBadge"[^>]*>)v[^<]+(</span>)', "`${1}v$NewVersion`${2}")
+    $content = [regex]::Replace($content, "let g_currentVersion = '[^']+';", "let g_currentVersion = '$NewVersion';")
+    [System.IO.File]::WriteAllText($file, $content, $utf8NoBom)
+    Write-Host "  [OK] $file" -ForegroundColor Green
+}
+
+# 3. gui/app.rc & engine/app.rc
+$rcFiles = @("gui/app.rc", "engine/app.rc")
+foreach ($file in $rcFiles) {
+    if (Test-Path $file) {
+        $content = [System.IO.File]::ReadAllText($file, [System.Text.Encoding]::UTF8)
+        $content = [regex]::Replace($content, 'FILEVERSION\s+[\d,]+', "FILEVERSION     $fourPart")
+        $content = [regex]::Replace($content, 'PRODUCTVERSION\s+[\d,]+', "PRODUCTVERSION  $fourPart")
+        $content = [regex]::Replace($content, 'VALUE\s+"FileVersion",\s*"[^"]+"', "VALUE `"FileVersion`",      `"$fourPartDot\0`"")
+        $content = [regex]::Replace($content, 'VALUE\s+"ProductVersion",\s*"[^"]+"', "VALUE `"ProductVersion`",   `"$fourPartDot\0`"")
+        [System.IO.File]::WriteAllText($file, $content, $utf8NoBom)
+        Write-Host "  [OK] $file" -ForegroundColor Green
+    }
+}
+
+# 4. gui/app.manifest & engine/app.manifest
+$manifestFiles = @("gui/app.manifest", "engine/app.manifest")
+foreach ($file in $manifestFiles) {
+    if (Test-Path $file) {
+        $content = [System.IO.File]::ReadAllText($file, [System.Text.Encoding]::UTF8)
+        $content = [regex]::Replace($content, '(<assemblyIdentity[\s\S]*?\bversion=")[^"]+(")', "`${1}$fourPartDot`${2}")
+        [System.IO.File]::WriteAllText($file, $content, $utf8NoBom)
+        Write-Host "  [OK] $file" -ForegroundColor Green
+    }
+}
+
+Write-Host "`nTum dosyalar $NewVersion surumune basariyla guncellendi!" -ForegroundColor Green
+
+# 5. Git islemleri: commit, tag ve push
+Write-Host "`nGit islemleri yurutuluyor..." -ForegroundColor Cyan
+
+$filesToStage = @(
+    "gui/include/WebViewSettings.hpp",
+    "html/index.html",
+    "gui/app.rc",
+    "engine/app.rc",
+    "gui/app.manifest",
+    "engine/app.manifest"
+)
+
+git add @filesToStage
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[HATA] Dosyalar git staging alanina eklenemedi!" -ForegroundColor Red
+    exit 1
+}
+
+$commitMsg = "chore: bump version to $NewVersion"
+git commit -m $commitMsg
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[HATA] Git commit olusturulamadi!" -ForegroundColor Red
+    exit 1
+}
+Write-Host "  [OK] Commit: $commitMsg" -ForegroundColor Green
+
+git tag $tagName
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[HATA] Git tag ($tagName) olusturulamadi!" -ForegroundColor Red
+    exit 1
+}
+Write-Host "  [OK] Etiket (Tag): $tagName" -ForegroundColor Green
+
+Write-Host "`nUzak depoya gonderiliyor (git push)..." -ForegroundColor Cyan
+
+if (-not [string]::IsNullOrWhiteSpace($currentBranch)) {
+    git push origin $currentBranch
+} else {
+    git push origin HEAD
+}
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[HATA] Commit uzak depoya (origin) gonderilemedi!" -ForegroundColor Red
+    exit 1
+}
+Write-Host "  [OK] Dal (branch) basariyla gonderildi." -ForegroundColor Green
+
+git push origin $tagName
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[HATA] Tag ($tagName) uzak depoya gonderilemedi!" -ForegroundColor Red
+    exit 1
+}
+Write-Host "  [OK] Tag ($tagName) basariyla gonderildi!" -ForegroundColor Green
+
+Write-Host "`n========================================================" -ForegroundColor Green
+Write-Host "  BASARILI! $tagName surumu ve etiketi gonderildi." -ForegroundColor Green
+Write-Host "  GitHub Actions release pipeline otomatik olarak tetiklendi." -ForegroundColor Green
+Write-Host "========================================================" -ForegroundColor Green
