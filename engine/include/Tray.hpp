@@ -5,6 +5,7 @@
 #include <windows.h>
 #include <shellapi.h>
 #include <functional>
+#include <string>
 
 static constexpr UINT WM_USER_TRAY_ICON = WM_USER + 100;
 static constexpr UINT IDM_TRAY_SETTINGS  = 40001;
@@ -16,7 +17,8 @@ public:
     TrayManager() = default;
     ~TrayManager();
 
-    bool Install(HWND hWnd, std::function<void()> onSettings, std::function<void()> onExit);
+    using LangGetter = std::function<std::wstring()>;
+    bool Install(HWND hWnd, std::function<void()> onSettings, std::function<void()> onExit, LangGetter getLang = nullptr);
     void Uninstall();
     void Reinstall();
     void HandleMessage(LPARAM lParam);
@@ -29,4 +31,5 @@ private:
     bool                  m_installed = false;
     std::function<void()> m_onSettings;
     std::function<void()> m_onExit;
+    LangGetter            m_getLang;
 };

@@ -122,6 +122,9 @@ void EnsureConfigExists(const std::wstring& path) {
         "CustomAppPath=\r\n"
         "\r\n"
         "; ── Sistem ve Başlangıç ──\r\n"
+        "; Dil / Language (tr = Türkçe, en = English)\r\n"
+        "Language=tr\r\n"
+        "\r\n"
         "; Windows başlangıcında otomatik çalıştır (1 = Açık, 0 = Kapalı)\r\n"
         "AutoStart=1\r\n"
         "\r\n"
@@ -168,6 +171,7 @@ void ConfigManager::Load() {
     c.customAppPath = ReadStr(p, L"CustomAppPath");
     c.soundFxEnabled = (ReadInt(p, L"SoundFxEnabled", 1) != 0);
     c.autoStart      = (ReadInt(p, L"AutoStart", 1) != 0);
+    c.language       = ReadStr(p, L"Language", L"tr");
     SetAutoStartRegistry(c.autoStart);
 
     // OSD Ayarları

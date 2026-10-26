@@ -3,6 +3,7 @@
 #include "WebViewSettings.hpp"
 #include "AppRegister.hpp"
 #include "Osd.hpp"
+#include "I18n.hpp"
 #include "WebView2.h"
 #include <wrl/client.h>
 #include <commdlg.h>
@@ -523,7 +524,9 @@ void WebViewSettingsWindow::OnWebMessage(const std::wstring& jsonMsg) {
     } else if (type == "update_found") {
         std::string ver = ExtractJsonString(utf8, "version");
         if (!ver.empty()) {
-            OsdManager::Instance().ShowTip(L"Yeni Sürüm Mevcut: " + Utf8ToWString(ver));
+            wchar_t lbuf[32] = {};
+            GetPrivateProfileStringW(L"Settings", L"Language", L"tr", lbuf, 32, m_iniPath.c_str());
+            OsdManager::Instance().ShowTip(I18n::UpdateFound(lbuf, Utf8ToWString(ver)));
         }
     }
 }
@@ -561,6 +564,7 @@ void WebViewSettingsWindow::SendCurrentConfig() {
     json += "\"customAppPath\":\"" + escapedPath + "\",";
     json += "\"autoStart\":" + std::to_string(ReadInt(L"AutoStart", 1)) + ",";
     json += "\"soundFxEnabled\":" + std::to_string(ReadInt(L"SoundFxEnabled", 1)) + ",";
+    json += "\"language\":\"" + WStringToUtf8Str(ReadStr(L"Language", L"tr")) + "\",";
     json += "\"osdPosition\":\"" + WStringToUtf8Str(ReadStr(L"OsdPosition", L"TopLeft")) + "\",";
     json += "\"osdColor\":\"" + WStringToUtf8Str(ReadStr(L"OsdColor", L"00E5FF")) + "\",";
     json += "\"osdDurationMs\":" + std::to_string(ReadInt(L"OsdDurationMs", 1500)) + ",";
@@ -624,6 +628,9 @@ void WebViewSettingsWindow::HandleSaveConfig(const std::string& jsonBody) {
 
     WriteInt(L"SoundFxEnabled", ExtractJsonInt(jsonBody, "soundFxEnabled", 1));
 
+    std::string lang = ExtractJsonString(jsonBody, "language");
+    if (!lang.empty()) WriteStr(L"Language", lang);
+
     std::string pos = ExtractJsonString(jsonBody, "osdPosition");
     if (!pos.empty()) WriteStr(L"OsdPosition", pos);
 
@@ -641,11 +648,14 @@ void WebViewSettingsWindow::HandleBrowseApp() {
     if (!m_webView) return;
     auto* wv = static_cast<ICoreWebView2*>(m_webView);
 
+    wchar_t lbuf[32] = {};
+    GetPrivateProfileStringW(L"Settings", L"Language", L"tr", lbuf, 32, m_iniPath.c_str());
+
     wchar_t filename[MAX_PATH] = {};
     OPENFILENAMEW ofn = {};
     ofn.lStructSize = sizeof(ofn);
     ofn.hwndOwner = m_hWnd;
-    ofn.lpstrFilter = L"Programlar (*.exe)\0*.exe\0Tüm Dosyalar (*.*)\0*.*\0";
+    ofn.lpstrFilter = I18n::BrowseFilter(lbuf);
     ofn.lpstrFile = filename;
     ofn.nMaxFile = MAX_PATH;
     ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;

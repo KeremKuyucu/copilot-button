@@ -1,5 +1,5 @@
-// Tray.cpp – Sistem tepsisi ikonu (System Tray) ve sağ tık menüsü
 #include "Tray.hpp"
+#include "I18n.hpp"
 
 #pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "user32.lib")
@@ -8,12 +8,13 @@ TrayManager::~TrayManager() {
     Uninstall();
 }
 
-bool TrayManager::Install(HWND hWnd, std::function<void()> onSettings, std::function<void()> onExit) {
+bool TrayManager::Install(HWND hWnd, std::function<void()> onSettings, std::function<void()> onExit, LangGetter getLang) {
     if (m_installed) return true;
 
     m_hWnd       = hWnd;
     m_onSettings = std::move(onSettings);
     m_onExit     = std::move(onExit);
+    m_getLang    = std::move(getLang);
 
     HINSTANCE hInst = GetModuleHandleW(nullptr);
 
@@ -36,7 +37,8 @@ bool TrayManager::Install(HWND hWnd, std::function<void()> onSettings, std::func
     m_nid.uCallbackMessage = WM_USER_TRAY_ICON;
     m_nid.hIcon            = hIcon;
 
-    wcscpy_s(m_nid.szTip, L"Copilot Button Denetleyicisi");
+    std::wstring lang = m_getLang ? m_getLang() : L"tr";
+    wcscpy_s(m_nid.szTip, I18n::TrayTip(lang).c_str());
 
     m_installed = (Shell_NotifyIconW(NIM_ADD, &m_nid) != FALSE);
     return m_installed;
@@ -73,10 +75,12 @@ void TrayManager::ShowContextMenu() {
     POINT pt;
     GetCursorPos(&pt);
 
+    std::wstring lang = m_getLang ? m_getLang() : L"tr";
+
     HMENU hMenu = CreatePopupMenu();
-    AppendMenuW(hMenu, MF_STRING, IDM_TRAY_SETTINGS, L"⚙️  Ayarlar");
+    AppendMenuW(hMenu, MF_STRING, IDM_TRAY_SETTINGS, I18n::TraySettings(lang).c_str());
     AppendMenuW(hMenu, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(hMenu, MF_STRING, IDM_TRAY_EXIT, L"❌  Çıkış");
+    AppendMenuW(hMenu, MF_STRING, IDM_TRAY_EXIT, I18n::TrayExit(lang).c_str());
 
     SetForegroundWindow(m_hWnd);
     int cmd = TrackPopupMenu(hMenu,

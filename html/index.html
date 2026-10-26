@@ -178,6 +178,39 @@ body {
   box-shadow: 0 0 8px #10B981;
 }
 
+/* Dil Seçici (Language Switcher) */
+.lang-switch-box {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  padding: 3px;
+  gap: 3px;
+  margin-left: auto;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+.lang-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 11px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.lang-btn:hover {
+  color: var(--text-main);
+}
+.lang-btn.active {
+  background: linear-gradient(135deg, #8B5CF6, #06B6D4);
+  color: #FFFFFF;
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.4);
+}
+
 /* Güncelleme Banner */
 .update-card {
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(6, 182, 212, 0.15));
@@ -527,7 +560,7 @@ input:checked + .slider:before {
   box-shadow: inset 0 2px 10px rgba(0,0,0,0.4);
 }
 .osd-preview-card::before {
-  content: 'CANLI OSD ÖNİZLEME';
+  content: attr(data-preview-title);
   position: absolute;
   top: 8px;
   left: 12px;
@@ -741,7 +774,11 @@ input[type="color"] {
         <h1>Copilot Button</h1>
         <span class="version-badge" id="versionBadge" onclick="checkForUpdates(true)" title="Tıklayarak güncellemeleri denetle">v2.0.0</span>
       </div>
-      <p>Donanım Tuşu, Medya & Mikrofon Denetleyicisi</p>
+      <p id="headerSubtitle">Donanım Tuşu, Medya & Mikrofon Denetleyicisi</p>
+    </div>
+    <div class="lang-switch-box">
+      <button type="button" class="lang-btn active" id="btnLangTr" onclick="switchLanguage('tr', true)">TR</button>
+      <button type="button" class="lang-btn" id="btnLangEn" onclick="switchLanguage('en', true)">EN</button>
     </div>
   </header>
 
@@ -750,26 +787,26 @@ input[type="color"] {
     <div class="update-icon">🚀</div>
     <div class="update-content">
       <div class="update-header">
-        <span class="update-title">Yeni Sürüm Mevcut!</span>
+        <span class="update-title" id="updateTitle">Yeni Sürüm Mevcut!</span>
         <span class="update-tag" id="updateTag">v2.1.0</span>
       </div>
       <p class="update-desc" id="updateDesc">GitHub üzerinde yeni bir sürüm yayınlandı. Güncellemeyi hemen edinebilirsiniz.</p>
     </div>
     <div class="update-actions" style="display: flex; align-items: center; gap: 8px;">
-      <button type="button" class="btn-update" onclick="openUpdateUrl()">Güncellemeyi İndir ↗</button>
-      <button type="button" class="btn-dismiss" onclick="dismissUpdate()" title="Bildirimi gizle">✕</button>
+      <button type="button" class="btn-update" id="btnDownloadUpdate" onclick="openUpdateUrl()">Güncellemeyi İndir ↗</button>
+      <button type="button" class="btn-dismiss" id="btnDismissUpdate" onclick="dismissUpdate()" title="Bildirimi gizle">✕</button>
     </div>
   </div>
 
   <!-- Sekme Navigasyonu -->
   <nav class="tabs-nav">
-    <button type="button" class="tab-btn active" onclick="switchTab('tab-actions', this)">
+    <button type="button" class="tab-btn active" id="tabBtnActions" onclick="switchTab('tab-actions', this)">
       <span>⚡</span> Tuş Eylemleri
     </button>
-    <button type="button" class="tab-btn" onclick="switchTab('tab-osd', this)">
+    <button type="button" class="tab-btn" id="tabBtnOsd" onclick="switchTab('tab-osd', this)">
       <span>🖥️</span> OSD & Görünüm
     </button>
-    <button type="button" class="tab-btn" onclick="switchTab('tab-system', this)">
+    <button type="button" class="tab-btn" id="tabBtnSystem" onclick="switchTab('tab-system', this)">
       <span>⚙️</span> Sistem & Ayarlar
     </button>
   </nav>
@@ -780,12 +817,12 @@ input[type="color"] {
       <div class="card-header">
         <div class="card-title">
           <span class="card-title-icon">🎯</span>
-          <span>Tıklama Eylemleri</span>
+          <span id="cardTitleActions">Tıklama Eylemleri</span>
         </div>
       </div>
       <div class="grid-2">
         <div class="form-group">
-          <label>1 Tık (Tek Basım)</label>
+          <label id="labelAction1">1 Tık (Tek Basım)</label>
           <select id="action1">
             <option value="MicMute">🎙️ Mikrofon Sustur / Aç</option>
             <option value="PlayPause">⏯️ Oynat / Duraklat</option>
@@ -798,7 +835,7 @@ input[type="color"] {
           </select>
         </div>
         <div class="form-group">
-          <label>2 Tık (Çift Basım)</label>
+          <label id="labelAction2">2 Tık (Çift Basım)</label>
           <select id="action2">
             <option value="MicMute">🎙️ Mikrofon Sustur / Aç</option>
             <option value="PlayPause">⏯️ Oynat / Duraklat</option>
@@ -811,7 +848,7 @@ input[type="color"] {
           </select>
         </div>
         <div class="form-group">
-          <label>3 Tık (Üçlü Basım)</label>
+          <label id="labelAction3">3 Tık (Üçlü Basım)</label>
           <select id="action3">
             <option value="MicMute">🎙️ Mikrofon Sustur / Aç</option>
             <option value="PlayPause">⏯️ Oynat / Duraklat</option>
@@ -824,7 +861,7 @@ input[type="color"] {
           </select>
         </div>
         <div class="form-group">
-          <label>4 Tık (Dörtlü Basım)</label>
+          <label id="labelAction4">4 Tık (Dörtlü Basım)</label>
           <select id="action4">
             <option value="None">⚪ Eylem Yok</option>
             <option value="MicMute">🎙️ Mikrofon Sustur / Aç</option>
@@ -844,23 +881,23 @@ input[type="color"] {
       <div class="card-header">
         <div class="card-title">
           <span class="card-title-icon">⏱️</span>
-          <span>Basılı Tutma Eylemi</span>
+          <span id="cardTitleHold">Basılı Tutma Eylemi</span>
         </div>
       </div>
       <div class="form-group" style="margin-bottom: 14px;">
-        <label>Tuşa Basılı Tutulduğunda Gerçekleşecek İşlem</label>
+        <label id="labelHoldAction">Tuşa Basılı Tutulduğunda Gerçekleşecek İşlem</label>
         <select id="holdAction" onchange="toggleCustomAppPath()">
           <option value="PushToTalk">🎙️ Push-to-Talk (Bas-Konuş Mikrofon)</option>
           <option value="CustomApp">🚀 Özel Uygulama / URL Başlat</option>
         </select>
       </div>
       <div class="form-group" id="customAppGroup" style="display: none;">
-        <label>Uygulama Yolu veya Web URL</label>
+        <label id="labelCustomApp">Uygulama Yolu veya Web URL</label>
         <div class="input-group">
           <input type="text" id="customAppPath" placeholder="Örn: C:\Program Files\Discord\Discord.exe">
-          <button type="button" class="btn-browse" onclick="browseApp()">📁 Gözat...</button>
+          <button type="button" class="btn-browse" id="btnBrowse" onclick="browseApp()">📁 Gözat...</button>
         </div>
-        <span class="info-hint">💡 Bir .exe program dosyası veya 'https://...' web adresi yazabilirsiniz.</span>
+        <span class="info-hint" id="hintCustomApp">💡 Bir .exe program dosyası veya 'https://...' web adresi yazabilirsiniz.</span>
       </div>
     </div>
   </div>
@@ -868,7 +905,7 @@ input[type="color"] {
   <!-- SEKME 2: OSD & GÖRÜNÜM -->
   <div id="tab-osd" class="tab-pane">
     <!-- Canlı OSD Önizleme Alanı -->
-    <div class="osd-preview-card">
+    <div class="osd-preview-card" id="osdPreviewCard" data-preview-title="CANLI OSD ÖNİZLEME">
       <div class="osd-pill-mockup" id="osdLiveMockup">
         <div class="osd-mockup-badge">♪</div>
         <span class="osd-mockup-title">Bohemian Rhapsody</span>
@@ -884,12 +921,12 @@ input[type="color"] {
       <div class="card-header">
         <div class="card-title">
           <span class="card-title-icon">🎨</span>
-          <span>Ekran & Renk Ayarları</span>
+          <span id="cardTitleOsd">Ekran & Renk Ayarları</span>
         </div>
       </div>
       <div class="grid-2" style="margin-bottom: 16px;">
         <div class="form-group">
-          <label>OSD Ekran Konumu</label>
+          <label id="labelOsdPos">OSD Ekran Konumu</label>
           <select id="osdPosition">
             <option value="TopLeft">Sol Üst (TopLeft)</option>
             <option value="TopRight">Sağ Üst (TopRight)</option>
@@ -899,7 +936,7 @@ input[type="color"] {
           </select>
         </div>
         <div class="form-group">
-          <label>OSD Vurgu Rengi</label>
+          <label id="labelOsdColor">OSD Vurgu Rengi</label>
           <div class="color-picker-wrap">
             <input type="color" id="osdColorPicker" oninput="syncColorFromPicker()">
             <input type="text" id="osdColor" maxlength="6" style="text-transform: uppercase;" oninput="syncColorFromText()">
@@ -918,7 +955,7 @@ input[type="color"] {
 
       <div class="slider-group" style="margin-bottom: 16px;">
         <div class="slider-header">
-          <span>Bildirim Gösterim Süresi</span>
+          <span id="labelOsdDuration">Bildirim Gösterim Süresi</span>
           <span class="slider-val" id="valOsdDuration">1500 ms</span>
         </div>
         <input type="range" id="osdDurationMs" min="500" max="5000" step="100" value="1500" oninput="updateVal('osdDurationMs', 'valOsdDuration', 'ms')">
@@ -926,8 +963,8 @@ input[type="color"] {
 
       <div class="switch-row">
         <div class="switch-label">
-          <span>Yumuşak Geçiş (Fade Animasyonu)</span>
-          <span>Bildirimler ekranda belirip kaybolurken yumuşakça kararır</span>
+          <span id="labelOsdFadeTitle">Yumuşak Geçiş (Fade Animasyonu)</span>
+          <span id="labelOsdFadeDesc">Bildirimler ekranda belirip kaybolurken yumuşakça kararır</span>
         </div>
         <label class="switch">
           <input type="checkbox" id="osdFadeEnabled">
@@ -937,8 +974,8 @@ input[type="color"] {
 
       <div class="switch-row">
         <div class="switch-label">
-          <span>Spotify Şarkı Değişim Kapsülü</span>
-          <span>Şarkı değiştiğinde şarkı adı ve sanatçıyı kapsül olarak göster</span>
+          <span id="labelSpotifyOsdTitle">Spotify Şarkı Değişim Kapsülü</span>
+          <span id="labelSpotifyOsdDesc">Şarkı değiştiğinde şarkı adı ve sanatçıyı kapsül olarak göster</span>
         </div>
         <label class="switch">
           <input type="checkbox" id="spotifyTrackOsd" onchange="updateMockupVisibility()">
@@ -954,13 +991,13 @@ input[type="color"] {
       <div class="card-header">
         <div class="card-title">
           <span class="card-title-icon">⚙️</span>
-          <span>Sistem Davranışı</span>
+          <span id="cardTitleSystem">Sistem Davranışı</span>
         </div>
       </div>
       <div class="switch-row">
         <div class="switch-label">
-          <span>Windows Açılışında Otomatik Başlat (AutoStart)</span>
-          <span>Bilgisayar açıldığında Copilot Button arka planda otomatik başlasın</span>
+          <span id="labelAutoStartTitle">Windows Açılışında Otomatik Başlat (AutoStart)</span>
+          <span id="labelAutoStartDesc">Bilgisayar açıldığında Copilot Button arka planda otomatik başlasın</span>
         </div>
         <label class="switch">
           <input type="checkbox" id="autoStart">
@@ -969,8 +1006,8 @@ input[type="color"] {
       </div>
       <div class="switch-row">
         <div class="switch-label">
-          <span>Ses Efektleri (Sound FX)</span>
-          <span>Mikrofon açılıp kapandığında Windows bildirim sesini çal</span>
+          <span id="labelSoundFxTitle">Ses Efektleri (Sound FX)</span>
+          <span id="labelSoundFxDesc">Mikrofon açılıp kapandığında Windows bildirim sesini çal</span>
         </div>
         <label class="switch">
           <input type="checkbox" id="soundFxEnabled">
@@ -984,25 +1021,25 @@ input[type="color"] {
       <div class="card-header">
         <div class="card-title">
           <span class="card-title-icon">⏳</span>
-          <span>Zamanlama ve Hassasiyet</span>
+          <span id="cardTitleTiming">Zamanlama ve Hassasiyet</span>
         </div>
       </div>
       <div class="grid-2">
         <div class="slider-group">
           <div class="slider-header">
-            <span>Çift Tık Algılama Süresi</span>
+            <span id="labelDoubleTapTitle">Çift Tık Algılama Süresi</span>
             <span class="slider-val" id="valDoubleTap">250 ms</span>
           </div>
           <input type="range" id="doubleTapMs" min="100" max="500" step="10" value="250" oninput="updateVal('doubleTapMs', 'valDoubleTap', 'ms')">
-          <span class="info-hint">Hızlı tıklamaları tanıma aralığı</span>
+          <span class="info-hint" id="hintDoubleTap">Hızlı tıklamaları tanıma aralığı</span>
         </div>
         <div class="slider-group">
           <div class="slider-header">
-            <span>Basılı Tutma Eşiği</span>
+            <span id="labelHoldTitle">Basılı Tutma Eşiği</span>
             <span class="slider-val" id="valHold">250 ms</span>
           </div>
           <input type="range" id="holdMs" min="150" max="1000" step="25" value="250" oninput="updateVal('holdMs', 'valHold', 'ms')">
-          <span class="info-hint">Uzun basım için bekleme süresi</span>
+          <span class="info-hint" id="hintHold">Uzun basım için bekleme süresi</span>
         </div>
       </div>
     </div>
@@ -1011,16 +1048,313 @@ input[type="color"] {
   <!-- Alt Buton Çubuğu -->
   <footer class="footer">
     <div style="display: flex; gap: 12px; align-items: center;">
-      <button type="button" class="btn-save" onclick="saveSettings()">💾 Ayarları Kaydet</button>
-      <button type="button" class="btn-close" onclick="closeWindow()">✕ Kapat</button>
+      <button type="button" class="btn-save" id="btnSave" onclick="saveSettings()">💾 Ayarları Kaydet</button>
+      <button type="button" class="btn-close" id="btnClose" onclick="closeWindow()">✕ Kapat</button>
     </div>
-    <span style="font-size: 12px; color: var(--text-dim);">Değişiklikler anında motora aktarılır</span>
+    <span id="noteImmediate" style="font-size: 12px; color: var(--text-dim);">Değişiklikler anında motora aktarılır</span>
   </footer>
 </div>
 
 <div class="toast" id="toast">✅ Ayarlar başarıyla kaydedildi!</div>
 
 <script>
+// Çeviri Sözlüğü (Localization Dictionary)
+const translations = {
+  tr: {
+    docTitle: "Copilot Button Ayarları",
+    subtitle: "Donanım Tuşu, Medya & Mikrofon Denetleyicisi",
+    badgeTitle: "Tıklayarak güncellemeleri denetle",
+    updateTitle: "Yeni Sürüm Mevcut!",
+    updateDesc: "GitHub üzerinde yeni bir sürüm yayınlandı. Güncellemeyi hemen edinebilirsiniz.",
+    btnDownloadUpdate: "Güncellemeyi İndir ↗",
+    tabActions: "<span>⚡</span> Tuş Eylemleri",
+    tabOsd: "<span>🖥️</span> OSD & Görünüm",
+    tabSystem: "<span>⚙️</span> Sistem & Ayarlar",
+    cardClickActions: "Tıklama Eylemleri",
+    labelAction1: "1 Tık (Tek Basım)",
+    labelAction2: "2 Tık (Çift Basım)",
+    labelAction3: "3 Tık (Üçlü Basım)",
+    labelAction4: "4 Tık (Dörtlü Basım)",
+    optMicMute: "🎙️ Mikrofon Sustur / Aç",
+    optPlayPause: "⏯️ Oynat / Duraklat",
+    optNextTrack: "⏭️ Sonraki Parça",
+    optPrevTrack: "⏮️ Önceki Parça",
+    optMasterMute: "🔇 Sistem Sesini Sustur",
+    optToggleDeafen: "🔕 Sağırlaştır (Ses & Mic)",
+    optLockScreen: "🔒 Bilgisayarı Kilitle",
+    optNone: "⚪ Eylem Yok",
+    cardHoldAction: "Basılı Tutma Eylemi",
+    labelHoldAction: "Tuşa Basılı Tutulduğunda Gerçekleşecek İşlem",
+    optPushToTalk: "🎙️ Push-to-Talk (Bas-Konuş Mikrofon)",
+    optCustomApp: "🚀 Özel Uygulama / URL Başlat",
+    labelCustomApp: "Uygulama Yolu veya Web URL",
+    placeholderCustomApp: "Örn: C:\\Program Files\\Discord\\Discord.exe",
+    btnBrowse: "📁 Gözat...",
+    hintCustomApp: "💡 Bir .exe program dosyası veya 'https://...' web adresi yazabilirsiniz.",
+    previewHeader: "CANLI OSD ÖNİZLEME",
+    cardOsd: "Ekran & Renk Ayarları",
+    labelOsdPos: "OSD Ekran Konumu",
+    optTopLeft: "Sol Üst (TopLeft)",
+    optTopRight: "Sağ Üst (TopRight)",
+    optBottomLeft: "Sol Alt (BottomLeft)",
+    optBottomRight: "Sağ Alt (BottomRight)",
+    optCenter: "Ekran Ortası (Center)",
+    labelOsdColor: "OSD Vurgu Rengi",
+    labelOsdDuration: "Bildirim Gösterim Süresi",
+    labelOsdFadeTitle: "Yumuşak Geçiş (Fade Animasyonu)",
+    labelOsdFadeDesc: "Bildirimler ekranda belirip kaybolurken yumuşakça kararır",
+    labelSpotifyOsdTitle: "Spotify Şarkı Değişim Kapsülü",
+    labelSpotifyOsdDesc: "Şarkı değiştiğinde şarkı adı ve sanatçıyı kapsül olarak göster",
+    cardSystem: "Sistem Davranışı",
+    labelAutoStartTitle: "Windows Açılışında Otomatik Başlat (AutoStart)",
+    labelAutoStartDesc: "Bilgisayar açıldığında Copilot Button arka planda otomatik başlasın",
+    labelSoundFxTitle: "Ses Efektleri (Sound FX)",
+    labelSoundFxDesc: "Mikrofon açılıp kapandığında Windows bildirim sesini çal",
+    cardTiming: "Zamanlama ve Hassasiyet",
+    labelDoubleTapTitle: "Çift Tık Algılama Süresi",
+    hintDoubleTap: "Hızlı tıklamaları tanıma aralığı",
+    labelHoldTitle: "Basılı Tutma Eşiği",
+    hintHold: "Uzun basım için bekleme süresi",
+    btnSave: "💾 Ayarları Kaydet",
+    btnClose: "✕ Kapat",
+    noteImmediate: "Değişiklikler anında motora aktarılır",
+    toastSaved: "✅ Ayarlar kaydedildi ve motora uygulandı!",
+    toastSaveErr: "❌ Kayıt hatası!",
+    toastChecking: "Kontrol ediliyor...",
+    toastUpdateAvail: " (Güncelleme var!)",
+    toastCheckErr: "⚠️ GitHub sürüm kontrolü yapılamadı.",
+    toastLatest: "✅ En güncel sürümü kullanıyorsunuz: ",
+    toastNoNet: "⚠️ İnternet bağlantısı kurulamadı."
+  },
+  en: {
+    docTitle: "Copilot Button Settings",
+    subtitle: "Hardware Key, Media & Microphone Controller",
+    badgeTitle: "Click to check for updates",
+    updateTitle: "New Version Available!",
+    updateDesc: "A new version has been released on GitHub. You can download the update now.",
+    btnDownloadUpdate: "Download Update ↗",
+    tabActions: "<span>⚡</span> Key Actions",
+    tabOsd: "<span>🖥️</span> OSD & Appearance",
+    tabSystem: "<span>⚙️</span> System & Settings",
+    cardClickActions: "Click Actions",
+    labelAction1: "1 Click (Single Press)",
+    labelAction2: "2 Clicks (Double Press)",
+    labelAction3: "3 Clicks (Triple Press)",
+    labelAction4: "4 Clicks (Quadruple Press)",
+    optMicMute: "🎙️ Toggle Mic Mute",
+    optPlayPause: "⏯️ Play / Pause",
+    optNextTrack: "⏭️ Next Track",
+    optPrevTrack: "⏮️ Previous Track",
+    optMasterMute: "🔇 Toggle System Mute",
+    optToggleDeafen: "🔕 Deafen (Audio & Mic)",
+    optLockScreen: "🔒 Lock Computer",
+    optNone: "⚪ None",
+    cardHoldAction: "Hold Action",
+    labelHoldAction: "Action to perform when the key is held down",
+    optPushToTalk: "🎙️ Push-to-Talk (Hold to speak)",
+    optCustomApp: "🚀 Launch Custom App / URL",
+    labelCustomApp: "Application Path or Web URL",
+    placeholderCustomApp: "e.g.: C:\\Program Files\\Discord\\Discord.exe",
+    btnBrowse: "📁 Browse...",
+    hintCustomApp: "💡 You can specify an .exe executable or a 'https://...' URL.",
+    previewHeader: "LIVE OSD PREVIEW",
+    cardOsd: "Display & Color Settings",
+    labelOsdPos: "OSD Screen Position",
+    optTopLeft: "Top Left (TopLeft)",
+    optTopRight: "Top Right (TopRight)",
+    optBottomLeft: "Bottom Left (BottomLeft)",
+    optBottomRight: "Bottom Right (BottomRight)",
+    optCenter: "Center",
+    labelOsdColor: "OSD Accent Color",
+    labelOsdDuration: "Notification Duration",
+    labelOsdFadeTitle: "Smooth Transition (Fade Animation)",
+    labelOsdFadeDesc: "Notifications smoothly fade in and out",
+    labelSpotifyOsdTitle: "Spotify Track Change Capsule",
+    labelSpotifyOsdDesc: "Show track and artist in a pill capsule on song change",
+    cardSystem: "System Behavior",
+    labelAutoStartTitle: "Start with Windows (AutoStart)",
+    labelAutoStartDesc: "Launch Copilot Button automatically in the background on startup",
+    labelSoundFxTitle: "Sound Effects (Sound FX)",
+    labelSoundFxDesc: "Play Windows sound effect when microphone mute toggles",
+    cardTiming: "Timing & Sensitivity",
+    labelDoubleTapTitle: "Double-Tap Detection Window",
+    hintDoubleTap: "Time window to recognize consecutive clicks",
+    labelHoldTitle: "Hold Threshold",
+    hintHold: "Delay before hold action is triggered",
+    btnSave: "💾 Save Settings",
+    btnClose: "✕ Close",
+    noteImmediate: "Changes are applied to the engine immediately",
+    toastSaved: "✅ Settings saved and applied to engine!",
+    toastSaveErr: "❌ Save error!",
+    toastChecking: "Checking...",
+    toastUpdateAvail: " (Update available!)",
+    toastCheckErr: "⚠️ Failed to check GitHub for updates.",
+    toastLatest: "✅ You are using the latest version: ",
+    toastNoNet: "⚠️ Could not connect to the Internet."
+  }
+};
+
+let g_currentLang = 'tr';
+
+function switchLanguage(lang, triggerSave = false) {
+  g_currentLang = (lang === 'en') ? 'en' : 'tr';
+  const t = translations[g_currentLang];
+
+  document.documentElement.lang = g_currentLang;
+  document.title = t.docTitle;
+
+  const btnTr = document.getElementById('btnLangTr');
+  const btnEn = document.getElementById('btnLangEn');
+  if (btnTr) btnTr.classList.toggle('active', g_currentLang === 'tr');
+  if (btnEn) btnEn.classList.toggle('active', g_currentLang === 'en');
+
+  // Header & Update
+  const sub = document.getElementById('headerSubtitle');
+  if (sub) sub.innerText = t.subtitle;
+  const badge = document.getElementById('versionBadge');
+  if (badge) badge.title = t.badgeTitle;
+
+  const updTitle = document.getElementById('updateTitle');
+  if (updTitle) updTitle.innerText = t.updateTitle;
+  const updDesc = document.getElementById('updateDesc');
+  if (updDesc) updDesc.innerText = t.updateDesc;
+  const btnUpd = document.getElementById('btnDownloadUpdate');
+  if (btnUpd) btnUpd.innerText = t.btnDownloadUpdate;
+
+  // Tabs
+  const tActions = document.getElementById('tabBtnActions');
+  if (tActions) tActions.innerHTML = t.tabActions;
+  const tOsd = document.getElementById('tabBtnOsd');
+  if (tOsd) tOsd.innerHTML = t.tabOsd;
+  const tSys = document.getElementById('tabBtnSystem');
+  if (tSys) tSys.innerHTML = t.tabSystem;
+
+  // Tab 1: Actions
+  const cardAct = document.getElementById('cardTitleActions');
+  if (cardAct) cardAct.innerText = t.cardClickActions;
+  const lA1 = document.getElementById('labelAction1');
+  if (lA1) lA1.innerText = t.labelAction1;
+  const lA2 = document.getElementById('labelAction2');
+  if (lA2) lA2.innerText = t.labelAction2;
+  const lA3 = document.getElementById('labelAction3');
+  if (lA3) lA3.innerText = t.labelAction3;
+  const lA4 = document.getElementById('labelAction4');
+  if (lA4) lA4.innerText = t.labelAction4;
+
+  ['action1', 'action2', 'action3', 'action4'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const curVal = sel.value;
+    sel.querySelectorAll('option').forEach(opt => {
+      switch (opt.value) {
+        case 'MicMute': opt.innerText = t.optMicMute; break;
+        case 'PlayPause': opt.innerText = t.optPlayPause; break;
+        case 'NextTrack': opt.innerText = t.optNextTrack; break;
+        case 'PrevTrack': opt.innerText = t.optPrevTrack; break;
+        case 'MasterMute': opt.innerText = t.optMasterMute; break;
+        case 'ToggleDeafen': opt.innerText = t.optToggleDeafen; break;
+        case 'LockScreen': opt.innerText = t.optLockScreen; break;
+        case 'None': opt.innerText = t.optNone; break;
+      }
+    });
+    sel.value = curVal;
+  });
+
+  const cardH = document.getElementById('cardTitleHold');
+  if (cardH) cardH.innerText = t.cardHoldAction;
+  const lH = document.getElementById('labelHoldAction');
+  if (lH) lH.innerText = t.labelHoldAction;
+  const holdSel = document.getElementById('holdAction');
+  if (holdSel) {
+    const curH = holdSel.value;
+    const pttOpt = holdSel.querySelector('option[value="PushToTalk"]');
+    if (pttOpt) pttOpt.innerText = t.optPushToTalk;
+    const caOpt = holdSel.querySelector('option[value="CustomApp"]');
+    if (caOpt) caOpt.innerText = t.optCustomApp;
+    holdSel.value = curH;
+  }
+  const lCap = document.getElementById('labelCustomApp');
+  if (lCap) lCap.innerText = t.labelCustomApp;
+  const inpCap = document.getElementById('customAppPath');
+  if (inpCap) inpCap.placeholder = t.placeholderCustomApp;
+  const btnB = document.getElementById('btnBrowse');
+  if (btnB) btnB.innerText = t.btnBrowse;
+  const hintC = document.getElementById('hintCustomApp');
+  if (hintC) hintC.innerText = t.hintCustomApp;
+
+  // Tab 2: OSD
+  const prevCard = document.getElementById('osdPreviewCard');
+  if (prevCard) prevCard.setAttribute('data-preview-title', t.previewHeader);
+  const cardO = document.getElementById('cardTitleOsd');
+  if (cardO) cardO.innerText = t.cardOsd;
+  const lOsdPos = document.getElementById('labelOsdPos');
+  if (lOsdPos) lOsdPos.innerText = t.labelOsdPos;
+
+  const posSel = document.getElementById('osdPosition');
+  if (posSel) {
+    const curPos = posSel.value;
+    const tl = posSel.querySelector('option[value="TopLeft"]');
+    if (tl) tl.innerText = t.optTopLeft;
+    const tr = posSel.querySelector('option[value="TopRight"]');
+    if (tr) tr.innerText = t.optTopRight;
+    const bl = posSel.querySelector('option[value="BottomLeft"]');
+    if (bl) bl.innerText = t.optBottomLeft;
+    const br = posSel.querySelector('option[value="BottomRight"]');
+    if (br) br.innerText = t.optBottomRight;
+    const ce = posSel.querySelector('option[value="Center"]');
+    if (ce) ce.innerText = t.optCenter;
+    posSel.value = curPos;
+  }
+
+  const lOsdCol = document.getElementById('labelOsdColor');
+  if (lOsdCol) lOsdCol.innerText = t.labelOsdColor;
+  const lOsdDur = document.getElementById('labelOsdDuration');
+  if (lOsdDur) lOsdDur.innerText = t.labelOsdDuration;
+  const lFadeT = document.getElementById('labelOsdFadeTitle');
+  if (lFadeT) lFadeT.innerText = t.labelOsdFadeTitle;
+  const lFadeD = document.getElementById('labelOsdFadeDesc');
+  if (lFadeD) lFadeD.innerText = t.labelOsdFadeDesc;
+  const lSpotT = document.getElementById('labelSpotifyOsdTitle');
+  if (lSpotT) lSpotT.innerText = t.labelSpotifyOsdTitle;
+  const lSpotD = document.getElementById('labelSpotifyOsdDesc');
+  if (lSpotD) lSpotD.innerText = t.labelSpotifyOsdDesc;
+
+  // Tab 3: System
+  const cardS = document.getElementById('cardTitleSystem');
+  if (cardS) cardS.innerText = t.cardSystem;
+  const lAutoT = document.getElementById('labelAutoStartTitle');
+  if (lAutoT) lAutoT.innerText = t.labelAutoStartTitle;
+  const lAutoD = document.getElementById('labelAutoStartDesc');
+  if (lAutoD) lAutoD.innerText = t.labelAutoStartDesc;
+  const lSndT = document.getElementById('labelSoundFxTitle');
+  if (lSndT) lSndT.innerText = t.labelSoundFxTitle;
+  const lSndD = document.getElementById('labelSoundFxDesc');
+  if (lSndD) lSndD.innerText = t.labelSoundFxDesc;
+
+  const cardTim = document.getElementById('cardTitleTiming');
+  if (cardTim) cardTim.innerText = t.cardTiming;
+  const lDblT = document.getElementById('labelDoubleTapTitle');
+  if (lDblT) lDblT.innerText = t.labelDoubleTapTitle;
+  const hDbl = document.getElementById('hintDoubleTap');
+  if (hDbl) hDbl.innerText = t.hintDoubleTap;
+  const lHldT = document.getElementById('labelHoldTitle');
+  if (lHldT) lHldT.innerText = t.labelHoldTitle;
+  const hHld = document.getElementById('hintHold');
+  if (hHld) hHld.innerText = t.hintHold;
+
+  // Footer
+  const bSave = document.getElementById('btnSave');
+  if (bSave) bSave.innerText = t.btnSave;
+  const bClose = document.getElementById('btnClose');
+  if (bClose) bClose.innerText = t.btnClose;
+  const nImm = document.getElementById('noteImmediate');
+  if (nImm) nImm.innerText = t.noteImmediate;
+
+  if (triggerSave) {
+    saveSettings();
+  }
+}
+
 // Sekme Geçiş Mantığı
 function switchTab(tabId, btn) {
   document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
@@ -1118,8 +1452,9 @@ function compareVersions(v1, v2) {
 
 async function checkForUpdates(manual = false) {
   const badge = document.getElementById('versionBadge');
+  const t = translations[g_currentLang];
   if (manual) {
-    badge.innerText = 'Kontrol ediliyor...';
+    badge.innerText = t.toastChecking;
   }
 
   try {
@@ -1127,7 +1462,7 @@ async function checkForUpdates(manual = false) {
       headers: { 'Accept': 'application/vnd.github.v3+json' }
     });
     if (!resp.ok) {
-      if (manual) showToast('⚠️ GitHub sürüm kontrolü yapılamadı.');
+      if (manual) showToast(t.toastCheckErr);
       badge.innerText = 'v' + g_currentVersion;
       return;
     }
@@ -1139,7 +1474,7 @@ async function checkForUpdates(manual = false) {
     if (compareVersions(latestTag, g_currentVersion) > 0) {
       document.getElementById('updateTag').innerText = latestTag;
       document.getElementById('updateCard').style.display = 'flex';
-      badge.innerText = 'v' + g_currentVersion + ' (Güncelleme var!)';
+      badge.innerText = 'v' + g_currentVersion + t.toastUpdateAvail;
       badge.style.borderColor = '#10B981';
       badge.style.color = '#10B981';
 
@@ -1151,13 +1486,13 @@ async function checkForUpdates(manual = false) {
         });
       }
     } else {
-      if (manual) showToast('✅ En güncel sürümü kullanıyorsunuz: v' + g_currentVersion);
+      if (manual) showToast(t.toastLatest + 'v' + g_currentVersion);
       badge.innerText = 'v' + g_currentVersion;
     }
   } catch (e) {
     console.error('Update check failed:', e);
     badge.innerText = 'v' + g_currentVersion;
-    if (manual) showToast('⚠️ İnternet bağlantısı kurulamadı.');
+    if (manual) showToast(t.toastNoNet);
   }
 }
 
@@ -1177,6 +1512,7 @@ function dismissUpdate() {
 if (window.chrome && window.chrome.webview) {
   window.chrome.webview.addEventListener('message', event => {
     const msg = event.data;
+    const t = translations[g_currentLang];
     if (msg.type === 'config') {
       if (msg.appVersion) {
         g_currentVersion = msg.appVersion;
@@ -1190,15 +1526,19 @@ if (window.chrome && window.chrome.webview) {
       }
     } else if (msg.type === 'save_result') {
       if (msg.success) {
-        showToast('✅ Ayarlar kaydedildi ve motora uygulandı!');
+        showToast(t.toastSaved);
       } else {
-        showToast('❌ Kayıt hatası!');
+        showToast(t.toastSaveErr);
       }
     }
   });
 }
 
 function applyConfig(data) {
+  if (data.language) {
+    switchLanguage(data.language, false);
+  }
+
   document.getElementById('action1').value = data.action1 || 'MicMute';
   document.getElementById('action2').value = data.action2 || 'PlayPause';
   document.getElementById('action3').value = data.action3 || 'NextTrack';
@@ -1251,6 +1591,7 @@ function saveSettings() {
     holdMs: parseInt(document.getElementById('holdMs').value, 10),
     autoStart: document.getElementById('autoStart').checked ? 1 : 0,
     soundFxEnabled: document.getElementById('soundFxEnabled').checked ? 1 : 0,
+    language: g_currentLang,
     osdPosition: document.getElementById('osdPosition').value,
     osdColor: document.getElementById('osdColor').value.replace('#', '').toUpperCase(),
     osdDurationMs: parseInt(document.getElementById('osdDurationMs').value, 10),
@@ -1276,6 +1617,7 @@ window.addEventListener('keydown', (e) => {
 });
 
 window.onload = () => {
+  switchLanguage('tr', false);
   if (window.chrome && window.chrome.webview) {
     window.chrome.webview.postMessage({ type: 'get_config' });
   }

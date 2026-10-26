@@ -195,6 +195,9 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
         },
         [hWnd]() {
             PostMessageW(hWnd, WM_CLOSE, 0, 0);
+        },
+        [&cfgMgr]() {
+            return cfgMgr.GetConfig().language;
         }
     );
 
@@ -236,7 +239,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
             Config cfg = cfgMgr.GetConfig();
             hook.UpdateConfig(cfg);
             OsdManager::Instance().UpdateConfig(cfg);
-            DispatchAction(act, cfg.customAppPath, cfg.soundFxEnabled);
+            DispatchAction(act, cfg.customAppPath, cfg.soundFxEnabled, cfg.language);
 
             // Mikrofon eylemi sonrasında durumu rozette hemen güncelle
             bool m = GetMicMuteState();
