@@ -1,6 +1,6 @@
-// main.cpp – CopilotButton C++ motoru giriş noktası
+// main.cpp – CopilotButton C++ arka plan motoru (Headless Engine Daemon)
 // Konsol penceresi açılmaz (-mwindows / SUBSYSTEM:WINDOWS)
-// requireAdministrator yetkisi app.manifest ile zorunlu tutulur.
+// requireAdministrator yetkisi app.manifest ile sağlanır.
 
 #include <windows.h>
 #include <objbase.h>
@@ -14,43 +14,33 @@
 #include "MicOverlay.hpp"
 #include "SpotifyTracker.hpp"
 #include "Osd.hpp"
-#include "Tray.hpp"
-#include "WebViewSettings.hpp"
-#include "AppRegister.hpp"
 
 #pragma comment(lib, "ole32.lib")
 #pragma comment(lib, "user32.lib")
 #pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "gdi32.lib")
 #pragma comment(lib, "dwmapi.lib")
-#pragma comment(lib, "comdlg32.lib")
 #pragma comment(lib, "advapi32.lib")
 
 // ─────────────────────────────────────────────
-//  Özel mesajlar (Thread-safe UI bildirimleri)
+//  Özel mesajlar (Thread-safe dahili bildirimler)
 // ─────────────────────────────────────────────
 static constexpr UINT WM_USER_MIC_STATE_CHANGED = WM_USER + 101;
 static constexpr UINT WM_USER_TRACK_CHANGED     = WM_USER + 102;
+static constexpr UINT WM_USER_CONFIG_CHANGED    = WM_USER + 103;
+
+static const wchar_t* ENGINE_WND_CLASS   = L"CopilotButtonEngineHost";
+static const wchar_t* ENGINE_MUTEX_NAME  = L"Global\\CopilotButton_Engine_v2";
+static const wchar_t* ENGINE_STOP_EVENT = L"Global\\CopilotButton_Engine_Stop_Event";
 
 static MicOverlay*     g_pMicOverlay     = nullptr;
 static SpotifyTracker* g_pSpotifyTracker = nullptr;
 static ConfigManager*  g_pCfgMgr         = nullptr;
-static TrayManager*    g_pTray           = nullptr;
-static UINT            g_uTaskbarRestart = 0;
+static KeyHook*        g_pHook           = nullptr;
+static HWND            g_hWnd            = nullptr;
 
 static LRESULT CALLBACK HostWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    if (msg == g_uTaskbarRestart && g_pTray) {
-        g_pTray->Reinstall();
-        return 0;
-    }
-
     switch (msg) {
-        case WM_USER_TRAY_ICON:
-            if (g_pTray) {
-                g_pTray->HandleMessage(lParam);
-            }
-            return 0;
-
         case WM_USER_MIC_STATE_CHANGED:
             if (g_pMicOverlay) {
                 g_pMicOverlay->SetMuted(wParam != 0);
@@ -70,6 +60,20 @@ static LRESULT CALLBACK HostWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
             }
             return 0;
 
+        case WM_USER_CONFIG_CHANGED:
+            if (g_pCfgMgr) {
+                Config cfg = g_pCfgMgr->GetConfig();
+                if (g_pHook) {
+                    g_pHook->UpdateConfig(cfg);
+                }
+                OsdManager::Instance().UpdateConfig(cfg);
+            }
+            return 0;
+
+        case WM_CLOSE:
+            DestroyWindow(hwnd);
+            return 0;
+
         case WM_DESTROY:
             PostQuitMessage(0);
             return 0;
@@ -81,9 +85,9 @@ static LRESULT CALLBACK HostWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
 }
 
 // ─────────────────────────────────────────────
-//  Eski veya askıda kalan CopilotButton örneklerini sonlandır
+//  Eski veya askıda kalan CopilotButtonEngine örneklerini sonlandır
 // ─────────────────────────────────────────────
-static void TerminateOldInstances() {
+static void TerminateOldEngineInstances() {
     DWORD currentPid = GetCurrentProcessId();
     HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (snap == INVALID_HANDLE_VALUE) return;
@@ -93,7 +97,7 @@ static void TerminateOldInstances() {
 
     if (Process32FirstW(snap, &entry)) {
         do {
-            if (_wcsicmp(entry.szExeFile, L"CopilotButton.exe") == 0 &&
+            if (_wcsicmp(entry.szExeFile, L"CopilotButtonEngine.exe") == 0 &&
                 entry.th32ProcessID != currentPid) {
                 HANDLE hProc = OpenProcess(PROCESS_TERMINATE, FALSE, entry.th32ProcessID);
                 if (hProc) {
@@ -109,97 +113,69 @@ static void TerminateOldInstances() {
 // ─────────────────────────────────────────────
 //  Tek örnek mutex (çift çalışmayı engelle)
 // ─────────────────────────────────────────────
-static HANDLE g_mutex = nullptr;
+static HANDLE g_hEngineMutex = nullptr;
 
-static bool EnsureSingleInstance() {
-    TerminateOldInstances();
+static bool EnsureSingleEngineInstance() {
+    TerminateOldEngineInstances();
     Sleep(50);
-    g_mutex = CreateMutexW(nullptr, TRUE,
-                           L"Global\\CopilotButton_Engine_v2");
+    g_hEngineMutex = CreateMutexW(nullptr, TRUE, ENGINE_MUTEX_NAME);
     return (GetLastError() != ERROR_ALREADY_EXISTS);
 }
 
 // ─────────────────────────────────────────────
-//  Config.ini yolu: exe ile aynı dizinde veya bir üst dizinde ara
-// ─────────────────────────────────────────────
-static std::wstring GetIniPath() {
-    wchar_t exePath[MAX_PATH] = {};
-    GetModuleFileNameW(nullptr, exePath, MAX_PATH);
-
-    wchar_t* last = wcsrchr(exePath, L'\\');
-    if (last) *last = L'\0'; // Exe dizini
-
-    std::wstring directPath = std::wstring(exePath) + L"\\config.ini";
-    if (GetFileAttributesW(directPath.c_str()) != INVALID_FILE_ATTRIBUTES) {
-        return directPath;
-    }
-
-    // Bir üst dizini kontrol et (örneğin exe engine\ veya build\ altındaysa)
-    wchar_t* prev = wcsrchr(exePath, L'\\');
-    if (prev) *prev = L'\0';
-    std::wstring parentPath = std::wstring(exePath) + L"\\config.ini";
-    if (GetFileAttributesW(parentPath.c_str()) != INVALID_FILE_ATTRIBUTES) {
-        return parentPath;
-    }
-
-    // Dosya hiçbir yerde yoksa doğrudan exe dizininde varsayılan ayarlarla oluştur
-    EnsureConfigExists(directPath);
-    return directPath;
-}
-
-// ─────────────────────────────────────────────
-//  WinMain – mesaj penceresi + mesaj döngüsü
+//  WinMain – Motor giriş noktası
 // ─────────────────────────────────────────────
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
-    // ── Kendi kendini %LOCALAPPDATA%\CopilotButton klasörüne taşıma / güncelleme denetimi ──
-    if (CheckAndPerformSelfRelocate()) {
-        return 0; // Taşındı ve kalıcı konumdaki exe başlatıldı; geçici örneği kapat
-    }
-
-    // Eğer --delete-source ile başlatıldıysak eski geçici dosyayı temizle
-    CleanupOldSourceIfRequested();
-
-    if (!EnsureSingleInstance()) return 1;
+    if (!EnsureSingleEngineInstance()) return 1;
 
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
 
-    // ── Uygulamayı Windows'a resmi uygulama olarak tanıt (AUMID + Kısayol + Registry) ──
-    RegisterAppWithWindows();
-
-    // ── Config yükle + hot-reload başlat ──────────────────────────────
-    ConfigManager cfgMgr(GetIniPath());
-    cfgMgr.Start();
-    g_pCfgMgr = &cfgMgr;
-
-    g_uTaskbarRestart = RegisterWindowMessageW(L"TaskbarCreated");
-
-    // ── Gizli mesaj ve bildirim penceresi ─────────────────────────────
+    // ── Gizli bildirim ve mesaj penceresi ─────────────────────────────
     WNDCLASSEXW wc     = {};
     wc.cbSize          = sizeof(wc);
     wc.hInstance       = hInst;
     wc.lpfnWndProc     = HostWndProc;
-    wc.lpszClassName   = L"CopilotButtonHost";
+    wc.lpszClassName   = ENGINE_WND_CLASS;
     RegisterClassExW(&wc);
 
-    HWND hWnd = CreateWindowExW(0, L"CopilotButtonHost", L"CopilotButtonHost",
+    HWND hWnd = CreateWindowExW(0, ENGINE_WND_CLASS, ENGINE_WND_CLASS,
                                 WS_POPUP, 0, 0, 0, 0,
                                 nullptr, nullptr, hInst, nullptr);
+    // Düşük yetkili süreçlerin de WM_CLOSE iletebilmesi için UIPI filtresini aç
+    ChangeWindowMessageFilter(WM_CLOSE, MSGFLT_ADD);
 
-    // ── Sistem Tepsisi (Tray Icon) ───────────────────────────────────
-    TrayManager tray;
-    g_pTray = &tray;
-    tray.Install(
-        hWnd,
-        []() {
-            WebViewSettingsWindow::Instance().Open(GetIniPath());
-        },
-        [hWnd]() {
-            PostMessageW(hWnd, WM_CLOSE, 0, 0);
-        },
-        [&cfgMgr]() {
-            return cfgMgr.GetConfig().language;
+    // ── GUI'den gelen kapatma sinyali (Global Stop Event) ─────────────
+    SECURITY_DESCRIPTOR sd = {};
+    InitializeSecurityDescriptor(&sd, SECURITY_DESCRIPTOR_REVISION);
+    SetSecurityDescriptorDacl(&sd, TRUE, nullptr, FALSE);
+    SECURITY_ATTRIBUTES sa = { sizeof(sa), &sd, FALSE };
+
+    HANDLE hStopEvent = CreateEventW(&sa, TRUE, FALSE, ENGINE_STOP_EVENT);
+    ResetEvent(hStopEvent);
+
+    HANDLE hStopWaitThread = CreateThread(nullptr, 0, [](LPVOID param) -> DWORD {
+        HWND hTargetWnd = reinterpret_cast<HWND>(param);
+        HANDLE hEvt = OpenEventW(SYNCHRONIZE, FALSE, ENGINE_STOP_EVENT);
+        if (hEvt) {
+            WaitForSingleObject(hEvt, INFINITE);
+            CloseHandle(hEvt);
+            if (hTargetWnd && IsWindow(hTargetWnd)) {
+                PostMessageW(hTargetWnd, WM_CLOSE, 0, 0);
+            }
         }
-    );
+        return 0;
+    }, hWnd, 0, nullptr);
+
+    // ── Config yükle + INI dosyasındaki değişiklikleri dinamik izle ───
+    // INI dosyasında değişiklik algılandığında onChange callback'i tetiklenir
+    // ve pencereye WM_USER_CONFIG_CHANGED mesajı gönderilerek ayarlar anında yenilenir.
+    ConfigManager cfgMgr(GetIniPath(), [hWnd](const Config&) {
+        if (hWnd && IsWindow(hWnd)) {
+            PostMessageW(hWnd, WM_USER_CONFIG_CHANGED, 0, 0);
+        }
+    });
+    cfgMgr.Start();
+    g_pCfgMgr = &cfgMgr;
 
     // ── OSD Yöneticisi başlat ────────────────────────────────────────
     OsdManager::Instance().Init(hWnd);
@@ -216,19 +192,23 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
 
     // ── Harici Mikrofon Senkronizasyonu (Core Audio Callback) ─────────
     RegisterMicNotification([hWnd](bool isMuted) {
-        PostMessageW(hWnd, WM_USER_MIC_STATE_CHANGED, isMuted ? 1 : 0, 0);
+        if (hWnd && IsWindow(hWnd)) {
+            PostMessageW(hWnd, WM_USER_MIC_STATE_CHANGED, isMuted ? 1 : 0, 0);
+        }
     });
 
     // ── Spotify Şarkı Takibi ──────────────────────────────────────────
     SpotifyTracker spotifyTracker;
     g_pSpotifyTracker = &spotifyTracker;
-    spotifyTracker.Start([hWnd](const TrackInfo& track) {
-        // Şarkı değişti! Ana pencereye bildir
-        PostMessageW(hWnd, WM_USER_TRACK_CHANGED, 0, 0);
+    spotifyTracker.Start([hWnd](const TrackInfo&) {
+        if (hWnd && IsWindow(hWnd)) {
+            PostMessageW(hWnd, WM_USER_TRACK_CHANGED, 0, 0);
+        }
     });
 
     // ── Keyboard hook – HWND mesaj penceresiyle kur ───────────────────
     KeyHook hook;
+    g_pHook = &hook;
     {
         Config cfg = cfgMgr.GetConfig();
         hook.UpdateConfig(cfg);
@@ -249,9 +229,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
     );
 
     if (!installed) {
-        tray.Uninstall();
-        g_pTray = nullptr;
-        WebViewSettingsWindow::Instance().Close();
         spotifyTracker.Stop();
         g_pSpotifyTracker = nullptr;
         UnregisterMicNotification();
@@ -259,6 +236,9 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
         g_pMicOverlay = nullptr;
         OsdManager::Instance().Destroy();
         CoUninitialize();
+        if (hStopEvent) CloseHandle(hStopEvent);
+        if (hStopWaitThread) CloseHandle(hStopWaitThread);
+        if (g_hEngineMutex) CloseHandle(g_hEngineMutex);
         return 2;
     }
 
@@ -270,9 +250,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
     }
 
     hook.Uninstall();
-    tray.Uninstall();
-    g_pTray = nullptr;
-    WebViewSettingsWindow::Instance().Close();
+    g_pHook = nullptr;
     spotifyTracker.Stop();
     g_pSpotifyTracker = nullptr;
     UnregisterMicNotification();
@@ -280,7 +258,13 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
     g_pMicOverlay = nullptr;
     OsdManager::Instance().Destroy();
 
+    if (hStopEvent) CloseHandle(hStopEvent);
+    if (hStopWaitThread) {
+        WaitForSingleObject(hStopWaitThread, 300);
+        CloseHandle(hStopWaitThread);
+    }
+
     CoUninitialize();
-    if (g_mutex) CloseHandle(g_mutex);
+    if (g_hEngineMutex) CloseHandle(g_hEngineMutex);
     return 0;
 }

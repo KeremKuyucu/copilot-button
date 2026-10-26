@@ -186,10 +186,11 @@ bool GetAutoStartRegistry() {
 //  Kendi Kendini %LOCALAPPDATA%\CopilotButton Klasörüne Taşıma / Güncelleme
 // ─────────────────────────────────────────────
 static constexpr UINT IDR_SETTINGS_HTML_RES = 103;
+static constexpr UINT IDR_ENGINE_EXE_RES    = 104;
 
-static bool ExtractEmbeddedHtml(const std::wstring& destPath) {
+static bool ExtractResourceToFile(int resourceId, const std::wstring& destPath) {
     HINSTANCE hInst = GetModuleHandleW(nullptr);
-    HRSRC hRsrc = FindResourceW(hInst, MAKEINTRESOURCEW(IDR_SETTINGS_HTML_RES), MAKEINTRESOURCEW(10));
+    HRSRC hRsrc = FindResourceW(hInst, MAKEINTRESOURCEW(resourceId), MAKEINTRESOURCEW(10));
     if (!hRsrc) return false;
 
     HGLOBAL hGlobal = LoadResource(hInst, hRsrc);
@@ -240,18 +241,25 @@ bool CheckAndPerformSelfRelocate() {
         return false; // Kullanıcı portable çalıştırmak istiyor
     }
 
-    // Geliştirici çalışma ortamı koruması (CMakeLists.txt veya .git varsa taşıma)
     wchar_t curDir[MAX_PATH] = {};
     wcscpy_s(curDir, currentExe);
     wchar_t* lastSlash = wcsrchr(curDir, L'\\');
     if (lastSlash) *lastSlash = L'\0';
 
+    // Geliştirici çalışma ortamı koruması (CMakeLists.txt veya .git varsa taşıma)
+    bool isDevEnv = false;
     std::wstring check1 = std::wstring(curDir) + L"\\CMakeLists.txt";
     std::wstring check2 = std::wstring(curDir) + L"\\..\\CMakeLists.txt";
     std::wstring check3 = std::wstring(curDir) + L"\\..\\.git";
     if (GetFileAttributesW(check1.c_str()) != INVALID_FILE_ATTRIBUTES ||
         GetFileAttributesW(check2.c_str()) != INVALID_FILE_ATTRIBUTES ||
         GetFileAttributesW(check3.c_str()) != INVALID_FILE_ATTRIBUTES) {
+        isDevEnv = true;
+    }
+
+    bool forceInstall = (wcsstr(cmdLine, L"--install") != nullptr || wcsstr(cmdLine, L"--force-relocate") != nullptr);
+
+    if (isDevEnv && !forceInstall) {
         return false; // Geliştirici ortamı, dosyayı yerinde çalıştır
     }
 
@@ -268,7 +276,9 @@ bool CheckAndPerformSelfRelocate() {
         PROCESSENTRY32W pe = { sizeof(pe) };
         if (Process32FirstW(snap, &pe)) {
             do {
-                if (pe.th32ProcessID != currentPid && _wcsicmp(pe.szExeFile, L"CopilotButton.exe") == 0) {
+                if (pe.th32ProcessID != currentPid &&
+                    (_wcsicmp(pe.szExeFile, L"CopilotButton.exe") == 0 ||
+                     _wcsicmp(pe.szExeFile, L"CopilotButtonEngine.exe") == 0)) {
                     HANDLE hProc = OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, FALSE, pe.th32ProcessID);
                     if (hProc) {
                         TerminateProcess(hProc, 0);
@@ -282,7 +292,7 @@ bool CheckAndPerformSelfRelocate() {
     }
     Sleep(150); // İşletim sisteminin dosya kilitlerini serbest bırakması için bekleme
 
-    // 6. Exe'yi hedefe kopyala (varsa üzerine yaz - güncelleme)
+    // 6. Exe'leri hedefe kopyala (varsa üzerine yaz - güncelleme)
     bool copied = false;
     for (int retry = 0; retry < 5; ++retry) {
         if (CopyFileW(currentExe, targetExe.c_str(), FALSE)) {
@@ -296,8 +306,25 @@ bool CheckAndPerformSelfRelocate() {
         return false; // Kopyalanamadıysa yerinde çalışmaya devam etsin
     }
 
+    // CopilotButtonEngine.exe mevcutsa onu da hedef klasöre kopyala, yoksa gömülü kaynaktan çıkart
+    std::wstring curEngine = std::wstring(curDir) + L"\\CopilotButtonEngine.exe";
+    std::wstring targetEngine = targetDir + L"\\CopilotButtonEngine.exe";
+    bool engineCopied = false;
+    if (GetFileAttributesW(curEngine.c_str()) != INVALID_FILE_ATTRIBUTES) {
+        for (int retry = 0; retry < 5; ++retry) {
+            if (CopyFileW(curEngine.c_str(), targetEngine.c_str(), FALSE)) {
+                engineCopied = true;
+                break;
+            }
+            Sleep(200);
+        }
+    }
+    if (!engineCopied && GetFileAttributesW(targetEngine.c_str()) == INVALID_FILE_ATTRIBUTES) {
+        ExtractResourceToFile(IDR_ENGINE_EXE_RES, targetEngine);
+    }
+
     // 7. Gömülü güncel HTML dosyasını hedef klasöre çıkart (HTML'i de güncelle)
-    ExtractEmbeddedHtml(htmlDir + L"\\index.html");
+    ExtractResourceToFile(IDR_SETTINGS_HTML_RES, htmlDir + L"\\index.html");
 
     // 8. Varsa mevcut config.ini dosyasını taşı / koru
     std::wstring curConfig = std::wstring(curDir) + L"\\config.ini";
@@ -328,8 +355,12 @@ bool CheckAndPerformSelfRelocate() {
     }
 
     // 10. Hedefteki CopilotButton.exe'yi çalıştır
-    // İndirilen eski geçici exe'yi silmesi için --delete-source parametresi veriyoruz
-    std::wstring cmdArgs = L"\"" + targetExe + L"\" --delete-source \"" + currentExe + L"\"";
+    // İndirilen geçici exe'yi silmesi için --delete-source veriyoruz (geliştirici ortamında kaynak silinmez)
+    std::wstring cmdArgs = L"\"" + targetExe + L"\"";
+    if (!isDevEnv) {
+        cmdArgs += L" --delete-source \"" + std::wstring(currentExe) + L"\"";
+    }
+
     STARTUPINFOW si = { sizeof(si) };
     PROCESS_INFORMATION pi = {};
     if (CreateProcessW(targetExe.c_str(), cmdArgs.data(), nullptr, nullptr, FALSE, 0, nullptr, targetDir.c_str(), &si, &pi)) {

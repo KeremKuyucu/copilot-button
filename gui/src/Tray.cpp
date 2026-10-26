@@ -4,6 +4,11 @@
 #pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "user32.lib")
 
+TrayManager& TrayManager::Instance() {
+    static TrayManager inst;
+    return inst;
+}
+
 TrayManager::~TrayManager() {
     Uninstall();
 }
@@ -59,6 +64,17 @@ void TrayManager::Reinstall() {
     if (m_installed && m_nid.hIcon) {
         Shell_NotifyIconW(NIM_ADD, &m_nid);
     }
+}
+
+void TrayManager::ShowNotification(const std::wstring& title, const std::wstring& msg) {
+    if (!m_installed || !m_hWnd) return;
+
+    NOTIFYICONDATAW nid = m_nid;
+    nid.uFlags |= NIF_INFO;
+    nid.dwInfoFlags = NIIF_INFO;
+    wcscpy_s(nid.szInfoTitle, title.c_str());
+    wcscpy_s(nid.szInfo, msg.c_str());
+    Shell_NotifyIconW(NIM_MODIFY, &nid);
 }
 
 void TrayManager::HandleMessage(LPARAM lParam) {

@@ -2,7 +2,7 @@
 // Yerel HTTP sunucusu KULLANILMAZ. Yerel HTML doğrudan 'https://settings.local' sanal alan adına bağlanır.
 #include "WebViewSettings.hpp"
 #include "AppRegister.hpp"
-#include "Osd.hpp"
+#include "Tray.hpp"
 #include "I18n.hpp"
 #include "WebView2.h"
 #include <wrl/client.h>
@@ -25,8 +25,6 @@
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
 #  define DWMWA_USE_IMMERSIVE_DARK_MODE 20
 #endif
-
-static constexpr UINT IDI_APP_ICON = 101;
 
 // ─────────────────────────────────────────────
 //  Hafif COM Callback Şablonu (WRL Bağımsız)
@@ -83,6 +81,7 @@ static std::wstring WStringToUtf8(const std::wstring& wstr) {
 static std::string WStringToUtf8Str(const std::wstring& wstr) {
     if (wstr.empty()) return "";
     int sz = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, nullptr, 0, nullptr, nullptr);
+    if (sz <= 1) return "";
     std::string res(sz - 1, 0);
     WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, &res[0], sz, nullptr, nullptr);
     return res;
@@ -91,6 +90,7 @@ static std::string WStringToUtf8Str(const std::wstring& wstr) {
 static std::wstring Utf8ToWString(const std::string& str) {
     if (str.empty()) return L"";
     int sz = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, nullptr, 0);
+    if (sz <= 1) return L"";
     std::wstring res(sz - 1, 0);
     MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, &res[0], sz);
     return res;
@@ -365,14 +365,17 @@ bool WebViewSettingsWindow::Open(const std::wstring& iniPath) {
     ShowWindow(m_hWnd, SW_SHOWNORMAL);
     UpdateWindow(m_hWnd);
 
-    // 4. WebView2Loader.dll yükle (önce diskte ara, yoksa gömülü kaynaktan %LOCALAPPDATA%'ya çıkart)
-    HMODULE hLoader = LoadLibraryW(L"WebView2Loader.dll");
+    // 4. WebView2Loader.dll yükle (resources/ klasöründe ara, yoksa %LOCALAPPDATA%\CopilotButton\resources\ altına çıkart)
+    std::wstring loaderInResources = std::wstring(exePath) + L"\\resources\\WebView2Loader.dll";
+    HMODULE hLoader = LoadLibraryW(loaderInResources.c_str());
     if (!hLoader) {
-        std::wstring loaderInExe = std::wstring(exePath) + L"\\WebView2Loader.dll";
-        hLoader = LoadLibraryW(loaderInExe.c_str());
+        std::wstring guiResources = std::wstring(exePath) + L"\\gui\\resources\\WebView2Loader.dll";
+        hLoader = LoadLibraryW(guiResources.c_str());
     }
     if (!hLoader) {
-        std::wstring appDataLoader = appDataRoot + L"\\WebView2Loader.dll";
+        std::wstring appDataResDir = appDataRoot + L"\\resources";
+        CreateDirectoryW(appDataResDir.c_str(), nullptr);
+        std::wstring appDataLoader = appDataResDir + L"\\WebView2Loader.dll";
         if (GetFileAttributesW(appDataLoader.c_str()) == INVALID_FILE_ATTRIBUTES) {
             ExtractResourceToFile(IDR_WEBVIEW2_LOADER, appDataLoader);
         }
@@ -526,7 +529,7 @@ void WebViewSettingsWindow::OnWebMessage(const std::wstring& jsonMsg) {
         if (!ver.empty()) {
             wchar_t lbuf[32] = {};
             GetPrivateProfileStringW(L"Settings", L"Language", L"tr", lbuf, 32, m_iniPath.c_str());
-            OsdManager::Instance().ShowTip(I18n::UpdateFound(lbuf, Utf8ToWString(ver)));
+            TrayManager::Instance().ShowNotification(L"Copilot Button", I18n::UpdateFound(lbuf, Utf8ToWString(ver)));
         }
     }
 }

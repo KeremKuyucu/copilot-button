@@ -5,8 +5,9 @@
 #include <windows.h>
 #include <string>
 #include <mutex>
+#include <functional>
 
-
+// ─────────────────────────────────────────────
 //  Eylem listesi
 // ─────────────────────────────────────────────
 enum class Action : int {
@@ -26,6 +27,9 @@ Action ParseAction(const std::wstring& s);
 
 // config.ini mevcut değilse varsayılan ayarlarla otomatik oluşturur
 void EnsureConfigExists(const std::wstring& path);
+
+// config.ini yolunu çözümler (exe dizini, üst dizin veya %LOCALAPPDATA%\CopilotButton)
+std::wstring GetIniPath();
 
 // ─────────────────────────────────────────────
 //  Yapılandırma yapısı
@@ -54,15 +58,19 @@ struct Config {
 };
 
 // ─────────────────────────────────────────────
-//  ConfigManager – INI okuma + hot-reload
+//  ConfigManager – INI okuma + dinamik hot-reload
 // ─────────────────────────────────────────────
 class ConfigManager {
 public:
-    explicit ConfigManager(std::wstring iniPath);
+    using ChangeCallback = std::function<void(const Config&)>;
+
+    explicit ConfigManager(std::wstring iniPath, ChangeCallback onChange = nullptr);
     ~ConfigManager();
 
     void   Start();          // Yükleme + arka plan izleyicisi başlat
     Config GetConfig() const;
+    void   SetChangeCallback(ChangeCallback cb);
+    void   Reload();
 
 private:
     void Load();
@@ -72,6 +80,8 @@ private:
     std::wstring       m_dir;
     mutable std::mutex m_mu;
     Config             m_cfg;
-    HANDLE             m_stopEvent = INVALID_HANDLE_VALUE;
-    HANDLE             m_thread    = INVALID_HANDLE_VALUE;
+    ChangeCallback     m_onChange;
+    HANDLE             m_stopEvent     = INVALID_HANDLE_VALUE;
+    HANDLE             m_thread        = INVALID_HANDLE_VALUE;
+    FILETIME           m_lastWriteTime = {};
 };

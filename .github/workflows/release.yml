@@ -59,11 +59,12 @@ jobs:
             $v = "${{ github.ref_name }}".TrimStart("v")
           }
           if (-not $v) {
-            $rc = "engine\app.rc"
+            $rc = "gui\app.rc"
+            if (-not (Test-Path $rc)) { $rc = "engine\app.rc" }
             if (Test-Path $rc) {
               $content = Get-Content $rc -Raw
               if ($content -match 'VALUE\s+"ProductVersion",\s*"([^"\\\r\n]+)') {
-                $v = $matches[1].Trim()
+                $v = $matches[1].Trim().TrimEnd("`0")
               }
             }
           }
@@ -95,46 +96,50 @@ jobs:
             Write-Warning "GEMINI_API_KEY not configured and release notes not present."
           }
 
-      # ── Setup MinGW Toolchain ─────────────────────────────
-      - name: Setup MinGW Toolchain
-        shell: pwsh
-        run: |
-          if (-not (Get-Command g++ -ErrorAction SilentlyContinue) -or -not (Get-Command windres -ErrorAction SilentlyContinue)) {
-            Write-Host "Installing MinGW via Chocolatey..."
-            choco install mingw --no-progress -y
-          }
-          g++ --version
-          windres --version
-          cmake --version
+      # ── Setup MSYS2 UCRT64 Toolchain ──────────────────────
+      - name: Setup MSYS2 UCRT64 Toolchain
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: false
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-binutils
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-cppwinrt
 
       # ── Configure & Build with CMake ──────────────────────
       - name: Configure CMake
-        shell: pwsh
+        shell: msys2 {0}
         run: |
-          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -G "MinGW Makefiles"
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -G "Ninja"
 
-      - name: Build CopilotButton.exe (CMake)
-        shell: pwsh
+      - name: Build Binaries (CMake)
+        shell: msys2 {0}
         run: |
           cmake --build build --config Release --parallel
 
-      # ── Verify Built Binary ───────────────────────────────
-      - name: Verify Binary
+      # ── Verify Built Binaries ─────────────────────────────
+      - name: Verify Binaries
         shell: pwsh
         run: |
-          $exe = "${{ github.workspace }}\CopilotButton.exe"
-          if (-not (Test-Path $exe)) {
-            $found = Get-ChildItem -Path "${{ github.workspace }}" -Recurse -Filter "CopilotButton.exe" -ErrorAction SilentlyContinue |
-              Select-Object -First 1 -ExpandProperty FullName
-            if ($found) {
-              Copy-Item $found -Destination $exe
+          $binaries = @("CopilotButton.exe", "CopilotButtonEngine.exe")
+          foreach ($b in $binaries) {
+            $exe = "${{ github.workspace }}\$b"
+            if (-not (Test-Path $exe)) {
+              $found = Get-ChildItem -Path "${{ github.workspace }}" -Recurse -Filter $b -ErrorAction SilentlyContinue |
+                Select-Object -First 1 -ExpandProperty FullName
+              if ($found) {
+                Copy-Item $found -Destination $exe
+              }
             }
+            if (-not (Test-Path $exe)) {
+              throw "Compilation failed: $b not found at $exe"
+            }
+            $sizeMB = [math]::Round((Get-Item $exe).Length / 1MB, 2)
+            Write-Host "$b built successfully ($sizeMB MB)"
           }
-          if (-not (Test-Path $exe)) {
-            throw "Compilation failed: CopilotButton.exe not found at $exe"
-          }
-          $sizeMB = [math]::Round((Get-Item $exe).Length / 1MB, 2)
-          Write-Host "CopilotButton.exe built successfully ($sizeMB MB)"
 
       # ── Locate SignTool ───────────────────────────────────
       - name: Locate SignTool
@@ -161,8 +166,8 @@ jobs:
             Write-Warning "signtool.exe not found on runner."
           }
 
-      # ── Sign Application Binary ───────────────────────────
-      - name: Sign CopilotButton.exe
+      # ── Sign Application Binaries ─────────────────────────
+      - name: Sign Binaries
         if: env.WINDOWS_PFX_BASE64 != ''
         shell: pwsh
         env:
@@ -176,13 +181,11 @@ jobs:
 
           $pfxPassword = if ($env:WINDOWS_PFX_PASSWORD) { $env:WINDOWS_PFX_PASSWORD.Trim() } else { "" }
           $signtool = "${{ steps.signtool.outputs.path }}"
-          $file = "${{ github.workspace }}\CopilotButton.exe"
 
           if (-not $signtool) {
             throw "signtool.exe path is empty"
           }
 
-          # Import certificate to Root store for verification
           try {
             $secPass = ConvertTo-SecureString $pfxPassword -AsPlainText -Force
             Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\LocalMachine\Root -Password $secPass | Out-Null
@@ -198,26 +201,28 @@ jobs:
             "http://timestamp.globalsign.com/tsa/r6advanced1"
           )
 
-          Write-Host "Signing CopilotButton.exe..."
-          $signed = $false
-          foreach ($ts in $timestampServers) {
-            Write-Host "  Trying timestamp server: $ts"
-            & $signtool sign /fd SHA256 /tr $ts /td SHA256 /f $pfxPath /p $pfxPassword $file 2>&1
-            if ($LASTEXITCODE -eq 0) {
-              Write-Host "  Successfully signed with $ts"
-              $signed = $true
-              break
+          $binaries = @("CopilotButton.exe", "CopilotButtonEngine.exe")
+          foreach ($b in $binaries) {
+            $file = "${{ github.workspace }}\$b"
+            Write-Host "Signing $b..."
+            $signed = $false
+            foreach ($ts in $timestampServers) {
+              Write-Host "  Trying timestamp server: $ts"
+              & $signtool sign /fd SHA256 /tr $ts /td SHA256 /f $pfxPath /p $pfxPassword $file 2>&1
+              if ($LASTEXITCODE -eq 0) {
+                Write-Host "  Successfully signed $b with $ts"
+                $signed = $true
+                break
+              }
             }
+            if (-not $signed) {
+              throw "Failed to sign $b on all timestamp servers."
+            }
+            & $signtool verify /pa /v $file 2>&1
+            Write-Host "Signature verified for $b."
           }
 
           Remove-Item -Path $pfxPath -Force -ErrorAction SilentlyContinue
-
-          if (-not $signed) {
-            throw "Failed to sign CopilotButton.exe on all timestamp servers."
-          }
-
-          & $signtool verify /pa /v $file 2>&1
-          Write-Host "Signature verified."
 
       # ── Package Distribution Files ────────────────────────
       - name: Package Distribution Files
@@ -226,15 +231,23 @@ jobs:
           $distDir = "${{ github.workspace }}\dist"
           New-Item -ItemType Directory -Path $distDir -Force | Out-Null
 
-          $exe = "${{ github.workspace }}\CopilotButton.exe"
-          Copy-Item $exe -Destination "$distDir\CopilotButton.exe"
+          $binaries = @("CopilotButton.exe", "CopilotButtonEngine.exe")
+          foreach ($b in $binaries) {
+            $exe = "${{ github.workspace }}\$b"
+            $target = "$distDir\$b"
+            Copy-Item $exe -Destination $target
 
-          # Generate SHA-256 checksum
-          $target = "$distDir\CopilotButton.exe"
-          $hash = (Get-FileHash -Path $target -Algorithm SHA256).Hash.ToLower()
-          $fileName = Split-Path $target -Leaf
-          "$hash  $fileName" | Set-Content -Path "$target.sha256" -Encoding ascii
-          Write-Host "SHA256 ($fileName): $hash"
+            # Generate SHA-256 checksum
+            $hash = (Get-FileHash -Path $target -Algorithm SHA256).Hash.ToLower()
+            "$hash  $b" | Set-Content -Path "$target.sha256" -Encoding ascii
+            Write-Host "SHA256 ($b): $hash"
+          }
+
+          # Portable ZIP containing both binaries
+          $zipPath = "$distDir\CopilotButton-v${{ steps.ver.outputs.version }}-portable.zip"
+          Compress-Archive -Path "${{ github.workspace }}\CopilotButton.exe", "${{ github.workspace }}\CopilotButtonEngine.exe" -DestinationPath $zipPath -Force
+          $zipHash = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash.ToLower()
+          "$zipHash  CopilotButton-v${{ steps.ver.outputs.version }}-portable.zip" | Set-Content -Path "$zipPath.sha256" -Encoding ascii
 
       # ── Upload Artifacts ──────────────────────────────────
       - name: Upload Build Artifacts
@@ -257,6 +270,10 @@ jobs:
           files: |
             dist/CopilotButton.exe
             dist/CopilotButton.exe.sha256
+            dist/CopilotButtonEngine.exe
+            dist/CopilotButtonEngine.exe.sha256
+            dist/*.zip
+            dist/*.zip.sha256
           draft: false
           prerelease: false
           generate_release_notes: ${{ hashFiles(format('.github/releases/RELEASE_{0}.md', steps.ver.outputs.version)) == '' }}

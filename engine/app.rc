@@ -1,16 +1,7 @@
-// app.rc – Kaynak dosyası: manifest + sürüm bilgisi
+// app.rc – Kaynak dosyası: manifest + sürüm bilgisi (Simge olmadan)
 // windres veya rc.exe ile derlenir
 
 #include <windows.h>
-
-// ── İkon, Manifest ve Gömülü Kaynaklar ──────────────────────────────
-#define IDI_APP_ICON        101
-#define IDR_WEBVIEW2_LOADER 102
-#define IDR_SETTINGS_HTML   103
-
-IDI_APP_ICON        ICON   "..\\assets\\logo.ico"
-IDR_WEBVIEW2_LOADER RCDATA "WebView2Loader.dll"
-IDR_SETTINGS_HTML   RCDATA "..\\html\\index.html"
 
 // ID 1 = RT_MANIFEST
 1 RT_MANIFEST "app.manifest"
@@ -31,11 +22,11 @@ BEGIN
         BEGIN
             VALUE "FileDescription",  "Copilot Button Engine\0"
             VALUE "FileVersion",      "2.0.1.0\0"
-            VALUE "ProductName",      "Copilot Button\0"
+            VALUE "ProductName",      "Copilot Button Engine\0"
             VALUE "ProductVersion",   "2.0.1.0\0"
             VALUE "CompanyName",      "Kerem Kuyucu\0"
             VALUE "LegalCopyright",   "Copyright (c) 2026 Kerem Kuyucu\0"
-            VALUE "OriginalFilename", "CopilotButton.exe\0"
+            VALUE "OriginalFilename", "CopilotButtonEngine.exe\0"
         END
     END
     BLOCK "VarFileInfo"

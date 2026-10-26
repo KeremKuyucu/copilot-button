@@ -1,5 +1,4 @@
 #include "Config.hpp"
-#include "AppRegister.hpp"
 #include <algorithm>
 #include <cctype>
 
@@ -39,28 +38,6 @@ static Action ParseHoldAction(const std::wstring& s) {
     return Action::None;
 }
 
-// ─────────────────────────────────────────────
-//  ConfigManager
-// ─────────────────────────────────────────────
-ConfigManager::ConfigManager(std::wstring iniPath)
-    : m_path(std::move(iniPath))
-{
-    // Dizini çıkar
-    auto pos = m_path.find_last_of(L"\\/");
-    m_dir = (pos != std::wstring::npos) ? m_path.substr(0, pos) : L".";
-}
-
-ConfigManager::~ConfigManager() {
-    if (m_stopEvent != INVALID_HANDLE_VALUE) {
-        SetEvent(m_stopEvent);
-        if (m_thread != INVALID_HANDLE_VALUE) {
-            WaitForSingleObject(m_thread, 2000);
-            CloseHandle(m_thread);
-        }
-        CloseHandle(m_stopEvent);
-    }
-}
-
 static COLORREF HexToColor(const std::wstring& hex, COLORREF def) {
     if (hex.length() != 6) return def;
     try {
@@ -72,6 +49,43 @@ static COLORREF HexToColor(const std::wstring& hex, COLORREF def) {
     } catch (...) {
         return def;
     }
+}
+
+// ─────────────────────────────────────────────
+//  GetIniPath: exe dizininde, üst dizinde veya AppData'da ara
+// ─────────────────────────────────────────────
+std::wstring GetIniPath() {
+    wchar_t exePath[MAX_PATH] = {};
+    GetModuleFileNameW(nullptr, exePath, MAX_PATH);
+
+    wchar_t* last = wcsrchr(exePath, L'\\');
+    if (last) *last = L'\0'; // Exe dizini
+
+    std::wstring directPath = std::wstring(exePath) + L"\\config.ini";
+    if (GetFileAttributesW(directPath.c_str()) != INVALID_FILE_ATTRIBUTES) {
+        return directPath;
+    }
+
+    // Bir üst dizini kontrol et (örneğin exe engine\ veya build\ altındaysa)
+    wchar_t* prev = wcsrchr(exePath, L'\\');
+    if (prev) *prev = L'\0';
+    std::wstring parentPath = std::wstring(exePath) + L"\\config.ini";
+    if (GetFileAttributesW(parentPath.c_str()) != INVALID_FILE_ATTRIBUTES) {
+        return parentPath;
+    }
+
+    // %LOCALAPPDATA%\CopilotButton dizinini kontrol et
+    wchar_t localApp[MAX_PATH] = {};
+    if (GetEnvironmentVariableW(L"LOCALAPPDATA", localApp, MAX_PATH)) {
+        std::wstring appDataConfig = std::wstring(localApp) + L"\\CopilotButton\\config.ini";
+        if (GetFileAttributesW(appDataConfig.c_str()) != INVALID_FILE_ATTRIBUTES) {
+            return appDataConfig;
+        }
+    }
+
+    // Hiçbir yerde yoksa doğrudan exe dizininde varsayılan ayarlarla oluştur
+    EnsureConfigExists(directPath);
+    return directPath;
 }
 
 void EnsureConfigExists(const std::wstring& path) {
@@ -155,24 +169,57 @@ void EnsureConfigExists(const std::wstring& path) {
     CloseHandle(hFile);
 }
 
+// ─────────────────────────────────────────────
+//  ConfigManager
+// ─────────────────────────────────────────────
+ConfigManager::ConfigManager(std::wstring iniPath, ChangeCallback onChange)
+    : m_path(std::move(iniPath)), m_onChange(std::move(onChange))
+{
+    auto pos = m_path.find_last_of(L"\\/");
+    m_dir = (pos != std::wstring::npos) ? m_path.substr(0, pos) : L".";
+}
+
+ConfigManager::~ConfigManager() {
+    if (m_stopEvent != INVALID_HANDLE_VALUE) {
+        SetEvent(m_stopEvent);
+        if (m_thread != INVALID_HANDLE_VALUE) {
+            WaitForSingleObject(m_thread, 2000);
+            CloseHandle(m_thread);
+            m_thread = INVALID_HANDLE_VALUE;
+        }
+        CloseHandle(m_stopEvent);
+        m_stopEvent = INVALID_HANDLE_VALUE;
+    }
+}
+
+void ConfigManager::SetChangeCallback(ChangeCallback cb) {
+    std::lock_guard<std::mutex> lk(m_mu);
+    m_onChange = std::move(cb);
+}
+
 void ConfigManager::Load() {
     EnsureConfigExists(m_path);
+
+    WIN32_FILE_ATTRIBUTE_DATA fad = {};
+    if (GetFileAttributesExW(m_path.c_str(), GetFileExInfoStandard, &fad)) {
+        m_lastWriteTime = fad.ftLastWriteTime;
+    }
+
     Config c;
     const wchar_t* p = m_path.c_str();
 
-    c.doubleTapMs   = ReadInt(p, L"DoubleTapMs", 250);
-    c.holdMs        = ReadInt(p, L"HoldMs",      250);
+    c.doubleTapMs    = ReadInt(p, L"DoubleTapMs", 250);
+    c.holdMs         = ReadInt(p, L"HoldMs",      250);
 
-    c.action1       = ParseAction(ReadStr(p, L"Action1", L"MicMute"));
-    c.action2       = ParseAction(ReadStr(p, L"Action2", L"PlayPause"));
-    c.action3       = ParseAction(ReadStr(p, L"Action3", L"NextTrack"));
-    c.action4       = ParseAction(ReadStr(p, L"Action4", L"None"));
-    c.holdAction    = ParseHoldAction(ReadStr(p, L"HoldAction", L"PushToTalk"));
-    c.customAppPath = ReadStr(p, L"CustomAppPath");
+    c.action1        = ParseAction(ReadStr(p, L"Action1", L"MicMute"));
+    c.action2        = ParseAction(ReadStr(p, L"Action2", L"PlayPause"));
+    c.action3        = ParseAction(ReadStr(p, L"Action3", L"NextTrack"));
+    c.action4        = ParseAction(ReadStr(p, L"Action4", L"None"));
+    c.holdAction     = ParseHoldAction(ReadStr(p, L"HoldAction", L"PushToTalk"));
+    c.customAppPath  = ReadStr(p, L"CustomAppPath");
     c.soundFxEnabled = (ReadInt(p, L"SoundFxEnabled", 1) != 0);
     c.autoStart      = (ReadInt(p, L"AutoStart", 1) != 0);
     c.language       = ReadStr(p, L"Language", L"tr");
-    SetAutoStartRegistry(c.autoStart);
 
     // OSD Ayarları
     c.osdPosition     = ReadStr(p, L"OsdPosition", L"TopLeft");
@@ -186,6 +233,19 @@ void ConfigManager::Load() {
     {
         std::lock_guard<std::mutex> lk(m_mu);
         m_cfg = c;
+    }
+}
+
+void ConfigManager::Reload() {
+    Load();
+    Config current = GetConfig();
+    ChangeCallback cb;
+    {
+        std::lock_guard<std::mutex> lk(m_mu);
+        cb = m_onChange;
+    }
+    if (cb) {
+        cb(current);
     }
 }
 
@@ -207,14 +267,13 @@ Config ConfigManager::GetConfig() const {
 }
 
 // ─────────────────────────────────────────────
-//  Hot-reload: FindFirstChangeNotificationW
-//  Disk polling YAPILMAZ.
+//  Hot-reload: config.ini dosyasındaki değişiklikleri izle
 // ─────────────────────────────────────────────
 void ConfigManager::WatcherThread() {
     HANDLE hChange = FindFirstChangeNotificationW(
         m_dir.c_str(),
         FALSE,                           // Alt dizinleri izleme
-        FILE_NOTIFY_CHANGE_LAST_WRITE);
+        FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_FILE_NAME);
 
     if (hChange == INVALID_HANDLE_VALUE)
         return;
@@ -225,9 +284,27 @@ void ConfigManager::WatcherThread() {
         DWORD w = WaitForMultipleObjects(2, handles, FALSE, INFINITE);
 
         if (w == WAIT_OBJECT_0) {
-            // config.ini değişti – küçük bir debounce bekle
-            Sleep(80);
-            Load();
+            // config.ini değişti – yazma işleminin tamamlanması için bekle
+            Sleep(100);
+
+            WIN32_FILE_ATTRIBUTE_DATA fad = {};
+            if (GetFileAttributesExW(m_path.c_str(), GetFileExInfoStandard, &fad)) {
+                if (CompareFileTime(&fad.ftLastWriteTime, &m_lastWriteTime) != 0) {
+                    m_lastWriteTime = fad.ftLastWriteTime;
+                    Load();
+                    Config current = GetConfig();
+
+                    ChangeCallback cb;
+                    {
+                        std::lock_guard<std::mutex> lk(m_mu);
+                        cb = m_onChange;
+                    }
+                    if (cb) {
+                        cb(current);
+                    }
+                }
+            }
+
             FindNextChangeNotification(hChange);
         } else {
             // WAIT_OBJECT_0 + 1 = durdurma olayı

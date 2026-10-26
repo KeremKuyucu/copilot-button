@@ -1,0 +1,47 @@
+// app.rc – Kaynak dosyası: manifest + sürüm bilgisi + webview2/html/engine kaynakları
+// windres veya rc.exe ile derlenir
+
+#include <windows.h>
+
+// ── İkon, Manifest ve Gömülü Kaynaklar ──────────────────────────────
+#define IDI_APP_ICON        101
+#define IDR_WEBVIEW2_LOADER 102
+#define IDR_SETTINGS_HTML   103
+#define IDR_ENGINE_EXE      104
+
+IDI_APP_ICON        ICON   "resources\\logo.ico"
+IDR_WEBVIEW2_LOADER RCDATA "resources\\WebView2Loader.dll"
+IDR_SETTINGS_HTML   RCDATA "..\\html\\index.html"
+IDR_ENGINE_EXE      RCDATA "..\\CopilotButtonEngine.exe"
+
+// ID 1 = RT_MANIFEST
+1 RT_MANIFEST "app.manifest"
+
+// ── Sürüm bilgisi ───────────────────────────────────────────────────
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     2,0,1,0
+PRODUCTVERSION  2,0,1,0
+FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+FILEFLAGS       0
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_APP
+FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"  // Language: English (US) / Unicode
+        BEGIN
+            VALUE "FileDescription",  "Copilot Button\0"
+            VALUE "FileVersion",      "2.0.1.0\0"
+            VALUE "ProductName",      "Copilot Button\0"
+            VALUE "ProductVersion",   "2.0.1.0\0"
+            VALUE "CompanyName",      "Kerem Kuyucu\0"
+            VALUE "LegalCopyright",   "Copyright (c) 2026 Kerem Kuyucu\0"
+            VALUE "OriginalFilename", "CopilotButton.exe\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 0x04B0
+    END
+END

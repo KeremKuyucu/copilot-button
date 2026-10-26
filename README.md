@@ -12,10 +12,12 @@ Windows 11 klavyelerindeki fiziksel **Copilot tuşunu (`Win + Shift + F23`)** ge
 
 ## ✨ Öne Çıkan Özellikler
 
-- ⚡ **Ultra-Hafif C++20 Motoru:** Arka planda yalnızca **~5 MB RAM** tüketir. Harici çalışma zamanı kütüphanesi (runtime) gerektirmez; tamamen saf Win32 ve modern C++20 ile inşa edilmiştir.
+- ⚡ **Ayrık 2-Süreç Mimarisi (GUI & Engine):**
+  - **`CopilotButtonEngine.exe`:** Donanım kancası (`WH_KEYBOARD_LL`), eylem yürütme, OSD ve ses denetimini yürüten ultra-hafif arka plan servis motoru. Yalnızca `config.ini` dosyasını izler ve dosya değiştiğinde kendini dinamik olarak anında günceller.
+  - **`CopilotButton.exe`:** Sistem tepsisi simgesi (Tray), WebView2 modern ayarlar arayüzü ve motor yaşam döngüsü yöneticisi. Tepsi menüsünden Çıkış yapıldığında motor sürecini de güvenle kapatır.
 - 🛡️ **Oyun & Uygulama Koruması (Anti-Modifier Leak Hook):** Donanımsal Copilot tuşunun bastığı `Left Shift` ve `Left Windows` tuşlarını alçak seviye klavye kancası (`WH_KEYBOARD_LL`) seviyesinde anında yutar. Oyunlarda Shift tuşunun (koşma/çömelme) takılması veya Windows Başlat menüsünün açılması kesin olarak engellenir.
 - 🎙️ **Windows Core Audio & Gerçek Zamanlı Bildirimler:** Mikrofon susturma/açma işlemleri doğrudan Windows Core Audio API (`IAudioEndpointVolume`) üzerinden milisaniye altı sürede gerçekleşir. Harici mikrofon değişiklikleri `IAudioEndpointVolumeCallback` ile anında masaüstü rozetine ve OSD'ye yansıtılır.
-- ⏸️ **Spotify Entegrasyonu & Parça Takibi:** Spotify masaüstü oynatıcısını izleyerek çalan şarkı ve sanatçı adını yakalar. Parça değişimlerinde ekranda dinamik OSD kartı gösterir.
+- ⏸️ **Windows Media API (GSMTC) & Spotify Takibi:** Pencere tarama yerine modern Windows Media Transport Controls olayları ile sıfır CPU tüketimiyle çalan parça ve sanatçı adını anında yakalar. Şarkı değişimlerinde ekranda şık OSD kapsülü gösterir.
 - 🗣️ **Basılı Tutma (Hold) Modları:**
   - **PushToTalk:** Tuşa basılı tuttuğunuz sürece mikrofon açılır, bıraktığınız an otomatik susturulur.
   - **CustomApp:** Belirlediğiniz herhangi bir `.exe` uygulamasını veya internet bağlantısını (`URL`) başlatır.
@@ -25,9 +27,8 @@ Windows 11 klavyelerindeki fiziksel **Copilot tuşunu (`Win + Shift + F23`)** ge
 - ⚙️ **Modern WebView2 Ayarlar Paneli:**
   - Yerel HTTP soketi veya port açmadan, bellek içi sanal host eşlemesi (`SetVirtualHostNameToFolderMapping`) ile çalışır.
   - **İsteğe Bağlı (On-Demand) Yaşam Döngüsü:** Ayarlar penceresi kapatıldığında tüm WebView2 denetleyicileri ve Edge alt süreçleri bellekten tamamen silinir.
-- 📦 **Tek Dosya (Standalone) & Gömülü Kaynaklar:**
-  - HTML arayüzü, `WebView2Loader.dll`, uygulama ikonu ve manifest dosyası doğrudan `.exe` içine gömülüdür (`RCDATA`).
-  - Kurulum sihirbazına gerek duymadan indirip doğrudan taşınabilir olarak çalıştırabilirsiniz.
+- 📦 **Taşınabilir (Portable) & Gömülü Kaynaklar:**
+  - HTML arayüzü, `WebView2Loader.dll`, uygulama ikonu ve manifest dosyaları doğrudan çalıştırılabilir dosyalara gömülüdür (`RCDATA`).
 - 🚀 **Akıllı Windows Tanıtımı & İki Katmanlı AutoStart:**
   - `Win + R` veya terminalden `CopilotButton` yazılarak anında çalıştırılabilir (`App Paths`).
   - Başlat Menüsüne (`%APPDATA%\...\Start Menu\Programs\Copilot Button.lnk`) otomatik indekslenir.
@@ -75,7 +76,11 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release
 ```
 
-Derleme tamamlandığında ana dizinde tek parça, bağımsız `CopilotButton.exe` oluşturulacaktır.
+Derleme tamamlandığında ana dizinde iki bağımsız çalıştırılabilir dosya oluşturulur:
+- **`CopilotButton.exe`**: GUI ve Sistem Tepsisi (Tray) simgesi
+- **`CopilotButtonEngine.exe`**: Arka plan klavye ve eylem motoru
+
+Doğrudan MinGW komut satırından derlemek için `build.bat` betiğini de çalıştırabilirsiniz.
 
 ---
 
