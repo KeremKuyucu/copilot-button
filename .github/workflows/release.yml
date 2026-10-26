@@ -11,7 +11,7 @@
 #   3. Setup MinGW C++20 toolchain (GCC + windres)
 #   4. Configure & Build engine with CMake
 #   5. Code sign CopilotButton.exe (SignTool + RFC 3161 timestamping)
-#   6. Package distribution files (CopilotButton.exe + portable zip)
+#   6. Package distribution files (CopilotButton.exe + SHA-256 checksum)
 #   7. Generate SHA-256 checksums
 #   8. Upload artifacts & publish GitHub Release
 # ============================================================
@@ -201,26 +201,23 @@ jobs:
             "http://timestamp.globalsign.com/tsa/r6advanced1"
           )
 
-          $binaries = @("CopilotButton.exe", "CopilotButtonEngine.exe")
-          foreach ($b in $binaries) {
-            $file = "${{ github.workspace }}\$b"
-            Write-Host "Signing $b..."
-            $signed = $false
-            foreach ($ts in $timestampServers) {
-              Write-Host "  Trying timestamp server: $ts"
-              & $signtool sign /fd SHA256 /tr $ts /td SHA256 /f $pfxPath /p $pfxPassword $file 2>&1
-              if ($LASTEXITCODE -eq 0) {
-                Write-Host "  Successfully signed $b with $ts"
-                $signed = $true
-                break
-              }
+          $file = "${{ github.workspace }}\CopilotButton.exe"
+          Write-Host "Signing CopilotButton.exe..."
+          $signed = $false
+          foreach ($ts in $timestampServers) {
+            Write-Host "  Trying timestamp server: $ts"
+            & $signtool sign /fd SHA256 /tr $ts /td SHA256 /f $pfxPath /p $pfxPassword $file 2>&1
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "  Successfully signed CopilotButton.exe with $ts"
+              $signed = $true
+              break
             }
-            if (-not $signed) {
-              throw "Failed to sign $b on all timestamp servers."
-            }
-            & $signtool verify /pa /v $file 2>&1
-            Write-Host "Signature verified for $b."
           }
+          if (-not $signed) {
+            throw "Failed to sign CopilotButton.exe on all timestamp servers."
+          }
+          & $signtool verify /pa /v $file 2>&1
+          Write-Host "Signature verified for CopilotButton.exe."
 
           Remove-Item -Path $pfxPath -Force -ErrorAction SilentlyContinue
 
@@ -231,23 +228,14 @@ jobs:
           $distDir = "${{ github.workspace }}\dist"
           New-Item -ItemType Directory -Path $distDir -Force | Out-Null
 
-          $binaries = @("CopilotButton.exe", "CopilotButtonEngine.exe")
-          foreach ($b in $binaries) {
-            $exe = "${{ github.workspace }}\$b"
-            $target = "$distDir\$b"
-            Copy-Item $exe -Destination $target
+          $exe = "${{ github.workspace }}\CopilotButton.exe"
+          $target = "$distDir\CopilotButton.exe"
+          Copy-Item $exe -Destination $target
 
-            # Generate SHA-256 checksum
-            $hash = (Get-FileHash -Path $target -Algorithm SHA256).Hash.ToLower()
-            "$hash  $b" | Set-Content -Path "$target.sha256" -Encoding ascii
-            Write-Host "SHA256 ($b): $hash"
-          }
-
-          # Portable ZIP containing both binaries
-          $zipPath = "$distDir\CopilotButton-v${{ steps.ver.outputs.version }}-portable.zip"
-          Compress-Archive -Path "${{ github.workspace }}\CopilotButton.exe", "${{ github.workspace }}\CopilotButtonEngine.exe" -DestinationPath $zipPath -Force
-          $zipHash = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash.ToLower()
-          "$zipHash  CopilotButton-v${{ steps.ver.outputs.version }}-portable.zip" | Set-Content -Path "$zipPath.sha256" -Encoding ascii
+          # Generate SHA-256 checksum
+          $hash = (Get-FileHash -Path $target -Algorithm SHA256).Hash.ToLower()
+          "$hash  CopilotButton.exe" | Set-Content -Path "$target.sha256" -Encoding ascii
+          Write-Host "SHA256 (CopilotButton.exe): $hash"
 
       # ── Upload Artifacts ──────────────────────────────────
       - name: Upload Build Artifacts
@@ -270,10 +258,6 @@ jobs:
           files: |
             dist/CopilotButton.exe
             dist/CopilotButton.exe.sha256
-            dist/CopilotButtonEngine.exe
-            dist/CopilotButtonEngine.exe.sha256
-            dist/*.zip
-            dist/*.zip.sha256
           draft: false
           prerelease: false
           generate_release_notes: ${{ hashFiles(format('.github/releases/RELEASE_{0}.md', steps.ver.outputs.version)) == '' }}

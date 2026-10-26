@@ -58,7 +58,7 @@ Windows 11 klavyelerindeki fiziksel **Copilot tuşunu (`Win + Shift + F23`)** ge
 ## 🚀 İndirme ve Kullanım
 
 ### Hızlı Başlangıç
-1. [Releases](https://github.com/KeremKuyucu/copilot-button/releases) sayfasından en son `CopilotButton.exe` veya taşınabilir `.zip` paketini indirin.
+1. [Releases](https://github.com/KeremKuyucu/copilot-button/releases) sayfasından en son **`CopilotButton.exe`** dosyasını indirin.
 2. `CopilotButton.exe` dosyasını çalıştırın.
 3. Uygulama sistem tepsisinde (sağ alt) aktifleşir.
 4. Ayarları değiştirmek için tepsi simgesine sağ tıklayıp **⚙️ Ayarlar** seçeneğini seçin.
