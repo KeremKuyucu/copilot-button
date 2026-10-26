@@ -1,4 +1,3 @@
-// AppRegister.cpp – Uygulamanın Windows'a tanıtılması ve AutoStart yönetimi
 #include "AppRegister.hpp"
 #include <shlobj.h>
 #include <propvarutil.h>
@@ -12,11 +11,9 @@
 #pragma comment(lib, "ole32.lib")
 
 static const wchar_t* APP_ID        = L"KeremKuyucu.CopilotButton";
-static const wchar_t* APP_NAME      = L"Copilot Button Denetleyicisi";
+static const wchar_t* APP_NAME      = L"Copilot Button";
 static const wchar_t* RUN_REG_KEY   = L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 static const wchar_t* APP_PATHS_KEY = L"Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\CopilotButton.exe";
-
-
 
 static std::wstring GetCurrentExePath() {
     wchar_t path[MAX_PATH] = {};
@@ -26,7 +23,6 @@ static std::wstring GetCurrentExePath() {
 
 // ─────────────────────────────────────────────
 //  Başlat Menüsü Kısayolu (%APPDATA%\...\Start Menu\Programs\Copilot Button.lnk)
-//  Windows Arama ve Başlat Menüsünün uygulamayı tanımasını sağlar.
 // ─────────────────────────────────────────────
 static void CreateStartMenuShortcut(const std::wstring& exePath) {
     HRESULT hrInit = CoInitialize(nullptr);
@@ -48,7 +44,6 @@ static void CreateStartMenuShortcut(const std::wstring& exePath) {
             pShellLink->SetIconLocation(exePath.c_str(), 0);
             pShellLink->SetDescription(APP_NAME);
 
-            // AppUserModelID ataması (Windows bildirim ve görev çubuğu gruplaması için)
             IPropertyStore* pPropStore = nullptr;
             if (SUCCEEDED(pShellLink->QueryInterface(IID_IPropertyStore, reinterpret_cast<void**>(&pPropStore)))) {
                 PROPVARIANT pv;
@@ -63,7 +58,6 @@ static void CreateStartMenuShortcut(const std::wstring& exePath) {
             IPersistFile* pPersistFile = nullptr;
             if (SUCCEEDED(pShellLink->QueryInterface(IID_IPersistFile, reinterpret_cast<void**>(&pPersistFile)))) {
                 if (SUCCEEDED(pPersistFile->Save(shortcutPath.c_str(), TRUE))) {
-                    // Windows Explorer ve Başlat Menüsüne değişikliği anında bildir
                     SHChangeNotify(SHCNE_CREATE, SHCNF_PATHW, shortcutPath.c_str(), nullptr);
                 }
                 pPersistFile->Release();
@@ -78,16 +72,10 @@ static void CreateStartMenuShortcut(const std::wstring& exePath) {
 }
 
 void RegisterAppWithWindows() {
-    // 1. İşleme resmi AppUserModelID ata
     SetCurrentProcessExplicitAppUserModelID(APP_ID);
-
     std::wstring exePath = GetCurrentExePath();
-
-    // 2. Başlat Menüsü Kısayolu Oluştur (Windows Search ve Başlat Menüsü için)
     CreateStartMenuShortcut(exePath);
 
-    // 3. HKCU\Software\Microsoft\Windows\CurrentVersion\App Paths\CopilotButton.exe kaydı
-    // Win+R (Çalıştır) veya terminalden 'CopilotButton' yazıldığında çalışması için
     HKEY hKey = nullptr;
     if (RegCreateKeyExW(HKEY_CURRENT_USER, APP_PATHS_KEY, 0, nullptr,
                         REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, nullptr, &hKey, nullptr) == ERROR_SUCCESS) {
@@ -105,8 +93,6 @@ void RegisterAppWithWindows() {
         RegCloseKey(hKey);
     }
 
-    // 4. HKCU\Software\Classes\AppUserModelId\KeremKuyucu.CopilotButton kaydı
-    // Windows Bildirim Merkezi ve Görev Yöneticisi için uygulama adı ve ikon tanıtımı
     std::wstring aumidKey = std::wstring(L"Software\\Classes\\AppUserModelId\\") + APP_ID;
     if (RegCreateKeyExW(HKEY_CURRENT_USER, aumidKey.c_str(), 0, nullptr,
                         REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, nullptr, &hKey, nullptr) == ERROR_SUCCESS) {
@@ -122,19 +108,9 @@ void RegisterAppWithWindows() {
     }
 }
 
-// ─────────────────────────────────────────────
-//  Windows Başlangıcında Otomatik Başlatma (AutoStart)
-//  İki katmanlı güvenilirlik:
-//  1. HKCU\...\Run (Standart kayıt defteri)
-//  2. Windows Task Scheduler (/rl highest /sc onlogon)
-//     CopilotButton requireAdministrator manifestine sahip olduğundan,
-//     Windows Explorer başlangıçta standart Run kaydını UAC sebebiyle engelleyebilir.
-//     Task Scheduler sayesinde yönetici izinleriyle UAC sormadan logon anında başlar.
-// ─────────────────────────────────────────────
 void SetAutoStartRegistry(bool enable) {
     std::wstring exePath = GetCurrentExePath();
 
-    // 1. HKCU\...\Run kaydı
     HKEY hKey = nullptr;
     if (RegCreateKeyExW(HKEY_CURRENT_USER, RUN_REG_KEY, 0, nullptr,
                         REG_OPTION_NON_VOLATILE, KEY_SET_VALUE | KEY_QUERY_VALUE,
@@ -150,7 +126,6 @@ void SetAutoStartRegistry(bool enable) {
         RegCloseKey(hKey);
     }
 
-    // 2. Windows Task Scheduler (Görev Zamanlayıcısı)
     wchar_t schCmd[512] = {};
     if (enable) {
         wsprintfW(schCmd, L"schtasks.exe /create /tn \"CopilotButton\" /tr \"\\\"%s\\\"\" /sc onlogon /rl highest /f", exePath.c_str());
@@ -183,45 +158,12 @@ bool GetAutoStartRegistry() {
 }
 
 // ─────────────────────────────────────────────
-//  Kendi Kendini %LOCALAPPDATA%\CopilotButton Klasörüne Taşıma / Güncelleme
+//  Kendi Kendini %LOCALAPPDATA%\CopilotButton Klasörüne Taşıma
 // ─────────────────────────────────────────────
-static constexpr UINT IDR_SETTINGS_HTML_RES = 103;
-static constexpr UINT IDR_ENGINE_EXE_RES    = 104;
-
-static bool ExtractResourceToFile(int resourceId, const std::wstring& destPath) {
-    HINSTANCE hInst = GetModuleHandleW(nullptr);
-    HRSRC hRsrc = FindResourceW(hInst, MAKEINTRESOURCEW(resourceId), MAKEINTRESOURCEW(10));
-    if (!hRsrc) return false;
-
-    HGLOBAL hGlobal = LoadResource(hInst, hRsrc);
-    if (!hGlobal) return false;
-
-    DWORD size = SizeofResource(hInst, hRsrc);
-    const void* pData = LockResource(hGlobal);
-    if (!pData || size == 0) return false;
-
-    HANDLE hFile = CreateFileW(
-        destPath.c_str(),
-        GENERIC_WRITE,
-        FILE_SHARE_READ,
-        nullptr,
-        CREATE_ALWAYS,
-        FILE_ATTRIBUTE_NORMAL,
-        nullptr
-    );
-    if (hFile == INVALID_HANDLE_VALUE) return false;
-
-    DWORD written = 0;
-    BOOL ok = WriteFile(hFile, pData, size, &written, nullptr);
-    CloseHandle(hFile);
-    return (ok && written == size);
-}
-
 bool CheckAndPerformSelfRelocate() {
     wchar_t currentExe[MAX_PATH] = {};
     GetModuleFileNameW(nullptr, currentExe, MAX_PATH);
 
-    // 1. Hedef dizini belirle: %LOCALAPPDATA%\CopilotButton
     wchar_t localApp[MAX_PATH] = {};
     if (FAILED(SHGetFolderPathW(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, localApp))) {
         return false;
@@ -230,15 +172,13 @@ bool CheckAndPerformSelfRelocate() {
     std::wstring targetDir = std::wstring(localApp) + L"\\CopilotButton";
     std::wstring targetExe = targetDir + L"\\CopilotButton.exe";
 
-    // 2. Zaten hedef dizinden mi çalışıyoruz?
     if (_wcsicmp(currentExe, targetExe.c_str()) == 0) {
-        return false; // Zaten kalıcı dizindeyiz
+        return false;
     }
 
-    // 3. Portable mod veya geliştirici ortamı koruması
     const wchar_t* cmdLine = GetCommandLineW();
     if (wcsstr(cmdLine, L"--portable") || wcsstr(cmdLine, L"--no-relocate")) {
-        return false; // Kullanıcı portable çalıştırmak istiyor
+        return false;
     }
 
     wchar_t curDir[MAX_PATH] = {};
@@ -246,7 +186,6 @@ bool CheckAndPerformSelfRelocate() {
     wchar_t* lastSlash = wcsrchr(curDir, L'\\');
     if (lastSlash) *lastSlash = L'\0';
 
-    // Geliştirici çalışma ortamı koruması (CMakeLists.txt veya .git varsa taşıma)
     bool isDevEnv = false;
     std::wstring check1 = std::wstring(curDir) + L"\\CMakeLists.txt";
     std::wstring check2 = std::wstring(curDir) + L"\\..\\CMakeLists.txt";
@@ -258,18 +197,12 @@ bool CheckAndPerformSelfRelocate() {
     }
 
     bool forceInstall = (wcsstr(cmdLine, L"--install") != nullptr || wcsstr(cmdLine, L"--force-relocate") != nullptr);
-
     if (isDevEnv && !forceInstall) {
-        return false; // Geliştirici ortamı, dosyayı yerinde çalıştır
+        return false;
     }
 
-    // 4. Hedef klasörleri oluştur
     CreateDirectoryW(targetDir.c_str(), nullptr);
-    std::wstring htmlDir = targetDir + L"\\html";
-    CreateDirectoryW(htmlDir.c_str(), nullptr);
 
-    // 5. Sistemde çalışan eski CopilotButton örneklerini sonlandır
-    // (Böylece CopyFileW dosya kilitlenme / erişim engellendi hatası vermez)
     DWORD currentPid = GetCurrentProcessId();
     HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (snap != INVALID_HANDLE_VALUE) {
@@ -277,7 +210,8 @@ bool CheckAndPerformSelfRelocate() {
         if (Process32FirstW(snap, &pe)) {
             do {
                 if (pe.th32ProcessID != currentPid &&
-                    (_wcsicmp(pe.szExeFile, L"CopilotButton.exe") == 0 ||
+                    (_wcsicmp(pe.szExeFile, L"Copilot.exe") == 0 ||
+                     _wcsicmp(pe.szExeFile, L"CopilotButton.exe") == 0 ||
                      _wcsicmp(pe.szExeFile, L"CopilotButtonEngine.exe") == 0)) {
                     HANDLE hProc = OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, FALSE, pe.th32ProcessID);
                     if (hProc) {
@@ -290,9 +224,8 @@ bool CheckAndPerformSelfRelocate() {
         }
         CloseHandle(snap);
     }
-    Sleep(150); // İşletim sisteminin dosya kilitlerini serbest bırakması için bekleme
+    Sleep(150);
 
-    // 6. Exe'leri hedefe kopyala (varsa üzerine yaz - güncelleme)
     bool copied = false;
     for (int retry = 0; retry < 5; ++retry) {
         if (CopyFileW(currentExe, targetExe.c_str(), FALSE)) {
@@ -303,30 +236,9 @@ bool CheckAndPerformSelfRelocate() {
     }
 
     if (!copied) {
-        return false; // Kopyalanamadıysa yerinde çalışmaya devam etsin
+        return false;
     }
 
-    // CopilotButtonEngine.exe mevcutsa onu da hedef klasöre kopyala, yoksa gömülü kaynaktan çıkart
-    std::wstring curEngine = std::wstring(curDir) + L"\\CopilotButtonEngine.exe";
-    std::wstring targetEngine = targetDir + L"\\CopilotButtonEngine.exe";
-    bool engineCopied = false;
-    if (GetFileAttributesW(curEngine.c_str()) != INVALID_FILE_ATTRIBUTES) {
-        for (int retry = 0; retry < 5; ++retry) {
-            if (CopyFileW(curEngine.c_str(), targetEngine.c_str(), FALSE)) {
-                engineCopied = true;
-                break;
-            }
-            Sleep(200);
-        }
-    }
-    if (!engineCopied && GetFileAttributesW(targetEngine.c_str()) == INVALID_FILE_ATTRIBUTES) {
-        ExtractResourceToFile(IDR_ENGINE_EXE_RES, targetEngine);
-    }
-
-    // 7. Gömülü güncel HTML dosyasını hedef klasöre çıkart (HTML'i de güncelle)
-    ExtractResourceToFile(IDR_SETTINGS_HTML_RES, htmlDir + L"\\index.html");
-
-    // 8. Varsa mevcut config.ini dosyasını taşı / koru
     std::wstring curConfig = std::wstring(curDir) + L"\\config.ini";
     std::wstring targetConfig = targetDir + L"\\config.ini";
     if (GetFileAttributesW(curConfig.c_str()) != INVALID_FILE_ATTRIBUTES &&
@@ -334,7 +246,6 @@ bool CheckAndPerformSelfRelocate() {
         CopyFileW(curConfig.c_str(), targetConfig.c_str(), TRUE);
     }
 
-    // 9. Başlat menüsü kısayolunu ve Windows kayıtlarını yeni kalıcı exe'ye bağla
     CreateStartMenuShortcut(targetExe);
 
     HKEY hKey = nullptr;
@@ -349,62 +260,51 @@ bool CheckAndPerformSelfRelocate() {
         RegCloseKey(hKey);
     }
 
-    // AutoStart açıksa kayıt defterini ve görev zamanlayıcıyı hedef exe ile güncelle
     if (GetAutoStartRegistry()) {
         SetAutoStartRegistry(true);
     }
 
-    // 10. Hedefteki CopilotButton.exe'yi çalıştır
-    // İndirilen geçici exe'yi silmesi için --delete-source veriyoruz (geliştirici ortamında kaynak silinmez)
-    std::wstring cmdArgs = L"\"" + targetExe + L"\"";
-    if (!isDevEnv) {
-        cmdArgs += L" --delete-source \"" + std::wstring(currentExe) + L"\"";
-    }
-
     STARTUPINFOW si = { sizeof(si) };
     PROCESS_INFORMATION pi = {};
-    if (CreateProcessW(targetExe.c_str(), cmdArgs.data(), nullptr, nullptr, FALSE, 0, nullptr, targetDir.c_str(), &si, &pi)) {
+    std::wstring launchCmd = L"\"" + targetExe + L"\" --delete-source \"" + currentExe + L"\"";
+
+    std::vector<wchar_t> cmdBuf(launchCmd.begin(), launchCmd.end());
+    cmdBuf.push_back(L'\0');
+
+    if (CreateProcessW(nullptr, cmdBuf.data(), nullptr, nullptr, FALSE, 0, nullptr, targetDir.c_str(), &si, &pi)) {
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
+        return true;
     }
 
-    return true; // Yeni konumdaki uygulama başlatıldı, bu geçici örneği kapat
+    return false;
 }
 
 void CleanupOldSourceIfRequested() {
     const wchar_t* cmdLine = GetCommandLineW();
-    const wchar_t* flag = L"--delete-source ";
-    const wchar_t* p = wcsstr(cmdLine, flag);
-    if (!p) return;
+    const wchar_t* tag = L"--delete-source ";
+    const wchar_t* pos = wcsstr(cmdLine, tag);
+    if (!pos) return;
 
-    p += wcslen(flag);
-    while (*p == L' ') p++;
-
+    pos += wcslen(tag);
     std::wstring sourcePath;
-    if (*p == L'\"') {
-        p++;
-        const wchar_t* end = wcschr(p, L'\"');
-        if (end) {
-            sourcePath.assign(p, end - p);
-        }
+
+    if (*pos == L'"') {
+        pos++;
+        const wchar_t* end = wcschr(pos, L'"');
+        if (end) sourcePath = std::wstring(pos, end - pos);
     } else {
-        const wchar_t* end = wcschr(p, L' ');
-        if (end) {
-            sourcePath.assign(p, end - p);
-        } else {
-            sourcePath = p;
-        }
+        const wchar_t* end = wcschr(pos, L' ');
+        if (end) sourcePath = std::wstring(pos, end - pos);
+        else sourcePath = pos;
     }
 
     if (sourcePath.empty()) return;
 
-    // Arka plan iş parçacığında eski dosyanın kapanmasını bekleyip sil
     std::thread([sourcePath]() {
         for (int i = 0; i < 20; ++i) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(300));
-            if (DeleteFileW(sourcePath.c_str())) {
-                break;
-            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            if (DeleteFileW(sourcePath.c_str())) break;
         }
     }).detach();
 }

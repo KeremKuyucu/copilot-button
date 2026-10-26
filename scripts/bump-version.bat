@@ -48,6 +48,9 @@ if ([string]::IsNullOrWhiteSpace($currentBranch)) {
     Write-Host "[UYARI] Aktif bir git dali tespit edilemedi. HEAD uzerinde calisiliyor." -ForegroundColor Yellow
 }
 
+# Proje kök dizinine geç
+Set-Location (Join-Path $PSScriptRoot "..")
+
 $parts = $NewVersion.Split('.')
 $major = $parts[0]
 $minor = $parts[1]
@@ -59,62 +62,35 @@ Write-Host "Surum yukseltiliyor: $NewVersion ($fourPartDot)..." -ForegroundColor
 
 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
 
-# 1. gui/include/WebViewSettings.hpp
-$file = "gui/include/WebViewSettings.hpp"
-if (Test-Path $file) {
-    $content = [System.IO.File]::ReadAllText($file, [System.Text.Encoding]::UTF8)
-    $content = [regex]::Replace($content, 'APP_VERSION\s*=\s*"[^"]+"', "APP_VERSION = `"$NewVersion`"")
-    [System.IO.File]::WriteAllText($file, $content, $utf8NoBom)
-    Write-Host "  [OK] $file" -ForegroundColor Green
+# 1. resources/app.rc
+$rcFile = "resources/app.rc"
+if (Test-Path $rcFile) {
+    $content = [System.IO.File]::ReadAllText($rcFile, [System.Text.Encoding]::UTF8)
+    $content = [regex]::Replace($content, 'FILEVERSION\s+[\d,]+', "FILEVERSION     $fourPart")
+    $content = [regex]::Replace($content, 'PRODUCTVERSION\s+[\d,]+', "PRODUCTVERSION  $fourPart")
+    $content = [regex]::Replace($content, 'VALUE\s+"FileVersion",\s*"[^"]+"', "VALUE `"FileVersion`",      `"$fourPartDot\0`"")
+    $content = [regex]::Replace($content, 'VALUE\s+"ProductVersion",\s*"[^"]+"', "VALUE `"ProductVersion`",   `"$fourPartDot\0`"")
+    [System.IO.File]::WriteAllText($rcFile, $content, $utf8NoBom)
+    Write-Host "  [OK] $rcFile" -ForegroundColor Green
 }
 
-# 2. html/index.html
-$file = "html/index.html"
-if (Test-Path $file) {
-    $content = [System.IO.File]::ReadAllText($file, [System.Text.Encoding]::UTF8)
-    $content = [regex]::Replace($content, '(<span[^>]*id="versionBadge"[^>]*>)v[^<]+(</span>)', "`${1}v$NewVersion`${2}")
-    $content = [regex]::Replace($content, "let g_currentVersion = '[^']+';", "let g_currentVersion = '$NewVersion';")
-    [System.IO.File]::WriteAllText($file, $content, $utf8NoBom)
-    Write-Host "  [OK] $file" -ForegroundColor Green
-}
-
-# 3. gui/app.rc & engine/app.rc
-$rcFiles = @("gui/app.rc", "engine/app.rc")
-foreach ($file in $rcFiles) {
-    if (Test-Path $file) {
-        $content = [System.IO.File]::ReadAllText($file, [System.Text.Encoding]::UTF8)
-        $content = [regex]::Replace($content, 'FILEVERSION\s+[\d,]+', "FILEVERSION     $fourPart")
-        $content = [regex]::Replace($content, 'PRODUCTVERSION\s+[\d,]+', "PRODUCTVERSION  $fourPart")
-        $content = [regex]::Replace($content, 'VALUE\s+"FileVersion",\s*"[^"]+"', "VALUE `"FileVersion`",      `"$fourPartDot\0`"")
-        $content = [regex]::Replace($content, 'VALUE\s+"ProductVersion",\s*"[^"]+"', "VALUE `"ProductVersion`",   `"$fourPartDot\0`"")
-        [System.IO.File]::WriteAllText($file, $content, $utf8NoBom)
-        Write-Host "  [OK] $file" -ForegroundColor Green
-    }
-}
-
-# 4. gui/app.manifest & engine/app.manifest
-$manifestFiles = @("gui/app.manifest", "engine/app.manifest")
-foreach ($file in $manifestFiles) {
-    if (Test-Path $file) {
-        $content = [System.IO.File]::ReadAllText($file, [System.Text.Encoding]::UTF8)
-        $content = [regex]::Replace($content, '(<assemblyIdentity[\s\S]*?\bversion=")[^"]+(")', "`${1}$fourPartDot`${2}")
-        [System.IO.File]::WriteAllText($file, $content, $utf8NoBom)
-        Write-Host "  [OK] $file" -ForegroundColor Green
-    }
+# 2. resources/app.manifest
+$manifestFile = "resources/app.manifest"
+if (Test-Path $manifestFile) {
+    $content = [System.IO.File]::ReadAllText($manifestFile, [System.Text.Encoding]::UTF8)
+    $content = [regex]::Replace($content, '(<assemblyIdentity[\s\S]*?\bversion=")[^"]+(")', "`${1}$fourPartDot`${2}")
+    [System.IO.File]::WriteAllText($manifestFile, $content, $utf8NoBom)
+    Write-Host "  [OK] $manifestFile" -ForegroundColor Green
 }
 
 Write-Host "`nTum dosyalar $NewVersion surumune basariyla guncellendi!" -ForegroundColor Green
 
-# 5. Git islemleri: commit, tag ve push
+# 3. Git islemleri: commit, tag ve push
 Write-Host "`nGit islemleri yurutuluyor..." -ForegroundColor Cyan
 
 $filesToStage = @(
-    "gui/include/WebViewSettings.hpp",
-    "html/index.html",
-    "gui/app.rc",
-    "engine/app.rc",
-    "gui/app.manifest",
-    "engine/app.manifest"
+    "resources/app.rc",
+    "resources/app.manifest"
 )
 
 git add @filesToStage

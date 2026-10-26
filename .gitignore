@@ -3,8 +3,6 @@
 *.zip
 *.res
 *.dll
-!resources/WebView2Loader.dll
-!gui/resources/WebView2Loader.dll
 build_zip_temp/
 update_temp/
 tools/

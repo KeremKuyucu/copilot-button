@@ -45,7 +45,6 @@ struct Config {
     std::wstring customAppPath;
     bool         soundFxEnabled  = true;
     bool         autoStart       = true;
-    std::wstring language        = L"tr";
 
     // OSD Ayarları
     std::wstring osdPosition     = L"TopLeft";

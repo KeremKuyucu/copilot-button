@@ -19,8 +19,7 @@ public:
     TrayManager() = default;
     ~TrayManager();
 
-    using LangGetter = std::function<std::wstring()>;
-    bool Install(HWND hWnd, std::function<void()> onSettings, std::function<void()> onExit, LangGetter getLang = nullptr);
+    bool Install(HWND hWnd, std::function<void()> onSettings, std::function<void()> onExit);
     void Uninstall();
     void Reinstall();
     void HandleMessage(LPARAM lParam);
@@ -34,5 +33,4 @@ private:
     bool                  m_installed = false;
     std::function<void()> m_onSettings;
     std::function<void()> m_onExit;
-    LangGetter            m_getLang;
 };

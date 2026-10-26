@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-Copilot Button Release Notes Generator
-Generates .github/releases/RELEASE_<version>.md
-using either Google Gemini API or Antigravity CLI (agy).
+Copilot Button - GitHub Actions Release Notes Generator
+Generates .github/releases/RELEASE_<version>.md using Google Gemini API and template.
 """
 
 import argparse
@@ -25,19 +24,16 @@ if sys.platform == "win32":
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 def get_current_version() -> str:
-    # 1. Environment variable
     if os.environ.get("APP_VERSION"):
         return os.environ["APP_VERSION"].lstrip("v").strip()
 
-    # 2. engine/app.rc
-    rc_file = PROJECT_ROOT / "engine" / "app.rc"
+    rc_file = PROJECT_ROOT / "resources" / "app.rc"
     if rc_file.exists():
         content = rc_file.read_text(encoding="utf-8", errors="ignore")
         match = re.search(r'VALUE\s+"ProductVersion",\s*"([^"\\\r\n]+)', content)
         if match:
-            return match.group(1).strip()
+            return match.group(1).strip().rstrip("\0")
 
-    # 3. Git tag fallback
     try:
         tag = subprocess.check_output(
             ["git", "describe", "--tags", "--abbrev=0"],
@@ -50,10 +46,10 @@ def get_current_version() -> str:
     except Exception:
         pass
 
-    return "2.0.0"
+    return "2.1.0"
 
-def get_git_context() -> tuple[str, str]:
-    """Returns (last_tag, commit_log)"""
+def get_git_context() -> tuple[str, str, str]:
+    """Returns (last_tag, commit_log, diff_stat)"""
     last_tag = ""
     try:
         head_tags = subprocess.check_output(
@@ -114,50 +110,61 @@ def get_git_context() -> tuple[str, str]:
             text=True
         ).strip()
 
+    diff_stat = ""
+    try:
+        diff_stat = subprocess.check_output(
+            ["git", "diff", "--stat", rev_range],
+            cwd=PROJECT_ROOT,
+            stderr=subprocess.DEVNULL,
+            text=True
+        ).strip()
+    except Exception:
+        pass
+
     if not commit_log:
-        commit_log = "Maintenance and general improvements."
+        commit_log = "Maintenance, optimizations, and general improvements."
 
-    return last_tag, commit_log
+    return last_tag, commit_log, diff_stat
 
-def find_gemini_api_key(explicit_key: str = None) -> str:
-    if explicit_key:
-        return explicit_key.strip()
-    if os.environ.get("GEMINI_API_KEY"):
-        return os.environ["GEMINI_API_KEY"].strip()
-
-    home_key = Path.home() / ".gemini" / "api.key"
-    if home_key.exists():
-        key = home_key.read_text(encoding="utf-8").strip()
-        if key:
-            return key
-
+def load_template() -> str:
+    tpl_file = PROJECT_ROOT / ".github" / "RELEASE_TEMPLATE.md"
+    if tpl_file.exists():
+        return tpl_file.read_text(encoding="utf-8").strip()
     return ""
 
-def generate_with_gemini(api_key: str, version: str, last_tag: str, commit_log: str) -> str:
+def generate_with_gemini(api_key: str, version: str, last_tag: str, commit_log: str, diff_stat: str, template: str) -> str:
     print(f"[*] Requesting release notes from Gemini API for v{version}...")
 
-    prompt = f"""You are a professional release manager and copywriter for an open-source Windows utility called "Copilot Button" (a lightweight AutoHotkey v2 utility that remaps the Windows Copilot key to media control, mic mute, YouTube Music, Spotify, custom apps, and OSD actions).
+    template_instruction = ""
+    if template:
+        template_instruction = f"""
+STRICT TEMPLATE FORMAT TO FOLLOW:
+\"\"\"
+{template}
+\"\"\"
+Fill in {{version}} with "{version}" and {{title}} with a short, punchy release title in English.
+Follow the sections from the template. Only include sections that have relevant changes.
+"""
 
-Generate a clean, structured release notes document in Turkish (with an optional English summary section) based on the following git commits for version {version}:
+    prompt = f"""You are a professional release manager and copywriter for "Copilot Button", an open-source, ultra-lightweight native C++20 Windows utility that remaps the physical Windows Copilot key to mic mute, media controls, Spotify tracking, and custom actions with an instant OSD.
+
+Generate clean, concise release notes in English based on the following git commits and changes for version {version}:
 
 GIT COMMITS (since {last_tag or 'previous release'}):
 {commit_log}
 
+DIFF STAT SUMMARY:
+{diff_stat or 'N/A'}
+{template_instruction}
 REQUIREMENTS:
-- Follow this structure:
-  - Header: ## 📦 Sürüm [{version}] – [Kısa Başlık Türkçe]
-  - Section: ### 🚀 Değişiklikler (with bullet points: * **[Özellik/Düzeltme Adı]:** [Açıklama])
-  - Section: ### 🐛 Hata Düzeltmeleri (with bullet points)
-  - Section: ### ⚡ Performans & İyileştirmeler (if applicable)
-  - Section: ### ⚠️ Kırıcı Değişiklikler (varsa, yoksa 'Yoktur')
-  - English section below: ## 📦 Version [{version}] – [Short Title English] with Changes and Bug Fixes.
-- Emojis to use: 📦, 🚀, 🐛, ⚡, 🎨, 🔧, 🔒.
-- Professional, developer-friendly, clear and concise tone.
+- Use bullet points with bold prefixes (e.g., `- **[Component/Feature]**: [Description]`).
+- Professional, developer-friendly, and concise tone.
+- Do NOT include markdown code fences (```) around the JSON output.
 
 OUTPUT FORMAT:
-Respond ONLY with a valid JSON object with a single key "release_notes" (no surrounding text or markdown formatting except the JSON):
+Respond ONLY with a valid JSON object with a single key "release_notes":
 {{
-  "release_notes": "# ... markdown content ..."
+  "release_notes": "markdown content here"
 }}
 """
 
@@ -191,64 +198,35 @@ Respond ONLY with a valid JSON object with a single key "release_notes" (no surr
                 return data["release_notes"].strip()
         except Exception as e:
             last_error = e
-            print(f"[!] Model {model} request failed: {e}. Trying fallback if available...")
+            print(f"[!] Model {model} request failed: {e}. Trying fallback...")
 
     raise RuntimeError(f"Gemini API request failed on all models: {last_error}")
 
-def generate_with_agy(version: str) -> str:
-    print(f"[*] Calling Antigravity CLI (agy) to generate release notes for v{version}...")
-    agy_prompt = (
-        f"Copilot Button projesinin v{version} surumu icin surum notlarini olustur. "
-        "1. Git commit loglarini ve son degisiklikleri incele. "
-        "2. .github/RELEASE_TEMPLATE.md sablonuna birebir uyarak '.github/releases/RELEASE_{version}.md' dosyasini olustur."
-    )
-
-    cmd = ["agy", "-p", agy_prompt, "--add-dir", str(PROJECT_ROOT), "--dangerously-skip-permissions"]
-    res = subprocess.run(cmd, cwd=PROJECT_ROOT)
-    if res.returncode != 0:
-        raise RuntimeError(f"agy CLI exited with code {res.returncode}")
-
-    target_file = PROJECT_ROOT / ".github" / "releases" / f"RELEASE_{version}.md"
-    if not target_file.exists():
-        raise FileNotFoundError(f"agy completed but {target_file} was not created.")
-
-    return target_file.read_text(encoding="utf-8")
-
 def main():
     parser = argparse.ArgumentParser(description="Copilot Button Release Notes Generator")
-    parser.add_argument("--version", "-v", help="Release version (default: from lib/Globals.ahk)")
-    parser.add_argument("--engine", "-e", choices=["gemini", "agy", "auto"], default="auto",
-                        help="Generator engine: gemini, agy, or auto (default: auto)")
-    parser.add_argument("--api-key", "-k", help="Gemini API Key (optional)")
+    parser.add_argument("--version", "-v", help="Release version (e.g. 2.1.0)")
+    parser.add_argument("--engine", "-e", default="gemini", help="Generator engine (kept for workflow compatibility)")
+    parser.add_argument("--api-key", "-k", help="Gemini API Key (optional, defaults to GEMINI_API_KEY env)")
     args = parser.parse_args()
+
+    api_key = (args.api_key or os.environ.get("GEMINI_API_KEY", "")).strip()
+    if not api_key:
+        print("[!] Warning: No GEMINI_API_KEY found. Skipping release notes generation.")
+        sys.exit(0)
 
     version = args.version or get_current_version()
     print(f"=== Copilot Button Release Notes Generator (v{version}) ===")
 
-    last_tag, commit_log = get_git_context()
+    last_tag, commit_log, diff_stat = get_git_context()
     print(f"[*] Commits to summarize:\n{commit_log}\n")
+    if diff_stat:
+        print(f"[*] Diff stat summary:\n{diff_stat}\n")
 
-    api_key = find_gemini_api_key(args.api_key)
-    engine = args.engine
+    template = load_template()
+    if template:
+        print("[*] Loaded release notes template from .github/RELEASE_TEMPLATE.md")
 
-    if engine == "auto":
-        engine = "gemini" if api_key else "agy"
-
-    print(f"[*] Using engine: {engine.upper()}")
-
-    release_notes = ""
-
-    if engine == "gemini":
-        if not api_key:
-            print("[!] Error: Gemini engine selected but no GEMINI_API_KEY found.")
-            print("    Provide it via --api-key or set the GEMINI_API_KEY environment variable.")
-            sys.exit(1)
-        release_notes = generate_with_gemini(api_key, version, last_tag, commit_log)
-    elif engine == "agy":
-        release_notes = generate_with_agy(version)
-    else:
-        print(f"[!] Unknown engine: {engine}")
-        sys.exit(1)
+    release_notes = generate_with_gemini(api_key, version, last_tag, commit_log, diff_stat, template)
 
     releases_dir = PROJECT_ROOT / ".github" / "releases"
     releases_dir.mkdir(parents=True, exist_ok=True)
@@ -256,15 +234,6 @@ def main():
 
     target_file.write_text(release_notes, encoding="utf-8")
     print(f"\n[+] Successfully saved release notes: {target_file.relative_to(PROJECT_ROOT)}")
-
-    print("\n=== Next Steps ===")
-    print(f"1. Review {target_file.relative_to(PROJECT_ROOT)}")
-    print("2. Commit and push:")
-    print(f"   git add {target_file.relative_to(PROJECT_ROOT)}")
-    print(f"   git commit -m \"docs: add release notes for v{version}\"")
-    print(f"   git push origin main")
-    print(f"   git tag v{version}")
-    print(f"   git push origin v{version}")
 
 if __name__ == "__main__":
     main()

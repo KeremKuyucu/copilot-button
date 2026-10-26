@@ -3,18 +3,21 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Language: C++20](https://img.shields.io/badge/Language-C%2B%2B20-00599C.svg)](https://isocpp.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011%20(x64)-blue)](https://microsoft.com)
-[![Architecture](https://img.shields.io/badge/Architecture-Standalone%20%2F%20Portable-success)](#)
-[![UI: WebView2](https://img.shields.io/badge/UI-WebView2%20%2B%20Win32-purple.svg)](https://developer.microsoft.com/microsoft-edge/webview2/)
+[![Architecture](https://img.shields.io/badge/Architecture-Single%20Binary%20%2F%20Portable-success)](#)
+[![RAM Usage](https://img.shields.io/badge/RAM-~2MB-brightgreen.svg)](#)
 
-Windows 11 klavyelerindeki fiziksel **Copilot tuşunu (`Win + Shift + F23`)** gelişmiş, gecikmesiz bir **Mikrofon, Medya ve Kısayol Denetleyicisine** dönüştüren yüksek performanslı, bağımsız (standalone) bir yerel C++20 Win32 motorudur.
+Windows 11 klavyelerindeki fiziksel **Copilot tuşunu (`Win + Shift + F23`)** gelişmiş, gecikmesiz bir **Mikrofon, Medya ve Kısayol Denetleyicisine** dönüştüren yüksek performanslı, tek parça (standalone) yerel C++20 Win32 uygulamasıdır.
 
 ---
 
 ## ✨ Öne Çıkan Özellikler
 
-- ⚡ **Ayrık 2-Süreç Mimarisi (GUI & Engine):**
-  - **`CopilotButtonEngine.exe`:** Donanım kancası (`WH_KEYBOARD_LL`), eylem yürütme, OSD ve ses denetimini yürüten ultra-hafif arka plan servis motoru. Yalnızca `config.ini` dosyasını izler ve dosya değiştiğinde kendini dinamik olarak anında günceller.
-  - **`CopilotButton.exe`:** Sistem tepsisi simgesi (Tray), WebView2 modern ayarlar arayüzü ve motor yaşam döngüsü yöneticisi. Tepsi menüsünden Çıkış yapıldığında motor sürecini de güvenle kapatır.
+- ⚡ **Ultra-Hafif Tek Parça Mimari (`CopilotButton.exe`):**
+  - Tüm klavye kancası (`WH_KEYBOARD_LL`), ses denetimi, mikrofon rozeti, Spotify şarkı takibi, sistem tepsisi (Tray) ve otomatik başlatma mantığı tek bir ~440 KB boyutundaki yürütülebilir dosyada birleştirilmiştir.
+  - Harici WebView2, web tarayıcı motoru veya arka plan yardımcı süreçleri yoktur. Yalnızca ~2 MB RAM tüketir.
+- ⚙️ **Anında Canlı Yapılandırma (Hot-Reloading):**
+  - Tepsi menüsünden **⚙️ Ayarlar** seçildiğinde doğrudan `config.ini` dosyasını varsayılan metin düzenleyicinizde açar.
+  - Arka plandaki dosya izleyici iş parçacığı (`WatcherThread`), dosyayı kaydettiğiniz anda değişiklikleri uygulamayı yeniden başlatmaya gerek kalmadan canlı olarak uygular.
 - 🛡️ **Oyun & Uygulama Koruması (Anti-Modifier Leak Hook):** Donanımsal Copilot tuşunun bastığı `Left Shift` ve `Left Windows` tuşlarını alçak seviye klavye kancası (`WH_KEYBOARD_LL`) seviyesinde anında yutar. Oyunlarda Shift tuşunun (koşma/çömelme) takılması veya Windows Başlat menüsünün açılması kesin olarak engellenir.
 - 🎙️ **Windows Core Audio & Gerçek Zamanlı Bildirimler:** Mikrofon susturma/açma işlemleri doğrudan Windows Core Audio API (`IAudioEndpointVolume`) üzerinden milisaniye altı sürede gerçekleşir. Harici mikrofon değişiklikleri `IAudioEndpointVolumeCallback` ile anında masaüstü rozetine ve OSD'ye yansıtılır.
 - ⏸️ **Windows Media API (GSMTC) & Spotify Takibi:** Pencere tarama yerine modern Windows Media Transport Controls olayları ile sıfır CPU tüketimiyle çalan parça ve sanatçı adını anında yakalar. Şarkı değişimlerinde ekranda şık OSD kapsülü gösterir.
@@ -24,11 +27,6 @@ Windows 11 klavyelerindeki fiziksel **Copilot tuşunu (`Win + Shift + F23`)** ge
 - 💬 **Gelişmiş Ekran Bildirimleri (OSD):**
   - **Konumlandırma:** Sol Üst, Sağ Üst, Sol Alt, Sağ Alt, Merkez.
   - **Kişiselleştirme:** Özel Hex renk kodu, font boyutu ve yumuşak fade animasyonu.
-- ⚙️ **Modern WebView2 Ayarlar Paneli:**
-  - Yerel HTTP soketi veya port açmadan, bellek içi sanal host eşlemesi (`SetVirtualHostNameToFolderMapping`) ile çalışır.
-  - **İsteğe Bağlı (On-Demand) Yaşam Döngüsü:** Ayarlar penceresi kapatıldığında tüm WebView2 denetleyicileri ve Edge alt süreçleri bellekten tamamen silinir.
-- 📦 **Taşınabilir (Portable) & Gömülü Kaynaklar:**
-  - HTML arayüzü, `WebView2Loader.dll`, uygulama ikonu ve manifest dosyaları doğrudan çalıştırılabilir dosyalara gömülüdür (`RCDATA`).
 - 🚀 **Akıllı Windows Tanıtımı & İki Katmanlı AutoStart:**
   - `Win + R` veya terminalden `CopilotButton` yazılarak anında çalıştırılabilir (`App Paths`).
   - Başlat Menüsüne (`%APPDATA%\...\Start Menu\Programs\Copilot Button.lnk`) otomatik indekslenir.
@@ -61,7 +59,7 @@ Windows 11 klavyelerindeki fiziksel **Copilot tuşunu (`Win + Shift + F23`)** ge
 1. [Releases](https://github.com/KeremKuyucu/copilot-button/releases) sayfasından en son **`CopilotButton.exe`** dosyasını indirin.
 2. `CopilotButton.exe` dosyasını çalıştırın.
 3. Uygulama sistem tepsisinde (sağ alt) aktifleşir.
-4. Ayarları değiştirmek için tepsi simgesine sağ tıklayıp **⚙️ Ayarlar** seçeneğini seçin.
+4. Ayarları değiştirmek için tepsi simgesine sağ tıklayıp **⚙️ Ayarlar** seçeneğini seçin (`config.ini` dosyası açılır).
 
 ---
 
@@ -72,76 +70,24 @@ Projeyi yerel olarak MinGW-w64 ile derlemek için:
 ```cmd
 git clone https://github.com/KeremKuyucu/copilot-button.git
 cd copilot-button
+scripts\build.bat
+```
+
+veya CMake ile:
+
+```cmd
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release
 ```
 
-Derleme tamamlandığında ana dizinde iki bağımsız çalıştırılabilir dosya oluşturulur:
-- **`CopilotButton.exe`**: GUI ve Sistem Tepsisi (Tray) simgesi
-- **`CopilotButtonEngine.exe`**: Arka plan klavye ve eylem motoru
-
-Doğrudan MinGW komut satırından derlemek için `build.bat` betiğini de çalıştırabilirsiniz.
+Derleme tamamlandığında ana dizinde tek bir çalıştırılabilir dosya oluşturulur:
+- **`CopilotButton.exe`**: Tüm işlevleri barındıran hafif, tek parça sistem tepsisi ve klavye denetleyicisi.
 
 ---
 
 ## 📄 Yapılandırma (`config.ini`)
 
-Uygulama ilk kez çalıştırıldığında kendi dizininde otomatik olarak aşağıdaki `config.ini` dosyasını oluşturur:
-
-```ini
-[Settings]
-
-; ── Donanım ve Tıklama Eylemleri ──
-; Tıklama için maksimum bekleme süresi (milisaniye)
-DoubleTapMs=250
-
-; Basılı tutma için minimum süre (milisaniye)
-HoldMs=250
-
-; 1 Tık Eylemi (MicMute, PlayPause, NextTrack, PrevTrack, MasterMute, ToggleDeafen, LockScreen, None)
-Action1=MicMute
-
-; 2 Tık Eylemi
-Action2=PlayPause
-
-; 3 Tık Eylemi
-Action3=NextTrack
-
-; 4 Tık Eylemi
-Action4=None
-
-; Basılı Tutma Eylemi (PushToTalk: bas-konuş, CustomApp: özel uygulama/URL)
-HoldAction=PushToTalk
-
-; CustomApp seçildiğinde açılacak uygulama yolu veya URL
-CustomAppPath=
-
-; ── Sistem ve Başlangıç ──
-; Windows başlangıcında otomatik çalıştır (1 = Açık, 0 = Kapalı)
-AutoStart=1
-
-; Ses Efektleri (Mikrofon susturulduğunda/açıldığında Windows sesini çal)
-SoundFxEnabled=1
-
-; ── Spotify ve OSD Ayarları ──
-; Spotify Şarkı Değişiminde OSD Göster (1 = Açık, 0 = Kapalı)
-SpotifyTrackOsd=1
-
-; OSD Konumu: TopLeft, TopRight, BottomLeft, BottomRight, Center
-OsdPosition=TopLeft
-
-; OSD Metin Rengi (hex, # olmadan)
-OsdColor=00E5FF
-
-; OSD Font Boyutu (varsayılan: 10)
-OsdFontSize=10
-
-; OSD Gösterim Süresi (milisaniye, varsayılan: 1500)
-OsdDurationMs=1500
-
-; OSD Fade Animasyonu (1 = Açık, 0 = Kapalı)
-OsdFadeEnabled=1
-```
+Uygulama ilk kez çalıştırıldığında kendi dizininde tüm açıklamalarıyla birlikte `config.ini` dosyasını otomatik oluşturur. Tepsi menüsünden **⚙️ Ayarlar** seçilerek dosya doğrudan açılabilir; yapılan değişiklikler dosyayı kaydettiğiniz anda canlı (**hot-reload**) olarak uygulanır.
 
 ---
 

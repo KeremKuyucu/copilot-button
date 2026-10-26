@@ -1,18 +1,8 @@
-// app.rc – Kaynak dosyası: manifest + sürüm bilgisi + webview2/html/engine kaynakları
-// windres veya rc.exe ile derlenir
-
+// app.rc – Kaynak dosyası: manifest + simge + sürüm bilgisi
 #include <windows.h>
 
-// ── İkon, Manifest ve Gömülü Kaynaklar ──────────────────────────────
-#define IDI_APP_ICON        101
-#define IDR_WEBVIEW2_LOADER 102
-#define IDR_SETTINGS_HTML   103
-#define IDR_ENGINE_EXE      104
-
-IDI_APP_ICON        ICON   "resources\\logo.ico"
-IDR_WEBVIEW2_LOADER RCDATA "resources\\WebView2Loader.dll"
-IDR_SETTINGS_HTML   RCDATA "..\\html\\index.html"
-IDR_ENGINE_EXE      RCDATA "..\\CopilotButtonEngine.exe"
+#define IDI_APP_ICON 101
+IDI_APP_ICON ICON "logo.ico"
 
 // ID 1 = RT_MANIFEST
 1 RT_MANIFEST "app.manifest"

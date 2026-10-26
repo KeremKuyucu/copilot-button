@@ -15,7 +15,6 @@ public:
     void Show();
     void Hide();
     void SetMuted(bool isMuted);
-    bool IsVisible() const { return m_visible; }
 
 private:
     static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);

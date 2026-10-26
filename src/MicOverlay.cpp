@@ -1,4 +1,3 @@
-// MicOverlay.cpp – Kalıcı mikrofon susturuldu ekran rozeti
 #include "MicOverlay.hpp"
 #include <dwmapi.h>
 
@@ -125,8 +124,6 @@ void MicOverlay::OnPaint(HWND hwnd) {
     HGDIOBJ oldBmp = SelectObject(memDC, memBmp);
 
     // Koyu modern arka plan (#0E131F) ve kırmızı kenarlık (#EF4444)
-    // Arka planı FillRect ile dikdörtgen doldurmak yerine doğrudan RoundRect ile
-    // tek adımda çiziyoruz; böylece 4 köşede piksel artığı oluşmaz.
     COLORREF bgCol = RGB(14, 19, 31);
     HBRUSH bgBrush = CreateSolidBrush(bgCol);
     HPEN borderPen = CreatePen(PS_SOLID, 1, RGB(239, 68, 68));
@@ -143,7 +140,7 @@ void MicOverlay::OnPaint(HWND hwnd) {
     Ellipse(memDC, 14, 10, 26, 22);
     DeleteObject(redDotBrush);
 
-    // Metin çizimi: "MİKROFON SUSTURULDU"
+    // Metin çizimi
     HFONT font = CreateFontW(
         14, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
@@ -152,10 +149,10 @@ void MicOverlay::OnPaint(HWND hwnd) {
     );
     HGDIOBJ oldFont = SelectObject(memDC, font);
     SetBkMode(memDC, TRANSPARENT);
-    SetTextColor(memDC, RGB(252, 165, 165)); // Yumuşak açık kırmızı
+    SetTextColor(memDC, RGB(252, 165, 165));
 
     RECT textRc = { 34, 0, w - 8, h };
-    DrawTextW(memDC, L"MİKROFON SUSTURULDU", -1, &textRc,
+    DrawTextW(memDC, L"MICROPHONE MUTED", -1, &textRc,
               DT_SINGLELINE | DT_VCENTER | DT_LEFT);
 
     // Ekrana aktar

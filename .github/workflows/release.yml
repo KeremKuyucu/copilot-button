@@ -59,8 +59,7 @@ jobs:
             $v = "${{ github.ref_name }}".TrimStart("v")
           }
           if (-not $v) {
-            $rc = "gui\app.rc"
-            if (-not (Test-Path $rc)) { $rc = "engine\app.rc" }
+            $rc = "resources\app.rc"
             if (Test-Path $rc) {
               $content = Get-Content $rc -Raw
               if ($content -match 'VALUE\s+"ProductVersion",\s*"([^"\\\r\n]+)') {
@@ -124,7 +123,7 @@ jobs:
       - name: Verify Binaries
         shell: pwsh
         run: |
-          $binaries = @("CopilotButton.exe", "CopilotButtonEngine.exe")
+          $binaries = @("CopilotButton.exe")
           foreach ($b in $binaries) {
             $exe = "${{ github.workspace }}\$b"
             if (-not (Test-Path $exe)) {

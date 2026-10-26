@@ -4,7 +4,6 @@
 #include "KeyHook.hpp"
 #include "Audio.hpp"
 #include "Osd.hpp"
-#include "I18n.hpp"
 #include <shellapi.h>
 
 #pragma comment(lib, "user32.lib")
@@ -215,7 +214,7 @@ void CALLBACK KeyHook::OnHoldTimer(HWND hw, UINT, UINT_PTR, DWORD) {
         h->m_pttActive = true;
         SetMicMuteState(false);
         if (h->m_cfg.soundFxEnabled) PlayMicSound(false);
-        OsdManager::Instance().ShowTip(I18n::PttActive(h->m_cfg.language));
+        OsdManager::Instance().ShowTip(L"🎙️ PTT — Active");
     } else if (h->m_cfg.holdAction == Action::CustomApp) {
         if (h->m_callback) {
             h->m_callback(Action::CustomApp);
@@ -396,7 +395,7 @@ LRESULT CALLBACK KeyHook::LowLevelProc(int nCode, WPARAM wParam, LPARAM lParam) 
                 h->m_pttActive = false;
                 SetMicMuteState(true);
                 if (h->m_cfg.soundFxEnabled) PlayMicSound(true);
-                OsdManager::Instance().ShowTip(I18n::PttMuted(h->m_cfg.language));
+                OsdManager::Instance().ShowTip(L"🎙️ PTT — Muted");
                 return 1;
             }
 

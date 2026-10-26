@@ -1,42 +1,13 @@
-# Release Template / Sürüm Şablonu
+## 📦 Release v{version} – {title}
 
-Bu dosyayı yeni sürüm notları yazarken şablon olarak kullanın.
-Aşağıdaki şablonu kopyalayıp `[PLACEHOLDER]` kısımlarını doldurun.
-Dosya adı .github/releases/RELEASE_X.X.X.md olacak.
----
+### 🚀 What's New
+- **[Feature]**: [Brief description of the new capability]
 
-## 📦 Sürüm [X.X.X] – [Kısa Başlık Türkçe]
+### ⚡ Improvements & Polish
+- **[Component]**: [Description of performance enhancement, refactoring, or UX polish]
 
-### 🚀 Değişiklikler
+### 🐛 Bug Fixes
+- **[Fix]**: [Description of resolved issue or edge-case fix]
 
-* **[Özellik/Düzeltme Adı]:**
-  [Değişikliğin Türkçe açıklaması]
-
-* **[Özellik/Düzeltme Adı]:**
-  [Değişikliğin Türkçe açıklaması]
-
-### 🐛 Hata Düzeltmeleri
-
-* [Hata düzeltmesi açıklaması Türkçe]
-* [Hata düzeltmesi açıklaması Türkçe]
-
-### ⚠️ Kırıcı Değişiklikler (varsa)
-
-* [Kırıcı değişiklik açıklaması Türkçe]
-
----
-
-# Emoji Referansı / Emoji Reference
-
-| Emoji | Kullanım / Usage |
-|-------|------------------|
-| 📦 | Sürüm başlığı / Version header |
-| 🚀 | Yeni özellikler / New features |
-| 🐛 | Hata düzeltmeleri / Bug fixes |
-| ⚠️ | Kırıcı değişiklikler / Breaking changes |
-| 🔒 | Güvenlik / Security |
-| ⚡ | Performans / Performance |
-| 🎨 | UI/UX değişiklikleri / UI/UX changes |
-| 🔧 | Yapılandırma / Configuration |
-| 📝 | Dokümantasyon / Documentation |
-| 🌐 | Yerelleştirme / Localization |
+### ⚙️ Configuration & Architecture (if applicable)
+- **[Setting/Arch]**: [Description of config or internal changes]

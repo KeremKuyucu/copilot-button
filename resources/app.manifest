@@ -4,10 +4,10 @@
   <assemblyIdentity
       version="2.1.0.0"
       processorArchitecture="*"
-      name="KeremKuyucu.CopilotButton.Engine"
+      name="KeremKuyucu.CopilotButton"
       type="win32"/>
 
-  <description>Copilot Button Engine – headless keyboard daemon</description>
+  <description>Copilot Button</description>
 
   <!-- requireAdministrator: UIPI bypass + anti-cheat hook -->
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
