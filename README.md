@@ -1,96 +1,106 @@
-# 🚀 Copilot Button Controller (C++20 Native Engine)
+# 🚀 Copilot Button (Native C++20 Win32)
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Language: C++20](https://img.shields.io/badge/Language-C%2B%2B20-00599C.svg)](https://isocpp.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011%20(x64)-blue)](https://microsoft.com)
-[![Architecture](https://img.shields.io/badge/Architecture-Single%20Binary%20%2F%20Portable-success)](#)
-[![RAM Usage](https://img.shields.io/badge/RAM-~2MB-brightgreen.svg)](#)
+[![Architecture](https://img.shields.io/badge/Architecture-Single%20Binary%20%2F%20Standalone-success)](#)
+[![Size](https://img.shields.io/badge/Binary%20Size-~440%20KB-brightgreen.svg)](#)
+[![RAM Usage](https://img.shields.io/badge/RAM-~2%20MB-brightgreen.svg)](#)
 
-Windows 11 klavyelerindeki fiziksel **Copilot tuşunu (`Win + Shift + F23`)** gelişmiş, gecikmesiz bir **Mikrofon, Medya ve Kısayol Denetleyicisine** dönüştüren yüksek performanslı, tek parça (standalone) yerel C++20 Win32 uygulamasıdır.
-
----
-
-## ✨ Öne Çıkan Özellikler
-
-- ⚡ **Ultra-Hafif Tek Parça Mimari (`CopilotButton.exe`):**
-  - Tüm klavye kancası (`WH_KEYBOARD_LL`), ses denetimi, mikrofon rozeti, Spotify şarkı takibi, sistem tepsisi (Tray) ve otomatik başlatma mantığı tek bir ~440 KB boyutundaki yürütülebilir dosyada birleştirilmiştir.
-  - Harici WebView2, web tarayıcı motoru veya arka plan yardımcı süreçleri yoktur. Yalnızca ~2 MB RAM tüketir.
-- ⚙️ **Anında Canlı Yapılandırma (Hot-Reloading):**
-  - Tepsi menüsünden **⚙️ Ayarlar** seçildiğinde doğrudan `config.ini` dosyasını varsayılan metin düzenleyicinizde açar.
-  - Arka plandaki dosya izleyici iş parçacığı (`WatcherThread`), dosyayı kaydettiğiniz anda değişiklikleri uygulamayı yeniden başlatmaya gerek kalmadan canlı olarak uygular.
-- 🛡️ **Oyun & Uygulama Koruması (Anti-Modifier Leak Hook):** Donanımsal Copilot tuşunun bastığı `Left Shift` ve `Left Windows` tuşlarını alçak seviye klavye kancası (`WH_KEYBOARD_LL`) seviyesinde anında yutar. Oyunlarda Shift tuşunun (koşma/çömelme) takılması veya Windows Başlat menüsünün açılması kesin olarak engellenir.
-- 🎙️ **Windows Core Audio & Gerçek Zamanlı Bildirimler:** Mikrofon susturma/açma işlemleri doğrudan Windows Core Audio API (`IAudioEndpointVolume`) üzerinden milisaniye altı sürede gerçekleşir. Harici mikrofon değişiklikleri `IAudioEndpointVolumeCallback` ile anında masaüstü rozetine ve OSD'ye yansıtılır.
-- ⏸️ **Windows Media API (GSMTC) & Spotify Takibi:** Pencere tarama yerine modern Windows Media Transport Controls olayları ile sıfır CPU tüketimiyle çalan parça ve sanatçı adını anında yakalar. Şarkı değişimlerinde ekranda şık OSD kapsülü gösterir.
-- 🗣️ **Basılı Tutma (Hold) Modları:**
-  - **PushToTalk:** Tuşa basılı tuttuğunuz sürece mikrofon açılır, bıraktığınız an otomatik susturulur.
-  - **CustomApp:** Belirlediğiniz herhangi bir `.exe` uygulamasını veya internet bağlantısını (`URL`) başlatır.
-- 💬 **Gelişmiş Ekran Bildirimleri (OSD):**
-  - **Konumlandırma:** Sol Üst, Sağ Üst, Sol Alt, Sağ Alt, Merkez.
-  - **Kişiselleştirme:** Özel Hex renk kodu, font boyutu ve yumuşak fade animasyonu.
-- 🚀 **Akıllı Windows Tanıtımı & İki Katmanlı AutoStart:**
-  - `Win + R` veya terminalden `CopilotButton` yazılarak anında çalıştırılabilir (`App Paths`).
-  - Başlat Menüsüne (`%APPDATA%\...\Start Menu\Programs\Copilot Button.lnk`) otomatik indekslenir.
-  - Yönetici yetkili arka plan motoru için hem Windows Kayıt Defteri (`Run`) hem de Görev Zamanlayıcısı (`schtasks /rl highest`) entegrasyonuyla bilgisayar açılışında UAC uyarısı vermeden otomatik başlar.
+A high-performance, single-binary Windows utility that transforms the physical **Copilot key (`Win + Shift + F23`)** into a latency-free, zero-bloat controller for **microphone muting, media playback, Spotify tracking, and custom shortcuts**.
 
 ---
 
-## 🎯 Tıklama Eylem Seçenekleri
+## ✨ Features
 
-| Eylem Adı | Açıklama |
-|---|---|
-| `MicMute` | Sistem Mikrofonunu Sustur / Aç *(Varsayılan 1 Tık)* |
-| `PlayPause` | Medyayı Oynat / Duraklat *(Varsayılan 2 Tık)* |
-| `NextTrack` | Sonraki Şarkı *(Varsayılan 3 Tık)* |
-| `PrevTrack` | Önceki Şarkı |
-| `MasterMute` | Sistem Genel Sesini Aç / Kapat |
-| `ToggleDeafen` | Hem Sistem Sesini Hem Mikrofonu Aynı Anda Sustur / Aç |
-| `LockScreen` | Bilgisayarı Kilitle |
-| `PushToTalk` | Bas-Konuş Modu *(Varsayılan Basılı Tutma)* |
-| `CustomApp` | Özel Uygulama veya URL Başlatıcı |
-| `None` | Eylem Yok *(Varsayılan 4 Tık)* |
-
-*Tüm bu eylemler Sistem Tepsisindeki `⚙️ Ayarlar` menüsünden veya `config.ini` dosyasından 1, 2, 3, 4 tık ve basılı tutma için kolayca yapılandırılabilir.*
+- ⚡ **Ultra-Lightweight Single Binary (`CopilotButton.exe`)**:
+  - The entire keyboard hook (`WH_KEYBOARD_LL`), Core Audio control, desktop overlay, Spotify tracker, system tray, and auto-start logic are bundled into a single **~440 KB** executable.
+  - Zero external runtimes, zero WebView2/Edge helper processes, and zero background daemons. Consumes only **~2 MB RAM**.
+- ⚙️ **Instant Live Hot-Reloading**:
+  - Selecting **⚙️ Settings** from the tray menu opens `config.ini` directly in your default text editor.
+  - A background file watcher (`WatcherThread`) detects file saves in real time and applies changes immediately with **zero restart required**.
+- 🛡️ **Anti-Modifier Leak Engine**:
+  - Automatically intercepts and swallows the hardware modifier keys (`Left Shift` and `Left Windows`) emitted by the physical Copilot key.
+  - Prevents sticky Shift in games (sprinting/crouching) and stops the Windows Start menu from accidentally popping up.
+- 🎙️ **Windows Core Audio Integration**:
+  - Sub-millisecond microphone mute toggling directly via `IAudioEndpointVolume`.
+  - Listens to external hardware/app mute events via `IAudioEndpointVolumeCallback` to keep the desktop badge and OSD in perfect sync.
+- 🔴 **Persistent Desktop Mute Badge**:
+  - Displays a clean, click-through, non-intrusive `MICROPHONE MUTED` badge on your screen whenever your mic is muted.
+- 💬 **Smooth On-Screen Display (OSD)**:
+  - Instant visual feedback for volume, mute status, media controls, and Spotify track changes.
+  - Configurable position (TopLeft, TopRight, BottomLeft, BottomRight, Center), font size, accent color, and fade animations.
+- 🎵 **Windows Media Controls (GSMTC) & Spotify**:
+  - Native media key dispatch for play/pause and track navigation.
+  - Subscribes to Windows Media Transport Controls events to display track title and artist on song changes with zero CPU polling.
+- 🗣️ **Flexible Tap & Hold Actions**:
+  - Distinguishes 1, 2, 3, 4 clicks and long press.
+  - Built-in **Push-to-Talk** (unmutes while held, mutes on release) or **Custom App/URL** launcher.
+- 🚀 **Smart AutoStart & Windows Integration**:
+  - Automatically indexes into the Start Menu and registers with `App Paths` (run directly via `Win + R` -> `CopilotButton`).
+  - Supports automatic startup via Windows Registry (`Run`) and Task Scheduler (`schtasks /rl highest`) for silent, UAC-prompt-free launch at boot.
 
 ---
 
-## 🚀 İndirme ve Kullanım
+## 🎯 Action Mapping
 
-### Hızlı Başlangıç
-1. [Releases](https://github.com/KeremKuyucu/copilot-button/releases) sayfasından en son **`CopilotButton.exe`** dosyasını indirin.
-2. `CopilotButton.exe` dosyasını çalıştırın.
-3. Uygulama sistem tepsisinde (sağ alt) aktifleşir.
-4. Ayarları değiştirmek için tepsi simgesine sağ tıklayıp **⚙️ Ayarlar** seçeneğini seçin (`config.ini` dosyası açılır).
+| Action | Default Trigger | Description |
+|---|---|---|
+| `MicMute` | **1 Click** | Toggle system microphone mute |
+| `PlayPause` | **2 Clicks** | Media play / pause |
+| `NextTrack` | **3 Clicks** | Skip to next track |
+| `PrevTrack` | — | Return to previous track |
+| `MasterMute` | — | Toggle master system volume mute |
+| `ToggleDeafen` | — | Mute both system audio and microphone simultaneously |
+| `LockScreen` | — | Lock workstation immediately |
+| `PushToTalk` | **Hold** | Push-to-Talk (unmute while held, mute on release) |
+| `CustomApp` | — | Launch custom application path or URL |
+| `None` | **4 Clicks** | No action assigned |
+
+*All actions can be customized for 1, 2, 3, 4 clicks and long press inside `config.ini`.*
 
 ---
 
-## 🛠️ Kaynak Koddan Derleme (Build)
+## 🚀 Quick Start
 
-Projeyi yerel olarak MinGW-w64 ile derlemek için:
+1. Download the latest **`CopilotButton.exe`** from [Releases](https://github.com/KeremKuyucu/copilot-button/releases).
+2. Run `CopilotButton.exe`.
+3. The app sits quietly in your system tray (bottom-right).
+4. To configure settings, right-click the tray icon and select **⚙️ Settings** (opens `config.ini`).
 
+---
+
+## 🛠️ Building from Source
+
+### Prerequisites
+- Windows 10 / 11 (x64)
+- MinGW-w64 (GCC with C++20 support) or MSVC
+
+### Build using MinGW (Recommended)
 ```cmd
 git clone https://github.com/KeremKuyucu/copilot-button.git
 cd copilot-button
 scripts\build.bat
 ```
 
-veya CMake ile:
-
+### Build using CMake
 ```cmd
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release
 ```
 
-Derleme tamamlandığında ana dizinde tek bir çalıştırılabilir dosya oluşturulur:
-- **`CopilotButton.exe`**: Tüm işlevleri barındıran hafif, tek parça sistem tepsisi ve klavye denetleyicisi.
+The resulting standalone executable will be located in the root directory: **`CopilotButton.exe`**.
 
 ---
 
-## 📄 Yapılandırma (`config.ini`)
+## 📄 Configuration (`config.ini`)
 
-Uygulama ilk kez çalıştırıldığında kendi dizininde tüm açıklamalarıyla birlikte `config.ini` dosyasını otomatik oluşturur. Tepsi menüsünden **⚙️ Ayarlar** seçilerek dosya doğrudan açılabilir; yapılan değişiklikler dosyayı kaydettiğiniz anda canlı (**hot-reload**) olarak uygulanır.
+`config.ini` is automatically generated in the application folder on first run, complete with default settings and explanatory comments. 
+
+Any changes made in `config.ini` are applied **live on file save** (hot-reload) without restarting the application.
 
 ---
 
-## 📜 Lisans
+## 📜 License
 
-Bu proje **GNU General Public License v3.0 (GPL-3.0)** altında lisanslanmıştır. Detaylar için [LICENSE](LICENSE) dosyasına göz atabilirsiniz.
+This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)**. See the [LICENSE](LICENSE) file for details.
