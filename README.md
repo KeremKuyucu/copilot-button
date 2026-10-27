@@ -61,7 +61,9 @@ Generic key remapping tools frequently leak the `Windows` key event, causing the
   - Built-in background file watcher (`ReadDirectoryChangesW`) monitors `config.ini` in real time. Modify your settings and see them take effect instantly without restarting.
 - 🚀 **Zero-Friction Self-Installation & Setup**:
   - Automatically relocates itself to `%LOCALAPPDATA%\CopilotButton\CopilotButton.exe` and cleans up the downloaded source file.
-  - Registers with the Windows shell (AUMID `KeremKuyucu.CopilotButton`, App Paths, Start Menu shortcut) and configures automatic startup if enabled in settings (`AutoStart=1`).
+  - Registers with the Windows shell (AUMID `KeremKuyucu.CopilotButton`, App Paths, Start Menu shortcut, and **Windows Settings > Installed apps** registry).
+  - Clean uninstallation via Windows Settings (*Installed apps*) or `--uninstall` argument.
+  - Automatically configures Task Scheduler auto-start (`/rl highest`) avoiding UAC prompts and broken duplicate Run entries if enabled (`AutoStart=1`).
 - 🪶 **Extreme Efficiency**:
   - 100% Native C++20 (Win32, COM, WinRT).
   - No Electron, no Python, no .NET runtime required.
@@ -242,9 +244,11 @@ Piyasadaki genel tuş atama programları bu tuşu yakalamaya çalışırken gene
   - Ekranın köşesinde mikrofonun o an açık mı kapalı mı olduğunu gösteren hafif durum rozeti.
 - 🔄 **Canlı Yapılandırma Yenileme (Hot-Reload)**:
   - `config.ini` dosyasında yaptığınız değişiklikler arka plan dosya izleyicisi tarafından anında algılanır; uygulamayı yeniden başlatmanız gerekmez.
-- 🚀 **Otomatik Kurulum ve Kendini Yerleştirme**:
+- 🚀 **Otomatik Kurulum, Yerleşim ve Temiz Kaldırma**:
   - Exe dosyasını ilk açtığınızda kendini otomatik olarak `%LOCALAPPDATA%\CopilotButton\CopilotButton.exe` konumuna taşır ve indirilen geçici kaynak dosyayı temizler.
-  - Kendini Windows'a resmi bir uygulama olarak tanıtır (AUMID, App Paths ve Başlat menüsü kısayolu) ve `config.ini` içinde `AutoStart=1` ise başlangıçta otomatik çalışma görevini ayarlar.
+  - Kendini Windows'a resmi bir uygulama olarak tanıtır (AUMID, App Paths, Başlat menüsü kısayolu ve **Windows Ayarları > Yüklü Uygulamalar** kayıt girdisi).
+  - İstenildiğinde Windows Ayarları listesinden (*Kaldır*) veya `--uninstall` parametresiyle tüm kalıntılarıyla birlikte kolayca silinebilir.
+  - `config.ini` içinde `AutoStart=1` ise başlangıçta Görev Zamanlayıcı (`/rl highest`) kullanarak UAC uyarısız ve çakışmasız otomatik başlatma sağlar (yönetici izinli uygulamaları yutan Run anahtarı kirliliği oluşturmaz).
 - 🪶 **Üstün Performans**:
   - Saf C++20 (Win32 API, COM, WinRT). Electron veya harici kütüphane içermez.
   - **< 10 MB RAM** tüketimi, ~440 KB tek parça bağımsız çalıştırılabilir dosya.

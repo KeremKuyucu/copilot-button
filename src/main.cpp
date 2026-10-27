@@ -142,6 +142,16 @@ static bool EnsureSingleInstance() {
 //  WinMain – Giriş noktası
 // ─────────────────────────────────────────────
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
+    // ── Kaldırma (Uninstall) argümanı denetimi ────────────────────────
+    const wchar_t* cmdLine = GetCommandLineW();
+    if (wcsstr(cmdLine, L"--uninstall") || wcsstr(cmdLine, L"/uninstall")) {
+        bool silent = (wcsstr(cmdLine, L"--silent") != nullptr ||
+                       wcsstr(cmdLine, L"/quiet")   != nullptr ||
+                       wcsstr(cmdLine, L"/qn")      != nullptr);
+        UninstallApp(silent);
+        return 0;
+    }
+
     // ── Her zaman %LOCALAPPDATA%\CopilotButton klasörüne taşıma denetimi ──
     if (CheckAndPerformSelfRelocate()) {
         return 0;
@@ -153,7 +163,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
 
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
 
-    // ── Windows'a tanıt (AUMID + Başlat Menüsü Kısayolu) ─────────────
+    // ── Windows'a tanıt (AUMID + Başlat Menüsü Kısayolu + Ayarlar Listesi) ─
     RegisterAppWithWindows();
 
     g_uTaskbarRestart = RegisterWindowMessageW(L"TaskbarCreated");

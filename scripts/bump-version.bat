@@ -84,14 +84,35 @@ if (Test-Path $manifestFile) {
     Write-Host "  [OK] $manifestFile" -ForegroundColor Green
 }
 
+# 3. src/AppRegister.cpp
+$appRegFile = "src/AppRegister.cpp"
+if (Test-Path $appRegFile) {
+    $content = [System.IO.File]::ReadAllText($appRegFile, [System.Text.Encoding]::UTF8)
+    $content = [regex]::Replace($content, 'APP_VERSION\s*=\s*L"[^"]+"', "APP_VERSION    = L`"$NewVersion`"")
+    $content = [regex]::Replace($content, 'DWORD\s+vMaj\s*=\s*\d+,\s*vMin\s*=\s*\d+;', "DWORD vMaj = $major, vMin = $minor;")
+    [System.IO.File]::WriteAllText($appRegFile, $content, $utf8NoBom)
+    Write-Host "  [OK] $appRegFile" -ForegroundColor Green
+}
+
+# 4. README.md
+$readmeFile = "README.md"
+if (Test-Path $readmeFile) {
+    $content = [System.IO.File]::ReadAllText($readmeFile, [System.Text.Encoding]::UTF8)
+    $content = [regex]::Replace($content, 'badge/Release-v[\d\.]+', "badge/Release-v$NewVersion")
+    [System.IO.File]::WriteAllText($readmeFile, $content, $utf8NoBom)
+    Write-Host "  [OK] $readmeFile" -ForegroundColor Green
+}
+
 Write-Host "`nTum dosyalar $NewVersion surumune basariyla guncellendi!" -ForegroundColor Green
 
-# 3. Git islemleri: commit, tag ve push
+# 5. Git islemleri: commit, tag ve push
 Write-Host "`nGit islemleri yurutuluyor..." -ForegroundColor Cyan
 
 $filesToStage = @(
     "resources/app.rc",
-    "resources/app.manifest"
+    "resources/app.manifest",
+    "src/AppRegister.cpp",
+    "README.md"
 )
 
 git add @filesToStage
