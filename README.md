@@ -4,7 +4,7 @@
 
 **Transform your laptop's dedicated Copilot key into a high-performance, programmable multifunction button.**
 
-[![Release](https://img.shields.io/badge/Release-v3.0.2-00E5FF?style=for-the-badge&logo=github)](https://github.com/KeremKuyucu/copilot-button/releases)
+[![Release](https://img.shields.io/badge/Release-v3.1.0-00E5FF?style=for-the-badge&logo=github)](https://github.com/KeremKuyucu/copilot-button/releases)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D4?style=for-the-badge&logo=windows)](https://github.com/KeremKuyucu/copilot-button)
 [![Language](https://img.shields.io/badge/Standard-C%2B%2B20-00599C?style=for-the-badge&logo=c%2B%2B)](https://github.com/KeremKuyucu/copilot-button)
 [![License](https://img.shields.io/badge/License-GPL--3.0-brightgreen?style=for-the-badge)](LICENSE)
