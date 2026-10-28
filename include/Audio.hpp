@@ -6,19 +6,6 @@
 #include <functional>
 
 // ─────────────────────────────────────────────
-//  Windows Core Audio COM arayüzleri
-// ─────────────────────────────────────────────
-#include <mmdeviceapi.h>
-#include <endpointvolume.h>
-#include <functiondiscoverykeys_devpkey.h>
-
-// Mikrofon (eCapture) varsayılan uç nokta hacmini al
-IAudioEndpointVolume* GetDefaultCaptureEPV();
-
-// Çıkış (eRender) varsayılan uç nokta hacmini al
-IAudioEndpointVolume* GetDefaultRenderEPV();
-
-// ─────────────────────────────────────────────
 //  Mikrofon işlemleri
 // ─────────────────────────────────────────────
 bool GetMicMuteState();
@@ -29,7 +16,6 @@ void ToggleMicMute();
 //  Master ses işlemleri
 // ─────────────────────────────────────────────
 bool GetMasterMuteState();
-void SetMasterMuteState(bool mute);
 void ToggleMasterMute();
 
 // ─────────────────────────────────────────────

@@ -18,7 +18,7 @@ g++ -std=c++20 -O2 -s -flto -ffunction-sections -fdata-sections -Wl,--gc-section
     src/KeyHook.cpp src/Actions.cpp src/MicOverlay.cpp ^
     src/MediaTracker.cpp src/Osd.cpp resources/app.res ^
     -o CopilotButton.exe ^
-    -luser32 -lshell32 -lole32 -loleaut32 -luuid -lwinmm -ladvapi32 -lgdi32 -ldwmapi -lcomdlg32 -lwindowsapp ^
+    -luser32 -lshell32 -lole32 -loleaut32 -luuid -lwinmm -ladvapi32 -lgdi32 -ldwmapi -lwindowsapp -lgdiplus -lshlwapi -lmsimg32 ^
     -static-libgcc -static-libstdc++ -static
 if errorlevel 1 goto error
 

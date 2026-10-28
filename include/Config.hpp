@@ -47,14 +47,15 @@ struct Config {
     bool         autoStart       = true;
 
     // OSD Ayarları
-    std::wstring osdPosition     = L"TopLeft";
-    std::wstring osdColorHex     = L"B388FF";
-    COLORREF     osdColor        = RGB(179, 136, 255);
-    int          osdFontSize     = 10;
-    DWORD        osdDurationMs   = 1500;
-    bool         osdFadeEnabled  = true;
-    bool         mediaTrackOsd   = true;
-    bool         spotifyTrackOsd = true;
+    std::wstring osdPosition        = L"TopLeft";
+    std::wstring mediaOsdPosition   = L"BottomLeft";
+    std::wstring osdColorHex        = L"B388FF";
+    COLORREF     osdColor           = RGB(179, 136, 255);
+    int          osdFontSize        = 10;
+    DWORD        osdDurationMs      = 1500;
+    bool         osdFadeEnabled     = true;
+    bool         mediaTrackOsd      = true;
+    bool         mediaOsdPersistent = true;
 };
 
 // ─────────────────────────────────────────────
@@ -69,8 +70,6 @@ public:
 
     void   Start();          // Yükleme + arka plan izleyicisi başlat
     Config GetConfig() const;
-    void   SetChangeCallback(ChangeCallback cb);
-    void   Reload();
 
 private:
     void Load();

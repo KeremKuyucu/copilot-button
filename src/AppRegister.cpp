@@ -241,23 +241,6 @@ void SetAutoStartRegistry(bool enable) {
     }
 }
 
-bool GetAutoStartRegistry() {
-    wchar_t schCmd[] = L"schtasks.exe /query /tn \"CopilotButton\"";
-    STARTUPINFOW si = { sizeof(si) };
-    si.dwFlags = STARTF_USESHOWWINDOW;
-    si.wShowWindow = SW_HIDE;
-    PROCESS_INFORMATION pi = {};
-    if (CreateProcessW(nullptr, schCmd, nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
-        WaitForSingleObject(pi.hProcess, 1500);
-        DWORD exitCode = 1;
-        GetExitCodeProcess(pi.hProcess, &exitCode);
-        CloseHandle(pi.hProcess);
-        CloseHandle(pi.hThread);
-        return (exitCode == 0);
-    }
-    return false;
-}
-
 // ─────────────────────────────────────────────
 //  Uygulamayı ve Tüm Bileşenlerini Sistemden Kaldırma
 // ─────────────────────────────────────────────

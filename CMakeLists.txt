@@ -43,8 +43,10 @@ target_link_libraries(CopilotButton PRIVATE
     advapi32
     gdi32
     dwmapi
-    comdlg32
     windowsapp
+    gdiplus
+    shlwapi
+    msimg32
 )
 
 # ── Derleyici bayrakları ─────────────────────────────────────────────

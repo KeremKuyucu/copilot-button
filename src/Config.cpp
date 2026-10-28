@@ -146,7 +146,13 @@ void EnsureConfigExists(const std::wstring& path) {
         "; Medya (Spotify, YouTube, VLC vb.) Şarkı Değişiminde OSD Göster (1 = Açık, 0 = Kapalı)\r\n"
         "MediaTrackOsd=1\r\n"
         "\r\n"
-        "; OSD Konumu: TopLeft, TopRight, BottomLeft, BottomRight, Center\r\n"
+        "; Sürekli Medya OSD (Şarkı çaldığı sürece sol altta göster, tam ekranda gizle) (1 = Açık, 0 = Kapalı)\r\n"
+        "MediaOsdPersistent=1\r\n"
+        "\r\n"
+        "; Sürekli Medya Kartı Konumu: BottomLeft, BottomRight, TopLeft, TopRight, Center\r\n"
+        "MediaOsdPosition=BottomLeft\r\n"
+        "\r\n"
+        "; Genel Bildirim OSD Konumu: TopLeft, TopRight, BottomLeft, BottomRight, Center\r\n"
         "OsdPosition=TopLeft\r\n"
         "\r\n"
         "; OSD Metin Rengi (hex, # olmadan)\r\n"
@@ -189,11 +195,6 @@ ConfigManager::~ConfigManager() {
     }
 }
 
-void ConfigManager::SetChangeCallback(ChangeCallback cb) {
-    std::lock_guard<std::mutex> lk(m_mu);
-    m_onChange = std::move(cb);
-}
-
 void ConfigManager::Load() {
     EnsureConfigExists(m_path);
 
@@ -218,31 +219,19 @@ void ConfigManager::Load() {
     c.autoStart      = (ReadInt(p, L"AutoStart", 1) != 0);
 
     // OSD Ayarları
-    c.osdPosition     = ReadStr(p, L"OsdPosition", L"TopLeft");
-    c.osdColorHex     = ReadStr(p, L"OsdColor", L"B388FF");
-    c.osdColor        = HexToColor(c.osdColorHex, RGB(179, 136, 255));
-    c.osdFontSize     = static_cast<int>(ReadInt(p, L"OsdFontSize", 10));
-    c.osdDurationMs   = ReadInt(p, L"OsdDurationMs", 1500);
-    c.osdFadeEnabled  = (ReadInt(p, L"OsdFadeEnabled", 1) != 0);
-    c.mediaTrackOsd   = (ReadInt(p, L"MediaTrackOsd") != 0);
-    c.spotifyTrackOsd = c.mediaTrackOsd;
+    c.osdPosition        = ReadStr(p, L"OsdPosition", L"TopLeft");
+    c.mediaOsdPosition   = ReadStr(p, L"MediaOsdPosition", L"BottomLeft");
+    c.osdColorHex        = ReadStr(p, L"OsdColor", L"B388FF");
+    c.osdColor           = HexToColor(c.osdColorHex, RGB(179, 136, 255));
+    c.osdFontSize        = static_cast<int>(ReadInt(p, L"OsdFontSize", 10));
+    c.osdDurationMs      = ReadInt(p, L"OsdDurationMs", 1500);
+    c.osdFadeEnabled     = (ReadInt(p, L"OsdFadeEnabled", 1) != 0);
+    c.mediaTrackOsd      = (ReadInt(p, L"MediaTrackOsd", 1) != 0);
+    c.mediaOsdPersistent = (ReadInt(p, L"MediaOsdPersistent", 1) != 0);
 
     {
         std::lock_guard<std::mutex> lk(m_mu);
         m_cfg = c;
-    }
-}
-
-void ConfigManager::Reload() {
-    Load();
-    Config current = GetConfig();
-    ChangeCallback cb;
-    {
-        std::lock_guard<std::mutex> lk(m_mu);
-        cb = m_onChange;
-    }
-    if (cb) {
-        cb(current);
     }
 }
 

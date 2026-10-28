@@ -4,7 +4,15 @@
 #endif
 #include <windows.h>
 #include <string>
+#include <vector>
 #include "Config.hpp"
+
+enum class MediaCardButton {
+    None = 0,
+    Prev,
+    PlayPause,
+    Next
+};
 
 class OsdManager {
 public:
@@ -17,17 +25,14 @@ public:
     // Eylem bildirimi (ShowTip)
     void ShowTip(const std::wstring& msg, DWORD durationMs = 0);
 
-    // Medya parça değişim bildirimi (ShowMediaTrack)
+    // Medya parça değişim ve sürekli gösterim bildirimi
     void ShowMediaTrack(const std::wstring& songTitle,
                         const std::wstring& artistName = L"Media",
-                        DWORD durationMs = 0);
-
-    // Geriye dönük uyumluluk
-    void ShowSpotifyTrack(const std::wstring& songTitle,
-                          const std::wstring& artistName = L"Media",
-                          DWORD durationMs = 0) {
-        ShowMediaTrack(songTitle, artistName, durationMs);
-    }
+                        bool isPlaying = true,
+                        DWORD durationMs = 0,
+                        const std::vector<uint8_t>& thumbnailData = {});
+    void HideMediaTrack();
+    void CheckFullscreenAndTaskbarState();
 
 private:
     OsdManager() = default;
@@ -39,11 +44,21 @@ private:
     void OnPaintTip(HWND hwnd);
     static LRESULT CALLBACK TipWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-    // ── Spotify Kart Penceresi ────────────────────────────────────────
-    bool CreateSpotWindow();
-    void PositionSpotWindow(int textW, int textH);
-    void OnPaintSpot(HWND hwnd);
-    static LRESULT CALLBACK SpotWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+    // ── Medya Kart Penceresi ──────────────────────────────────────────
+    bool CreateMediaWindow();
+    void PositionMediaWindow(int textW, int textH);
+    void OnPaintMedia(HWND hwnd);
+    static LRESULT CALLBACK MediaWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+    // Buton geometrisi ve tıklama tespiti
+    RECT GetPrevBtnRect(int w, int h) const;
+    RECT GetPlayBtnRect(int w, int h) const;
+    RECT GetNextBtnRect(int w, int h) const;
+    MediaCardButton HitTestMediaButton(int x, int y, int w, int h) const;
+
+    // Tam ekran ve görev çubuğu denetimi
+    static bool IsFullscreenAppActive(HWND selfWnd);
+    static bool IsTaskbarVisible();
 
     HWND         m_hostWnd       = nullptr;
     Config       m_cfg;
@@ -56,12 +71,20 @@ private:
     int          m_tipAlpha      = 0;
     DWORD        m_tipDuration   = 1500;
 
-    // Spotify penceresi durumu
-    HWND         m_spotHwnd      = nullptr;
-    std::wstring m_spotTitle;
-    std::wstring m_spotArtist;
-    int          m_spotWidth     = 0;
-    int          m_spotHeight    = 0;
-    int          m_spotAlpha     = 0;
-    DWORD        m_spotDuration  = 2800;
+    // Medya kart penceresi durumu
+    HWND         m_mediaHwnd              = nullptr;
+    std::wstring m_mediaTitle;
+    std::wstring m_mediaArtist;
+    int          m_mediaWidth             = 0;
+    int          m_mediaHeight            = 0;
+    int          m_mediaTextW             = 0;
+    int          m_mediaAlpha             = 0;
+    DWORD        m_mediaDuration          = 2800;
+    bool         m_hasActiveMedia         = false;
+    bool         m_isMediaPlaying         = false;
+    MediaCardButton m_hoveredMediaBtn     = MediaCardButton::None;
+    bool         m_isTrackingMouse        = false;
+    bool         m_suppressedByFullscreen = false;
+    HBITMAP      m_mediaThumbBmp          = nullptr;
+    std::vector<uint8_t> m_mediaThumbData;
 };

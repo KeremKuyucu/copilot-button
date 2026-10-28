@@ -16,7 +16,6 @@ void RegisterAppWithWindows();
 // Yönetici yetkisi (requireAdministrator) nedeniyle Windows Explorer Run anahtarını
 // yok sayabildiğinden (yuttuğundan), Run kaydı temizlenir ve yalnızca Task Scheduler (/rl highest) kullanılır.
 void SetAutoStartRegistry(bool enable);
-bool GetAutoStartRegistry();
 
 // Uygulamayı ve tüm bileşenlerini sistemden kaldırır (Kayıt Defteri, Görev Zamanlayıcı, Kısayollar, Dosyalar)
 bool UninstallApp(bool silent = false);

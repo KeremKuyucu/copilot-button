@@ -4,10 +4,13 @@
 #include "MediaTracker.hpp"
 #include <cwctype>
 #include <algorithm>
+#include <thread>
+#include <winrt/Windows.Storage.Streams.h>
 
 #pragma comment(lib, "windowsapp.lib")
 
 using namespace winrt::Windows::Media::Control;
+using namespace winrt::Windows::Storage::Streams;
 
 static std::wstring GetFriendlyMediaSource(const std::wstring& aumid) {
     if (aumid.empty()) return L"Media";
@@ -41,9 +44,6 @@ static std::wstring GetFriendlyMediaSource(const std::wstring& aumid) {
 }
 
 MediaTracker::MediaTracker() {
-    try {
-        winrt::init_apartment(winrt::apartment_type::multi_threaded);
-    } catch (...) {}
 }
 
 MediaTracker::~MediaTracker() {
@@ -53,27 +53,26 @@ MediaTracker::~MediaTracker() {
 bool MediaTracker::Start(TrackChangeCallback cb) {
     Stop();
     m_callback = std::move(cb);
+    m_running = true;
 
-    try {
-        m_sessionManager = GlobalSystemMediaTransportControlsSessionManager::RequestAsync().get();
-        if (!m_sessionManager) return false;
+    // Asenkron WinRT başlatma: UI / STA thread'ini ASLA bloklamaz!
+    // Tuş yakalama kancası ve tepsi simgesi anında hazır olur.
+    m_workerThread = std::thread([this]() {
+        WorkerLoop();
+    });
 
-        m_sessionsChangedToken = m_sessionManager.SessionsChanged([this](auto const&, auto const&) {
-            UpdateCurrentSession();
-        });
-
-        m_currentSessionChangedToken = m_sessionManager.CurrentSessionChanged([this](auto const&, auto const&) {
-            UpdateCurrentSession();
-        });
-
-        UpdateCurrentSession();
-        return true;
-    } catch (...) {
-        return false;
-    }
+    return true;
 }
 
 void MediaTracker::Stop() {
+    m_running = false;
+
+    if (m_workerThread.joinable()) {
+        m_workerThread.detach();
+    }
+
+    std::lock_guard<std::mutex> lkSession(m_sessionMutex);
+    UnregisterSessionEvents();
     if (m_sessionManager) {
         try {
             if (m_sessionsChangedToken.value != 0) {
@@ -87,12 +86,38 @@ void MediaTracker::Stop() {
         } catch (...) {}
     }
 
-    UnregisterSessionEvents();
     m_currentSession = nullptr;
     m_sessionManager = nullptr;
 
-    std::lock_guard<std::mutex> lk(m_mutex);
+    std::lock_guard<std::mutex> lkTrack(m_mutex);
     m_currentTrack = {};
+}
+
+void MediaTracker::WorkerLoop() {
+    try {
+        winrt::init_apartment(winrt::apartment_type::multi_threaded);
+    } catch (...) {}
+
+    try {
+        auto mgr = GlobalSystemMediaTransportControlsSessionManager::RequestAsync().get();
+        if (!m_running) return;
+
+        {
+            std::lock_guard<std::mutex> lk(m_sessionMutex);
+            m_sessionManager = mgr;
+            if (!m_sessionManager) return;
+
+            m_sessionsChangedToken = m_sessionManager.SessionsChanged([this](auto const&, auto const&) {
+                if (m_running) UpdateCurrentSession();
+            });
+
+            m_currentSessionChangedToken = m_sessionManager.CurrentSessionChanged([this](auto const&, auto const&) {
+                if (m_running) UpdateCurrentSession();
+            });
+        }
+
+        UpdateCurrentSession();
+    } catch (...) {}
 }
 
 void MediaTracker::UnregisterSessionEvents() {
@@ -115,19 +140,22 @@ void MediaTracker::RegisterSessionEvents() {
 
     try {
         m_mediaPropertiesToken = m_currentSession.MediaPropertiesChanged([this](auto const&, auto const&) {
-            SyncMediaProperties();
+            if (m_running) SyncMediaProperties();
         });
 
         m_playbackInfoToken = m_currentSession.PlaybackInfoChanged([this](auto const&, auto const&) {
-            SyncPlaybackInfo();
+            if (m_running) SyncPlaybackInfo();
         });
     } catch (...) {}
 }
 
 void MediaTracker::UpdateCurrentSession() {
-    UnregisterSessionEvents();
+    if (!m_running) return;
 
+    std::lock_guard<std::mutex> lkSession(m_sessionMutex);
     if (!m_sessionManager) return;
+
+    UnregisterSessionEvents();
 
     GlobalSystemMediaTransportControlsSession matchedSession{ nullptr };
 
@@ -153,14 +181,31 @@ void MediaTracker::UpdateCurrentSession() {
                     auto pb = session.GetPlaybackInfo();
                     if (pb && pb.PlaybackStatus() == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing) {
                         matchedSession = session;
+                        isPlaying = true;
                         break;
                     }
                 } catch (...) {}
             }
 
-            // Çalan oturum yoksa ilk oturumu al
-            if (!matchedSession && sessions.Size() > 0) {
-                matchedSession = sessions.GetAt(0);
+            // Çalan oturum yoksa, Spotify'ı veya bilinen müzik oynatıcısını tercih et
+            if (!isPlaying) {
+                GlobalSystemMediaTransportControlsSession spotifySession{ nullptr };
+                for (auto const& session : sessions) {
+                    try {
+                        std::wstring aumid = session.SourceAppUserModelId().c_str();
+                        std::wstring friendly = GetFriendlyMediaSource(aumid);
+                        if (friendly == L"Spotify") {
+                            spotifySession = session;
+                            break;
+                        }
+                    } catch (...) {}
+                }
+
+                if (spotifySession) {
+                    matchedSession = spotifySession;
+                } else if (!matchedSession && sessions.Size() > 0) {
+                    matchedSession = sessions.GetAt(0);
+                }
             }
         }
     } catch (...) {}
@@ -182,7 +227,7 @@ void MediaTracker::UpdateCurrentSession() {
 }
 
 void MediaTracker::SyncPlaybackInfo() {
-    if (!m_currentSession) return;
+    if (!m_running || !m_currentSession) return;
 
     try {
         auto playbackInfo = m_currentSession.GetPlaybackInfo();
@@ -208,7 +253,7 @@ void MediaTracker::SyncPlaybackInfo() {
 }
 
 void MediaTracker::SyncMediaProperties() {
-    if (!m_currentSession) return;
+    if (!m_running || !m_currentSession) return;
 
     try {
         auto props = m_currentSession.TryGetMediaPropertiesAsync().get();
@@ -226,20 +271,17 @@ void MediaTracker::SyncMediaProperties() {
             fresh.artist = fresh.sourceApp;
         }
 
-        if (!fresh.artist.empty() && !fresh.title.empty()) {
-            fresh.fullTitle = fresh.artist + L" - " + fresh.title;
-        } else if (!fresh.title.empty()) {
-            fresh.fullTitle = fresh.title;
-        } else {
-            fresh.fullTitle = fresh.sourceApp;
-        }
-
         auto playbackInfo = m_currentSession.GetPlaybackInfo();
         fresh.isPlaying = playbackInfo && (playbackInfo.PlaybackStatus() == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing);
 
         bool changed = false;
         {
             std::lock_guard<std::mutex> lk(m_mutex);
+            // Mevcut şarkının kapağını koru (yeni kapak arkada yüklenene kadar)
+            if (m_currentTrack.title == fresh.title && !m_currentTrack.thumbnailData.empty()) {
+                fresh.thumbnailData = m_currentTrack.thumbnailData;
+            }
+
             if (m_currentTrack.title != fresh.title ||
                 m_currentTrack.artist != fresh.artist ||
                 m_currentTrack.album != fresh.album ||
@@ -250,9 +292,47 @@ void MediaTracker::SyncMediaProperties() {
             }
         }
 
+        // Ana thread'i ASLA bloklamadan hemen bildir: Tuş yakalama ve tepsi anında çalışır
         if (changed && m_callback) {
             m_callback(fresh);
         }
+
+        // Albüm kapağı I/O okumasını arka plan iş parçacığında (MTA) tamamen asenkron yap
+        try {
+            auto thumbRef = props.Thumbnail();
+            if (thumbRef) {
+                std::thread([this, thumbRef, trackTitle = fresh.title]() {
+                    try {
+                        winrt::init_apartment(winrt::apartment_type::multi_threaded);
+                        auto stream = thumbRef.OpenReadAsync().get();
+                        if (stream) {
+                            uint64_t sz = stream.Size();
+                            if (sz > 0 && sz < 10 * 1024 * 1024) {
+                                DataReader reader(stream);
+                                reader.LoadAsync(static_cast<uint32_t>(sz)).get();
+                                std::vector<uint8_t> bytes(sz);
+                                reader.ReadBytes(bytes);
+
+                                bool updated = false;
+                                TrackInfo copy;
+                                {
+                                    std::lock_guard<std::mutex> lk(m_mutex);
+                                    if (m_currentTrack.title == trackTitle && m_currentTrack.thumbnailData != bytes) {
+                                        m_currentTrack.thumbnailData = std::move(bytes);
+                                        copy = m_currentTrack;
+                                        updated = true;
+                                    }
+                                }
+
+                                if (updated && m_callback) {
+                                    m_callback(copy);
+                                }
+                            }
+                        }
+                    } catch (...) {}
+                }).detach();
+            }
+        } catch (...) {}
     } catch (...) {}
 }
 

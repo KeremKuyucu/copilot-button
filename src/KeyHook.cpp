@@ -4,10 +4,8 @@
 #include "KeyHook.hpp"
 #include "Audio.hpp"
 #include "Osd.hpp"
-#include <shellapi.h>
 
 #pragma comment(lib, "user32.lib")
-#pragma comment(lib, "shell32.lib")
 
 // ─────────────────────────────────────────────
 //  Copilot tuş kodları (F23 / SC06E / Launch_App1)

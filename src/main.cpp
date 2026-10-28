@@ -66,12 +66,27 @@ static LRESULT CALLBACK HostWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
             if (g_pMediaTracker && g_pCfgMgr) {
                 Config cfg = g_pCfgMgr->GetConfig();
                 OsdManager::Instance().UpdateConfig(cfg);
-                if (cfg.mediaTrackOsd || cfg.spotifyTrackOsd) {
+                if (cfg.mediaTrackOsd) {
                     TrackInfo track = g_pMediaTracker->GetCurrentTrack();
-                    if (track.isPlaying && !track.title.empty()) {
-                        OsdManager::Instance().ShowMediaTrack(track.title, track.artist);
+                    if (!track.title.empty()) {
+                        if (cfg.mediaOsdPersistent || track.isPlaying) {
+                            OsdManager::Instance().ShowMediaTrack(track.title, track.artist, track.isPlaying, 0, track.thumbnailData);
+                        } else {
+                            OsdManager::Instance().HideMediaTrack();
+                        }
+                    } else {
+                        OsdManager::Instance().HideMediaTrack();
                     }
+                } else {
+                    OsdManager::Instance().HideMediaTrack();
                 }
+            }
+            return 0;
+
+        case WM_SETTINGCHANGE:
+        case WM_DISPLAYCHANGE:
+            if (g_pCfgMgr) {
+                PostMessageW(hwnd, WM_USER_TRACK_CHANGED, 0, 0);
             }
             return 0;
 
@@ -236,6 +251,9 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
             PostMessageW(hWnd, WM_USER_TRACK_CHANGED, 0, 0);
         }
     });
+
+    // Başlangıçta halihazırda çalan bir medya varsa hemen algıla
+    PostMessageW(hWnd, WM_USER_TRACK_CHANGED, 0, 0);
 
     // ── Keyboard hook ─────────────────────────────────────────────────
     KeyHook hook;

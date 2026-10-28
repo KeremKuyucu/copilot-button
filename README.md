@@ -153,7 +153,13 @@ SoundFxEnabled=1
 ; Show floating OSD card on track change (Spotify, YouTube, VLC, etc.) (1 = Enabled, 0 = Disabled)
 MediaTrackOsd=1
 
-; OSD Screen Position: TopLeft, TopRight, BottomLeft, BottomRight, Center
+; Persistent Media OSD: Stays at the bottom-left while music plays, auto-hides on fullscreen (1 = Enabled, 0 = Disabled)
+MediaOsdPersistent=1
+
+; Media Card Position: BottomLeft, BottomRight, TopLeft, TopRight, Center
+MediaOsdPosition=BottomLeft
+
+; General Notification OSD Screen Position: TopLeft, TopRight, BottomLeft, BottomRight, Center
 OsdPosition=TopLeft
 
 ; OSD Text & Accent Color (Hex format without #)
@@ -306,7 +312,13 @@ SoundFxEnabled=1
 ; Medya (Spotify, YouTube, VLC vb.) şarkı değişiminde ekranda parça kartı göster
 MediaTrackOsd=1
 
-; OSD Konumu: TopLeft, TopRight, BottomLeft, BottomRight, Center
+; Sürekli Medya OSD: Şarkı çaldığı sürece sol altta göster, tam ekranda gizle (1 = Açık, 0 = Kapalı)
+MediaOsdPersistent=1
+
+; Sürekli Medya Kartı Konumu: BottomLeft, BottomRight, TopLeft, TopRight, Center
+MediaOsdPosition=BottomLeft
+
+; Genel Bildirim OSD Konumu: TopLeft, TopRight, BottomLeft, BottomRight, Center
 OsdPosition=TopLeft
 
 ; OSD Metin / Vurgu Rengi (# olmadan hex)

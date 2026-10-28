@@ -6,8 +6,11 @@
 #include <windows.h>
 
 #include <string>
+#include <vector>
 #include <functional>
 #include <mutex>
+#include <thread>
+#include <atomic>
 
 // C++/WinRT başlıkları
 #include <winrt/Windows.Foundation.h>
@@ -15,12 +18,12 @@
 #include <winrt/Windows.Media.Control.h>
 
 struct TrackInfo {
-    std::wstring fullTitle;
-    std::wstring artist;
-    std::wstring title;
-    std::wstring album;
-    std::wstring sourceApp;
-    bool         isPlaying = false;
+    std::wstring          artist;
+    std::wstring          title;
+    std::wstring          album;
+    std::wstring          sourceApp;
+    bool                  isPlaying = false;
+    std::vector<uint8_t>  thumbnailData;
 };
 
 using TrackChangeCallback = std::function<void(const TrackInfo&)>;
@@ -40,6 +43,7 @@ public:
     TrackInfo GetCurrentTrack() const;
 
 private:
+    void WorkerLoop();
     void UpdateCurrentSession();
     void RegisterSessionEvents();
     void UnregisterSessionEvents();
@@ -49,6 +53,10 @@ private:
     TrackChangeCallback m_callback;
     mutable std::mutex  m_mutex;
     TrackInfo           m_currentTrack;
+
+    std::mutex          m_sessionMutex;
+    std::thread         m_workerThread;
+    std::atomic<bool>   m_running{ false };
 
     // WinRT Media nesneleri
     winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSessionManager m_sessionManager{ nullptr };
@@ -60,6 +68,3 @@ private:
     winrt::event_token m_mediaPropertiesToken{};
     winrt::event_token m_playbackInfoToken{};
 };
-
-// Geriye dönük uyumluluk takma adı
-using SpotifyTracker = MediaTracker;

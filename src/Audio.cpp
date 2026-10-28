@@ -1,5 +1,7 @@
 // Audio.cpp – Core Audio COM ile ses yönetimi ve harici bildirim izleme
 #include "Audio.hpp"
+#include <mmdeviceapi.h>
+#include <endpointvolume.h>
 #include <mmsystem.h>
 #include <objbase.h>
 
@@ -30,8 +32,8 @@ static IAudioEndpointVolume* GetEPV(EDataFlow flow) {
     return SUCCEEDED(hr) ? pEPV : nullptr;
 }
 
-IAudioEndpointVolume* GetDefaultCaptureEPV() { return GetEPV(eCapture); }
-IAudioEndpointVolume* GetDefaultRenderEPV()  { return GetEPV(eRender);  }
+static IAudioEndpointVolume* GetDefaultCaptureEPV() { return GetEPV(eCapture); }
+static IAudioEndpointVolume* GetDefaultRenderEPV()  { return GetEPV(eRender);  }
 
 // ─────────────────────────────────────────────
 //  Mikrofon – Get / Set / Toggle
@@ -68,7 +70,7 @@ bool GetMasterMuteState() {
     return m != FALSE;
 }
 
-void SetMasterMuteState(bool mute) {
+static void SetMasterMuteState(bool mute) {
     auto* epv = GetDefaultRenderEPV();
     if (!epv) return;
     epv->SetMute(mute ? TRUE : FALSE, nullptr);

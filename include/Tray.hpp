@@ -14,8 +14,6 @@ static constexpr UINT IDI_APP_ICON       = 101;
 
 class TrayManager {
 public:
-    static TrayManager& Instance();
-
     TrayManager() = default;
     ~TrayManager();
 
@@ -23,7 +21,6 @@ public:
     void Uninstall();
     void Reinstall();
     void HandleMessage(LPARAM lParam);
-    void ShowNotification(const std::wstring& title, const std::wstring& msg);
 
 private:
     void ShowContextMenu();
