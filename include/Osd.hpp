@@ -33,6 +33,7 @@ public:
                         const std::vector<uint8_t>& thumbnailData = {});
     void HideMediaTrack();
     void CheckFullscreenAndTaskbarState();
+    void OnTaskbarRecreated();
 
 private:
     OsdManager() = default;

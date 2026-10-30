@@ -37,16 +37,47 @@ static constexpr UINT_PTR TIMER_ID_TIP_FADE_OUT  = 303;
 static constexpr UINT_PTR TIMER_ID_MEDIA_FADE_IN  = 304;
 static constexpr UINT_PTR TIMER_ID_MEDIA_HOLD     = 305;
 static constexpr UINT_PTR TIMER_ID_MEDIA_FADE_OUT = 306;
-static constexpr UINT_PTR TIMER_ID_MEDIA_MONITOR  = 307;
 
 static const wchar_t* TIP_CLASS_NAME   = L"CopilotTipOsdClass";
 static const wchar_t* MEDIA_CLASS_NAME = L"CopilotMediaOsdClass";
 static constexpr COLORREF MEDIA_COLOR_KEY = RGB(12, 16, 20);
 
 static HWINEVENTHOOK s_hForegroundHook = nullptr;
+static HWINEVENTHOOK s_hTaskbarHook    = nullptr;
+static HWINEVENTHOOK s_hMoveSizeHook   = nullptr;
 
 static void CALLBACK ForegroundEventProc(HWINEVENTHOOK, DWORD, HWND, LONG, LONG, DWORD, DWORD) {
     OsdManager::Instance().CheckFullscreenAndTaskbarState();
+}
+
+static void CALLBACK TaskbarEventProc(HWINEVENTHOOK, DWORD, HWND, LONG, LONG, DWORD, DWORD) {
+    OsdManager::Instance().CheckFullscreenAndTaskbarState();
+}
+
+static void CALLBACK MoveSizeEventProc(HWINEVENTHOOK, DWORD, HWND, LONG, LONG, DWORD, DWORD) {
+    OsdManager::Instance().CheckFullscreenAndTaskbarState();
+}
+
+static void HookTaskbarEvents() {
+    if (s_hTaskbarHook) {
+        UnhookWinEvent(s_hTaskbarHook);
+        s_hTaskbarHook = nullptr;
+    }
+
+    HWND hTaskbar = FindWindowW(L"Shell_TrayWnd", nullptr);
+    if (hTaskbar) {
+        DWORD tbPid = 0;
+        DWORD tbTid = GetWindowThreadProcessId(hTaskbar, &tbPid);
+        if (tbPid && tbTid) {
+            // Yalnızca görev çubuğu thread'inden gelen show/hide/locationchange (0x8002 - 0x800B) olaylarını yakala
+            s_hTaskbarHook = SetWinEventHook(
+                EVENT_OBJECT_SHOW, EVENT_OBJECT_LOCATIONCHANGE,
+                nullptr, TaskbarEventProc,
+                tbPid, tbTid,
+                WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS
+            );
+        }
+    }
 }
 
 static HBITMAP DecodeThumbnail(const std::vector<uint8_t>& data, int targetW, int targetH) {
@@ -103,31 +134,62 @@ void OsdManager::Init(HWND hostWnd) {
             0, 0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS
         );
     }
+
+    if (!s_hMoveSizeHook) {
+        s_hMoveSizeHook = SetWinEventHook(
+            EVENT_SYSTEM_MOVESIZEEND, EVENT_SYSTEM_MOVESIZEEND,
+            nullptr, MoveSizeEventProc,
+            0, 0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS
+        );
+    }
+
+    HookTaskbarEvents();
+
+    if (m_hostWnd) {
+        APPBARDATA abd = { sizeof(abd) };
+        abd.hWnd = m_hostWnd;
+        abd.uCallbackMessage = WM_USER + 104; // WM_USER_APPBAR_NOTIFY
+        SHAppBarMessage(ABM_NEW, &abd);
+    }
+}
+
+void OsdManager::OnTaskbarRecreated() {
+    HookTaskbarEvents();
+    CheckFullscreenAndTaskbarState();
 }
 
 void OsdManager::UpdateConfig(const Config& cfg) {
     m_cfg = cfg;
     if (m_mediaHwnd) {
         if (m_cfg.mediaOsdPersistent && m_hasActiveMedia) {
-            SetTimer(m_mediaHwnd, TIMER_ID_MEDIA_MONITOR, 300, nullptr);
             CheckFullscreenAndTaskbarState();
-        } else {
-            KillTimer(m_mediaHwnd, TIMER_ID_MEDIA_MONITOR);
         }
     }
 }
 
 void OsdManager::Destroy() {
+    if (m_hostWnd) {
+        APPBARDATA abd = { sizeof(abd) };
+        abd.hWnd = m_hostWnd;
+        SHAppBarMessage(ABM_REMOVE, &abd);
+    }
     if (s_hForegroundHook) {
         UnhookWinEvent(s_hForegroundHook);
         s_hForegroundHook = nullptr;
+    }
+    if (s_hMoveSizeHook) {
+        UnhookWinEvent(s_hMoveSizeHook);
+        s_hMoveSizeHook = nullptr;
+    }
+    if (s_hTaskbarHook) {
+        UnhookWinEvent(s_hTaskbarHook);
+        s_hTaskbarHook = nullptr;
     }
     if (m_tipHwnd) {
         DestroyWindow(m_tipHwnd);
         m_tipHwnd = nullptr;
     }
     if (m_mediaHwnd) {
-        KillTimer(m_mediaHwnd, TIMER_ID_MEDIA_MONITOR);
         KillTimer(m_mediaHwnd, TIMER_ID_MEDIA_FADE_IN);
         KillTimer(m_mediaHwnd, TIMER_ID_MEDIA_HOLD);
         KillTimer(m_mediaHwnd, TIMER_ID_MEDIA_FADE_OUT);
@@ -508,18 +570,46 @@ bool OsdManager::IsTaskbarVisible() {
         return false;
     }
 
-    APPBARDATA abd = { sizeof(abd) };
-    abd.hWnd = hTaskbar;
-    UINT_PTR state = SHAppBarMessage(ABM_GETSTATE, &abd);
-    if (state & ABS_AUTOHIDE) {
-        RECT rcTb = {};
-        GetWindowRect(hTaskbar, &rcTb);
-        int h = rcTb.bottom - rcTb.top;
-        int w = rcTb.right - rcTb.left;
-        if (h <= 4 || w <= 4) {
-            return false;
+    RECT rcTb = {};
+    if (!GetWindowRect(hTaskbar, &rcTb)) {
+        return false;
+    }
+
+    int h = rcTb.bottom - rcTb.top;
+    int w = rcTb.right - rcTb.left;
+    if (h <= 4 || w <= 4) {
+        return false;
+    }
+
+    // Görev çubuğunun ekran alanı kontrolü (otomatik gizlenme durumunda ekran dışına taşar)
+    HMONITOR hMon = MonitorFromWindow(hTaskbar, MONITOR_DEFAULTTONEAREST);
+    if (hMon) {
+        MONITORINFO mi = { sizeof(mi) };
+        if (GetMonitorInfoW(hMon, &mi)) {
+            if (rcTb.bottom <= mi.rcMonitor.top + 4 ||
+                rcTb.top >= mi.rcMonitor.bottom - 4 ||
+                rcTb.right <= mi.rcMonitor.left + 4 ||
+                rcTb.left >= mi.rcMonitor.right - 4) {
+                return false;
+            }
         }
     }
+
+    // Görev çubuğunun üzerinde başka bir pencere (örneğin tam ekran oyun/video) var mı?
+    POINT pt = { (rcTb.left + rcTb.right) / 2, (rcTb.top + rcTb.bottom) / 2 };
+    HWND hTop = WindowFromPoint(pt);
+    if (hTop) {
+        HWND root = GetAncestor(hTop, GA_ROOT);
+        HWND effective = root ? root : hTop;
+        if (effective != hTaskbar && effective != Instance().m_mediaHwnd && effective != Instance().m_tipHwnd) {
+            wchar_t cls[64] = {};
+            GetClassNameW(effective, cls, 64);
+            if (wcscmp(cls, L"Shell_TrayWnd") != 0 && wcscmp(cls, L"Shell_SecondaryTrayWnd") != 0) {
+                return false;
+            }
+        }
+    }
+
     return true;
 }
 
@@ -617,7 +707,6 @@ void OsdManager::PositionMediaWindow(int textW, int textH) {
 void OsdManager::CheckFullscreenAndTaskbarState() {
     if (!m_mediaHwnd) return;
     if (!m_cfg.mediaOsdPersistent) {
-        KillTimer(m_mediaHwnd, TIMER_ID_MEDIA_MONITOR);
         return;
     }
 
@@ -750,8 +839,6 @@ void OsdManager::ShowMediaTrack(const std::wstring& songTitle,
     PositionMediaWindow(textW, m_mediaHeight);
 
     if (m_cfg.mediaOsdPersistent) {
-        SetTimer(m_mediaHwnd, TIMER_ID_MEDIA_MONITOR, 300, nullptr);
-
         bool isFs = IsFullscreenAppActive(m_mediaHwnd);
         bool isTb = IsTaskbarVisible();
         if (isFs || !isTb) {
@@ -789,7 +876,6 @@ void OsdManager::ShowMediaTrack(const std::wstring& songTitle,
             SetLayeredWindowAttributes(m_mediaHwnd, MEDIA_COLOR_KEY, 255, LWA_COLORKEY | LWA_ALPHA);
         }
     } else {
-        KillTimer(m_mediaHwnd, TIMER_ID_MEDIA_MONITOR);
         KillTimer(m_mediaHwnd, TIMER_ID_MEDIA_FADE_IN);
         KillTimer(m_mediaHwnd, TIMER_ID_MEDIA_HOLD);
         KillTimer(m_mediaHwnd, TIMER_ID_MEDIA_FADE_OUT);
@@ -1200,9 +1286,6 @@ LRESULT CALLBACK OsdManager::MediaWndProc(HWND hwnd, UINT msg, WPARAM wParam, LP
                         ShowWindow(hwnd, SW_HIDE);
                     }
                     SetLayeredWindowAttributes(hwnd, MEDIA_COLOR_KEY, static_cast<BYTE>(mgr->m_mediaAlpha), LWA_COLORKEY | LWA_ALPHA);
-                    return 0;
-                } else if (wParam == TIMER_ID_MEDIA_MONITOR) {
-                    mgr->CheckFullscreenAndTaskbarState();
                     return 0;
                 }
             }

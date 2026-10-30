@@ -31,6 +31,7 @@
 static constexpr UINT WM_USER_MIC_STATE_CHANGED = WM_USER + 101;
 static constexpr UINT WM_USER_TRACK_CHANGED     = WM_USER + 102;
 static constexpr UINT WM_USER_CONFIG_CHANGED    = WM_USER + 103;
+static constexpr UINT WM_USER_APPBAR_NOTIFY     = WM_USER + 104;
 
 static const wchar_t* APP_WND_CLASS   = L"CopilotButtonHost";
 static const wchar_t* APP_MUTEX_NAME  = L"Global\\CopilotButton_SingleInstance_Mutex";
@@ -44,12 +45,19 @@ static UINT            g_uTaskbarRestart = 0;
 static HANDLE          g_hAppMutex       = nullptr;
 
 static LRESULT CALLBACK HostWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    if (msg == g_uTaskbarRestart && g_pTray) {
-        g_pTray->Reinstall();
+    if (msg == g_uTaskbarRestart) {
+        if (g_pTray) {
+            g_pTray->Reinstall();
+        }
+        OsdManager::Instance().OnTaskbarRecreated();
         return 0;
     }
 
     switch (msg) {
+        case WM_USER_APPBAR_NOTIFY:
+            OsdManager::Instance().CheckFullscreenAndTaskbarState();
+            return 0;
+
         case WM_USER_TRAY_ICON:
             if (g_pTray) {
                 g_pTray->HandleMessage(lParam);
@@ -88,6 +96,7 @@ static LRESULT CALLBACK HostWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
             if (g_pCfgMgr) {
                 PostMessageW(hwnd, WM_USER_TRACK_CHANGED, 0, 0);
             }
+            OsdManager::Instance().CheckFullscreenAndTaskbarState();
             return 0;
 
         case WM_USER_CONFIG_CHANGED:
