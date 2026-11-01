@@ -274,7 +274,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
             Config cfg = cfgMgr.GetConfig();
             hook.UpdateConfig(cfg);
             OsdManager::Instance().UpdateConfig(cfg);
-            DispatchAction(act, cfg.customAppPath, cfg.soundFxEnabled);
+            DispatchAction(act, cfg);
 
             bool m = GetMicMuteState();
             PostMessageW(hWnd, WM_USER_MIC_STATE_CHANGED, m ? 1 : 0, 0);

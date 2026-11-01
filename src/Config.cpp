@@ -29,12 +29,14 @@ Action ParseAction(const std::wstring& s) {
     if (s == L"LockScreen")    return Action::LockScreen;
     if (s == L"CustomApp")     return Action::CustomApp;
     if (s == L"PushToTalk")    return Action::PushToTalk;
+    if (s == L"RunAgyTest" || s == L"AgyTest") return Action::RunAgyTest;
     return Action::None;
 }
 
 static Action ParseHoldAction(const std::wstring& s) {
     if (s == L"PushToTalk") return Action::PushToTalk;
     if (s == L"CustomApp")  return Action::CustomApp;
+    if (s == L"RunAgyTest" || s == L"AgyTest") return Action::RunAgyTest;
     return Action::None;
 }
 
@@ -129,11 +131,16 @@ void EnsureConfigExists(const std::wstring& path) {
         "; 4 Tık Eylemi\r\n"
         "Action4=None\r\n"
         "\r\n"
-        "; Basılı Tutma Eylemi (PushToTalk: bas-konuş, CustomApp: özel uygulama/URL)\r\n"
+        "; Basılı Tutma Eylemi (PushToTalk: bas-konuş, CustomApp: özel uygulama/URL, RunAgyTest: terminalde agy çalıştırıp F5 bas)\r\n"
         "HoldAction=PushToTalk\r\n"
         "\r\n"
         "; CustomApp seçildiğinde açılacak uygulama yolu veya URL\r\n"
         "CustomAppPath=\r\n"
+        "\r\n"
+        "; RunAgyTest seçildiğinde çalışacak dizin, komut ve F5 bekleme süresi\r\n"
+        "AgyTestPath=C:\\Users\\kerem\\Projects\\test\r\n"
+        "AgyTestCommand=agy\r\n"
+        "AgyTestDelayMs=1000\r\n"
         "\r\n"
         "; ── Sistem ve Başlangıç ──\r\n"
         "; Windows başlangıcında otomatik çalıştır (1 = Açık, 0 = Kapalı)\r\n"
@@ -215,6 +222,9 @@ void ConfigManager::Load() {
     c.action4        = ParseAction(ReadStr(p, L"Action4", L"None"));
     c.holdAction     = ParseHoldAction(ReadStr(p, L"HoldAction", L"PushToTalk"));
     c.customAppPath  = ReadStr(p, L"CustomAppPath");
+    c.agyTestPath    = ReadStr(p, L"AgyTestPath",    L"C:\\Users\\kerem\\Projects\\test");
+    c.agyTestCommand = ReadStr(p, L"AgyTestCommand", L"agy");
+    c.agyTestDelayMs = ReadInt(p, L"AgyTestDelayMs", 1000);
     c.soundFxEnabled = (ReadInt(p, L"SoundFxEnabled", 1) != 0);
     c.autoStart      = (ReadInt(p, L"AutoStart", 1) != 0);
 

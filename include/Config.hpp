@@ -20,7 +20,8 @@ enum class Action : int {
     PrevTrack,
     LockScreen,
     CustomApp,
-    PushToTalk
+    PushToTalk,
+    RunAgyTest
 };
 
 Action ParseAction(const std::wstring& s);
@@ -45,6 +46,11 @@ struct Config {
     std::wstring customAppPath;
     bool         soundFxEnabled  = true;
     bool         autoStart       = true;
+
+    // RunAgyTest Ayarları
+    std::wstring agyTestPath     = L"C:\\Users\\kerem\\Projects\\test";
+    std::wstring agyTestCommand  = L"agy";
+    DWORD        agyTestDelayMs  = 1000;
 
     // OSD Ayarları
     std::wstring osdPosition        = L"TopLeft";

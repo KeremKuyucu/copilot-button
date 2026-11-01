@@ -213,9 +213,9 @@ void CALLBACK KeyHook::OnHoldTimer(HWND hw, UINT, UINT_PTR, DWORD) {
         SetMicMuteState(false);
         if (h->m_cfg.soundFxEnabled) PlayMicSound(false);
         OsdManager::Instance().ShowTip(L"🎙️ PTT — Active");
-    } else if (h->m_cfg.holdAction == Action::CustomApp) {
+    } else if (h->m_cfg.holdAction != Action::None) {
         if (h->m_callback) {
-            h->m_callback(Action::CustomApp);
+            h->m_callback(h->m_cfg.holdAction);
         }
     }
 }
