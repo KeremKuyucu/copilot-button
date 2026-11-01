@@ -51,6 +51,7 @@ struct Config {
     std::wstring agyPath;
     std::wstring agyCommand  = L"agy";
     std::wstring agyTerminal = L"wt";
+    bool         agySendF5   = false;
     DWORD        agyDelayMs  = 1000;
 
     // OSD Ayarları

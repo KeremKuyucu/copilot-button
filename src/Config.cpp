@@ -138,10 +138,11 @@ void EnsureConfigExists(const std::wstring& path) {
         "; CustomApp seçildiğinde açılacak uygulama yolu veya URL\r\n"
         "CustomAppPath=\r\n"
         "\r\n"
-        "; RunAgy seçildiğinde çalışacak dizin (boş bırakılırsa sistem Geçici/Temp dizini kullanılır), komut, terminal (wt, cmd, powershell) ve F5 bekleme süresi\r\n"
+        "; RunAgy seçildiğinde çalışacak dizin (boş bırakılırsa sistem Geçici/Temp dizini kullanılır), komut, terminal (wt, cmd, powershell), F5 basımı (1 = Açık, 0 = Kapalı) ve gecikme süresi\r\n"
         "AgyPath=\r\n"
         "AgyCommand=agy\r\n"
         "AgyTerminal=wt\r\n"
+        "AgySendF5=0\r\n"
         "AgyDelayMs=1000\r\n"
         "\r\n"
         "; ── Sistem ve Başlangıç ──\r\n"
@@ -256,6 +257,7 @@ void ConfigManager::Load() {
     c.agyPath        = ReadStr(p, L"AgyPath", ReadStr(p, L"AgyTestPath", L"").c_str());
     c.agyCommand     = ReadStr(p, L"AgyCommand", ReadStr(p, L"AgyTestCommand", L"agy").c_str());
     c.agyTerminal    = ReadStr(p, L"AgyTerminal", L"wt");
+    c.agySendF5      = (ReadInt(p, L"AgySendF5", 0) != 0);
     c.agyDelayMs     = ReadInt(p, L"AgyDelayMs", ReadInt(p, L"AgyTestDelayMs", 1000));
     c.soundFxEnabled = (ReadInt(p, L"SoundFxEnabled", 1) != 0);
     c.autoStart      = (ReadInt(p, L"AutoStart", 1) != 0);

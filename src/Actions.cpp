@@ -53,11 +53,11 @@ static std::wstring ResolveAgyDirectory(const std::wstring& configuredPath) {
     return L".";
 }
 
-static void ExecuteRunAgy(const std::wstring& path, const std::wstring& cmd, const std::wstring& term, DWORD delayMs) {
+static void ExecuteRunAgy(const std::wstring& path, const std::wstring& cmd, const std::wstring& term, bool sendF5, DWORD delayMs) {
     OsdManager::Instance().ShowTip(L"⚡ Terminal Başlatılıyor...");
     std::wstring targetDir = ResolveAgyDirectory(path);
 
-    std::thread([targetDir, cmd, term, delayMs]() {
+    std::thread([targetDir, cmd, term, sendF5, delayMs]() {
         bool launched = false;
 
         // 1. "powershell" veya "cmd" özel olarak istenmediyse modern Windows Terminal'i (wt.exe) aç
@@ -106,22 +106,24 @@ static void ExecuteRunAgy(const std::wstring& path, const std::wstring& cmd, con
             );
         }
 
-        // 1 saniye (veya belirtilen gecikme süresi) bekle
-        std::this_thread::sleep_for(std::chrono::milliseconds(delayMs));
+        // İsteğe bağlı F5 tuş basımı
+        if (sendF5) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(delayMs));
 
-        // Aktif olan terminal penceresine F5 tuş basımını gönder
-        INPUT inputs[2] = {};
-        inputs[0].type = INPUT_KEYBOARD;
-        inputs[0].ki.wVk = VK_F5;
-        inputs[0].ki.wScan = static_cast<WORD>(MapVirtualKeyW(VK_F5, MAPVK_VK_TO_VSC));
-        inputs[0].ki.dwFlags = 0;
+            // Aktif olan terminal penceresine F5 tuş basımını gönder
+            INPUT inputs[2] = {};
+            inputs[0].type = INPUT_KEYBOARD;
+            inputs[0].ki.wVk = VK_F5;
+            inputs[0].ki.wScan = static_cast<WORD>(MapVirtualKeyW(VK_F5, MAPVK_VK_TO_VSC));
+            inputs[0].ki.dwFlags = 0;
 
-        inputs[1].type = INPUT_KEYBOARD;
-        inputs[1].ki.wVk = VK_F5;
-        inputs[1].ki.wScan = static_cast<WORD>(MapVirtualKeyW(VK_F5, MAPVK_VK_TO_VSC));
-        inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
+            inputs[1].type = INPUT_KEYBOARD;
+            inputs[1].ki.wVk = VK_F5;
+            inputs[1].ki.wScan = static_cast<WORD>(MapVirtualKeyW(VK_F5, MAPVK_VK_TO_VSC));
+            inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
 
-        SendInput(2, inputs, sizeof(INPUT));
+            SendInput(2, inputs, sizeof(INPUT));
+        }
     }).detach();
 }
 
@@ -184,7 +186,7 @@ void DispatchAction(Action act, const Config& cfg) {
             break;
 
         case Action::RunAgy:
-            ExecuteRunAgy(cfg.agyPath, cfg.agyCommand, cfg.agyTerminal, cfg.agyDelayMs);
+            ExecuteRunAgy(cfg.agyPath, cfg.agyCommand, cfg.agyTerminal, cfg.agySendF5, cfg.agyDelayMs);
             break;
 
         case Action::PushToTalk:
