@@ -53,23 +53,58 @@ static std::wstring ResolveAgyDirectory(const std::wstring& configuredPath) {
     return L".";
 }
 
-static void ExecuteRunAgy(const std::wstring& path, const std::wstring& cmd, DWORD delayMs) {
-    OsdManager::Instance().ShowTip(L"⚡ AGY Terminal Başlatılıyor...");
+static void ExecuteRunAgy(const std::wstring& path, const std::wstring& cmd, const std::wstring& term, DWORD delayMs) {
+    OsdManager::Instance().ShowTip(L"⚡ Terminal Başlatılıyor...");
     std::wstring targetDir = ResolveAgyDirectory(path);
 
-    std::thread([targetDir, cmd, delayMs]() {
-        // Güvenli ve doğrudan PowerShell terminal penceresi aç:
-        // Windows 11'de varsayılan terminal Windows Terminal ise otomatik olarak onda açılır;
-        // değilse standart konsol penceresinde açılır. Asla arka planda kilitlenip gizli kalmaz.
-        std::wstring psArgs = L"-NoExit -Command \"Set-Location -LiteralPath '" + targetDir + L"'; " + cmd + L"\"";
-        ShellExecuteW(
-            nullptr,
-            L"open",
-            L"powershell.exe",
-            psArgs.c_str(),
-            targetDir.c_str(),
-            SW_SHOWNORMAL
-        );
+    std::thread([targetDir, cmd, term, delayMs]() {
+        bool launched = false;
+
+        // 1. "powershell" veya "cmd" özel olarak istenmediyse modern Windows Terminal'i (wt.exe) aç
+        if (term != L"powershell" && term != L"cmd") {
+            // Windows Terminal içinde komutu cmd.exe /k ile çalıştır (mavi powershell değil, şık koyu tema)
+            std::wstring wtArgs = L"-d \"" + targetDir + L"\" cmd.exe /k " + cmd;
+            HINSTANCE hInst = ShellExecuteW(
+                nullptr,
+                L"open",
+                L"wt.exe",
+                wtArgs.c_str(),
+                targetDir.c_str(),
+                SW_SHOWNORMAL
+            );
+            if (reinterpret_cast<INT_PTR>(hInst) > 32) {
+                launched = true;
+            }
+        }
+
+        // 2. wt.exe açılamadıysa veya "cmd" istendiyse doğrudan siyah konsollu cmd.exe ile aç (mavi pencere yok)
+        if (!launched && term != L"powershell") {
+            std::wstring cmdArgs = L"/k " + cmd;
+            HINSTANCE hInst = ShellExecuteW(
+                nullptr,
+                L"open",
+                L"cmd.exe",
+                cmdArgs.c_str(),
+                targetDir.c_str(),
+                SW_SHOWNORMAL
+            );
+            if (reinterpret_cast<INT_PTR>(hInst) > 32) {
+                launched = true;
+            }
+        }
+
+        // 3. Yalnızca kullanıcı açıkça "powershell" seçtiyse PowerShell kullan
+        if (!launched) {
+            std::wstring psArgs = L"-NoExit -Command \"Set-Location -LiteralPath '" + targetDir + L"'; " + cmd + L"\"";
+            ShellExecuteW(
+                nullptr,
+                L"open",
+                L"powershell.exe",
+                psArgs.c_str(),
+                targetDir.c_str(),
+                SW_SHOWNORMAL
+            );
+        }
 
         // 1 saniye (veya belirtilen gecikme süresi) bekle
         std::this_thread::sleep_for(std::chrono::milliseconds(delayMs));
@@ -149,7 +184,7 @@ void DispatchAction(Action act, const Config& cfg) {
             break;
 
         case Action::RunAgy:
-            ExecuteRunAgy(cfg.agyPath, cfg.agyCommand, cfg.agyDelayMs);
+            ExecuteRunAgy(cfg.agyPath, cfg.agyCommand, cfg.agyTerminal, cfg.agyDelayMs);
             break;
 
         case Action::PushToTalk:

@@ -50,6 +50,7 @@ struct Config {
     // RunAgy Ayarları
     std::wstring agyPath;
     std::wstring agyCommand  = L"agy";
+    std::wstring agyTerminal = L"wt";
     DWORD        agyDelayMs  = 1000;
 
     // OSD Ayarları
