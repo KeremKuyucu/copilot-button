@@ -1,6 +1,7 @@
 #include "Config.hpp"
 #include <algorithm>
 #include <cctype>
+#include <vector>
 
 // ─────────────────────────────────────────────
 //  Yardımcı: INI'den DWORD oku
@@ -202,8 +203,37 @@ ConfigManager::~ConfigManager() {
     }
 }
 
+// UTF-8 BOM (0xEF, 0xBB, 0xBF) varsa Win32 GetPrivateProfileString API'sinin
+// [Settings] bölümünü tanıyamaması sorununu önlemek için BOM'u temizler
+static void StripUtf8Bom(const std::wstring& path) {
+    HANDLE hFile = CreateFileW(path.c_str(), GENERIC_READ | GENERIC_WRITE,
+                               FILE_SHARE_READ, nullptr, OPEN_EXISTING,
+                               FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (hFile == INVALID_HANDLE_VALUE) return;
+
+    BYTE bom[3] = {};
+    DWORD read = 0;
+    if (ReadFile(hFile, bom, 3, &read, nullptr) && read == 3) {
+        if (bom[0] == 0xEF && bom[1] == 0xBB && bom[2] == 0xBF) {
+            DWORD size = GetFileSize(hFile, nullptr);
+            if (size > 3) {
+                std::vector<BYTE> buf(size - 3);
+                DWORD readRemaining = 0;
+                if (ReadFile(hFile, buf.data(), size - 3, &readRemaining, nullptr) && readRemaining == size - 3) {
+                    SetFilePointer(hFile, 0, nullptr, FILE_BEGIN);
+                    DWORD written = 0;
+                    WriteFile(hFile, buf.data(), static_cast<DWORD>(buf.size()), &written, nullptr);
+                    SetEndOfFile(hFile);
+                }
+            }
+        }
+    }
+    CloseHandle(hFile);
+}
+
 void ConfigManager::Load() {
     EnsureConfigExists(m_path);
+    StripUtf8Bom(m_path);
 
     WIN32_FILE_ATTRIBUTE_DATA fad = {};
     if (GetFileAttributesExW(m_path.c_str(), GetFileExInfoStandard, &fad)) {
