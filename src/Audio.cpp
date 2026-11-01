@@ -136,6 +136,8 @@ void PlayMicSound(bool muted) {
 // ─────────────────────────────────────────────
 class MicEndpointCallback : public IAudioEndpointVolumeCallback {
 public:
+    virtual ~MicEndpointCallback() = default;
+
     MicEndpointCallback(MicChangeCallback cb)
         : m_ref(1), m_cb(std::move(cb)) {}
 

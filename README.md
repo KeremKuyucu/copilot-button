@@ -106,6 +106,7 @@ flowchart TD
 | `LockScreen` | Instantly lock your Windows workstation | - |
 | `CustomApp` | Launch an application (`.exe`) or open a web URL | - |
 | `PushToTalk` | Unmute microphone while key is held, mute upon release | **Hold** |
+| `RunAgy` | Launch command in Windows Terminal / console at target folder | - |
 | `None` | Ignore key press / no action | **4 Taps** |
 
 ---
@@ -136,11 +137,18 @@ Action3=NextTrack
 ; 4-Taps Action
 Action4=None
 
-; Press-and-Hold Action (PushToTalk or CustomApp)
+; Press-and-Hold Action (PushToTalk, CustomApp, or RunAgy)
 HoldAction=PushToTalk
 
 ; Path or URL when CustomApp is selected (e.g. C:\Program Files\App.exe or https://gemini.google.com)
 CustomAppPath=
+
+; RunAgy options (working directory, command, terminal type: wt/cmd, optional F5 press, delay ms)
+AgyPath=
+AgyCommand=agy
+AgyTerminal=wt
+AgySendF5=0
+AgyDelayMs=1000
 
 ; ── System & Startup ──
 ; Auto-start with Windows (1 = Enabled, 0 = Disabled)

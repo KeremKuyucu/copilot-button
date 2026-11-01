@@ -257,7 +257,6 @@ LRESULT CALLBACK KeyHook::LowLevelProc(int nCode, WPARAM wParam, LPARAM lParam) 
         return CallNextHookEx(nullptr, nCode, wParam, lParam);
 
     bool isDown = (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN);
-    bool isUp   = (wParam == WM_KEYUP   || wParam == WM_SYSKEYUP);
 
     // ── LWin / RWin Yakalama ─────────────────────────────────────────
     if (IsWinKey(kb->vkCode)) {
