@@ -32,8 +32,30 @@ static void LaunchCustomApp(const std::wstring& path) {
     ShellExecuteW(nullptr, L"open", path.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
 }
 
-static void ExecuteRunAgyTest(const std::wstring& targetDir, const std::wstring& cmd, DWORD delayMs) {
+static std::wstring ResolveAgyDirectory(const std::wstring& configuredPath) {
+    if (!configuredPath.empty()) {
+        wchar_t expanded[MAX_PATH] = {};
+        if (ExpandEnvironmentStringsW(configuredPath.c_str(), expanded, MAX_PATH)) {
+            return expanded;
+        }
+        return configuredPath;
+    }
+
+    wchar_t tempPath[MAX_PATH] = {};
+    if (GetTempPathW(MAX_PATH, tempPath)) {
+        size_t len = wcslen(tempPath);
+        if (len > 0 && (tempPath[len - 1] == L'\\' || tempPath[len - 1] == L'/')) {
+            tempPath[len - 1] = L'\0';
+        }
+        return tempPath;
+    }
+
+    return L".";
+}
+
+static void ExecuteRunAgy(const std::wstring& path, const std::wstring& cmd, DWORD delayMs) {
     OsdManager::Instance().ShowTip(L"⚡ AGY Terminal Başlatılıyor...");
+    std::wstring targetDir = ResolveAgyDirectory(path);
 
     std::thread([targetDir, cmd, delayMs]() {
         // Windows Terminal ile belirtilen dizinde powershell üzerinden komutu çalıştır
@@ -137,8 +159,8 @@ void DispatchAction(Action act, const Config& cfg) {
             LaunchCustomApp(cfg.customAppPath);
             break;
 
-        case Action::RunAgyTest:
-            ExecuteRunAgyTest(cfg.agyTestPath, cfg.agyTestCommand, cfg.agyTestDelayMs);
+        case Action::RunAgy:
+            ExecuteRunAgy(cfg.agyPath, cfg.agyCommand, cfg.agyDelayMs);
             break;
 
         case Action::PushToTalk:
