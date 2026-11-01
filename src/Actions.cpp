@@ -58,29 +58,18 @@ static void ExecuteRunAgy(const std::wstring& path, const std::wstring& cmd, DWO
     std::wstring targetDir = ResolveAgyDirectory(path);
 
     std::thread([targetDir, cmd, delayMs]() {
-        // Windows Terminal ile belirtilen dizinde powershell üzerinden komutu çalıştır
-        std::wstring wtArgs = L"-d \"" + targetDir + L"\" powershell.exe -NoExit -Command \"" + cmd + L"\"";
-        HINSTANCE hInst = ShellExecuteW(
+        // Güvenli ve doğrudan PowerShell terminal penceresi aç:
+        // Windows 11'de varsayılan terminal Windows Terminal ise otomatik olarak onda açılır;
+        // değilse standart konsol penceresinde açılır. Asla arka planda kilitlenip gizli kalmaz.
+        std::wstring psArgs = L"-NoExit -Command \"Set-Location -LiteralPath '" + targetDir + L"'; " + cmd + L"\"";
+        ShellExecuteW(
             nullptr,
             L"open",
-            L"wt.exe",
-            wtArgs.c_str(),
+            L"powershell.exe",
+            psArgs.c_str(),
             targetDir.c_str(),
             SW_SHOWNORMAL
         );
-
-        if (reinterpret_cast<INT_PTR>(hInst) <= 32) {
-            // wt.exe bulunamadıysa doğrudan powershell ile aç
-            std::wstring psArgs = L"-NoExit -Command \"Set-Location '" + targetDir + L"'; " + cmd + L"\"";
-            ShellExecuteW(
-                nullptr,
-                L"open",
-                L"powershell.exe",
-                psArgs.c_str(),
-                targetDir.c_str(),
-                SW_SHOWNORMAL
-            );
-        }
 
         // 1 saniye (veya belirtilen gecikme süresi) bekle
         std::this_thread::sleep_for(std::chrono::milliseconds(delayMs));
