@@ -20,13 +20,15 @@ public:
     bool Install(HWND hWnd, std::function<void()> onSettings, std::function<void()> onExit);
     void Uninstall();
     void Reinstall();
-    void HandleMessage(LPARAM lParam);
+    void HandleMessage(WPARAM wParam, LPARAM lParam);
+    void HandleMessage(LPARAM lParam) { HandleMessage(0, lParam); }
 
 private:
-    void ShowContextMenu();
+    void ShowContextMenu(POINT pt = { 0, 0 });
 
     HWND                  m_hWnd      = nullptr;
     NOTIFYICONDATAW       m_nid       = {};
+    HICON                 m_hIcon     = nullptr;
     bool                  m_installed = false;
     std::function<void()> m_onSettings;
     std::function<void()> m_onExit;

@@ -60,7 +60,7 @@ static LRESULT CALLBACK HostWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
 
         case WM_USER_TRAY_ICON:
             if (g_pTray) {
-                g_pTray->HandleMessage(lParam);
+                g_pTray->HandleMessage(wParam, lParam);
             }
             return 0;
 
@@ -204,7 +204,26 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
                                 WS_POPUP, 0, 0, 0, 0,
                                 nullptr, nullptr, hInst, nullptr);
 
+    // ── UIPI (User Interface Privilege Isolation) Filtreleri ──────────
+    // CopilotButton requireAdministrator ile çalıştığı için, Medium Integrity
+    // düzeyindeki explorer.exe tarafından gönderilen tepsi simgesi ve görev
+    // çubuğu yeniden başlatma mesajları varsayılan olarak Windows tarafından
+    // engellenir. Tepsi simgesinin sorunsuz çalışması için mesajlara izin verilir:
     ChangeWindowMessageFilter(WM_CLOSE, MSGFLT_ADD);
+    ChangeWindowMessageFilter(WM_USER_TRAY_ICON, MSGFLT_ADD);
+    ChangeWindowMessageFilter(WM_COMMAND, MSGFLT_ADD);
+    if (g_uTaskbarRestart != 0) {
+        ChangeWindowMessageFilter(g_uTaskbarRestart, MSGFLT_ADD);
+    }
+
+    if (hWnd) {
+        ChangeWindowMessageFilterEx(hWnd, WM_CLOSE, MSGFLT_ALLOW, nullptr);
+        ChangeWindowMessageFilterEx(hWnd, WM_USER_TRAY_ICON, MSGFLT_ALLOW, nullptr);
+        ChangeWindowMessageFilterEx(hWnd, WM_COMMAND, MSGFLT_ALLOW, nullptr);
+        if (g_uTaskbarRestart != 0) {
+            ChangeWindowMessageFilterEx(hWnd, g_uTaskbarRestart, MSGFLT_ALLOW, nullptr);
+        }
+    }
 
     // ── Config yükle + INI dosyasındaki değişiklikleri dinamik izle ───
     ConfigManager cfgMgr(GetIniPath(), [hWnd](const Config&) {
