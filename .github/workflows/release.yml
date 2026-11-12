@@ -167,7 +167,6 @@ jobs:
 
       # ── Sign Application Binaries ─────────────────────────
       - name: Sign Binaries
-        if: ${{ secrets.WINDOWS_PFX_BASE64 != '' }}
         shell: pwsh
         env:
           WINDOWS_PFX_BASE64: ${{ secrets.WINDOWS_PFX_BASE64 }}

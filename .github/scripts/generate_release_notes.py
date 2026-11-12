@@ -169,9 +169,13 @@ Respond ONLY with a valid JSON object with a single key "release_notes":
 """
 
     models = [
-        "models/gemini-3.8-flash",
-        "models/gemini-3.6-flash",
-        "models/gemini-3.5-flash-lite"
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+        "gemini-2.5-flash-lite",
+        "gemini-3.8-flash",
+        "gemini-3.6-flash",
+        "gemini-3.5-flash-lite",
     ]
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -182,7 +186,8 @@ Respond ONLY with a valid JSON object with a single key "release_notes":
 
     last_error = None
     for model in models:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        m = model.removeprefix("models/")
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={api_key}"
         req = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),
