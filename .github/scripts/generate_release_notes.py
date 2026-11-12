@@ -172,6 +172,7 @@ Respond ONLY with a valid JSON object with a single key "release_notes":
         "gemini-3.8-flash",
         "gemini-3.6-flash",
         "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite"
     ]
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -179,7 +180,7 @@ Respond ONLY with a valid JSON object with a single key "release_notes":
             "responseMimeType": "application/json"
         }
     }
-
+1
     last_error = None
     for model in models:
         m = model.removeprefix("models/")
