@@ -169,11 +169,9 @@ Respond ONLY with a valid JSON object with a single key "release_notes":
 """
 
     models = [
-        "gemini-3.5-flash-lite",  # 500 RPD, 15 RPM
-        "gemini-3.1-flash-lite",  # 500 RPD, 15 RPM
-        "gemini-3.5-flash",       # 20 RPD, 5 RPM
-        "gemini-2.5-flash",       # 20 RPD, 5 RPM
-        "gemini-flash-lite-latest"
+        "models/gemini-3.8-flash",
+        "models/gemini-3.6-flash",
+        "models/gemini-3.5-flash-lite"
     ]
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],

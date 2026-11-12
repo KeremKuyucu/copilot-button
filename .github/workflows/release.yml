@@ -167,7 +167,7 @@ jobs:
 
       # ── Sign Application Binaries ─────────────────────────
       - name: Sign Binaries
-        if: env.WINDOWS_PFX_BASE64 != ''
+        if: ${{ secrets.WINDOWS_PFX_BASE64 != '' }}
         shell: pwsh
         env:
           WINDOWS_PFX_BASE64: ${{ secrets.WINDOWS_PFX_BASE64 }}
@@ -186,8 +186,12 @@ jobs:
           }
 
           try {
-            $secPass = ConvertTo-SecureString $pfxPassword -AsPlainText -Force
-            Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\LocalMachine\Root -Password $secPass | Out-Null
+            if ($pfxPassword) {
+              $secPass = ConvertTo-SecureString $pfxPassword -AsPlainText -Force
+              Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\LocalMachine\Root -Password $secPass | Out-Null
+            } else {
+              Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
+            }
             Write-Host "Certificate added to LocalMachine\Root for verification."
           } catch {
             Write-Warning "Could not import certificate to Root store: $_"
@@ -203,22 +207,30 @@ jobs:
           $file = "${{ github.workspace }}\CopilotButton.exe"
           Write-Host "Signing CopilotButton.exe..."
           $signed = $false
-          foreach ($ts in $timestampServers) {
-            Write-Host "  Trying timestamp server: $ts"
-            & $signtool sign /fd SHA256 /tr $ts /td SHA256 /f $pfxPath /p $pfxPassword $file 2>&1
-            if ($LASTEXITCODE -eq 0) {
-              Write-Host "  Successfully signed CopilotButton.exe with $ts"
-              $signed = $true
-              break
-            }
-          }
-          if (-not $signed) {
-            throw "Failed to sign CopilotButton.exe on all timestamp servers."
-          }
-          & $signtool verify /pa /v $file 2>&1
-          Write-Host "Signature verified for CopilotButton.exe."
+          try {
+            foreach ($ts in $timestampServers) {
+              Write-Host "  Trying timestamp server: $ts"
+              $signArgs = @("sign", "/fd", "SHA256", "/tr", $ts, "/td", "SHA256", "/f", $pfxPath)
+              if ($pfxPassword) {
+                $signArgs += @("/p", $pfxPassword)
+              }
+              $signArgs += $file
 
-          Remove-Item -Path $pfxPath -Force -ErrorAction SilentlyContinue
+              & $signtool @signArgs 2>&1
+              if ($LASTEXITCODE -eq 0) {
+                Write-Host "  Successfully signed CopilotButton.exe with $ts"
+                $signed = $true
+                break
+              }
+            }
+            if (-not $signed) {
+              throw "Failed to sign CopilotButton.exe on all timestamp servers."
+            }
+            & $signtool verify /pa /v $file 2>&1
+            Write-Host "Signature verified for CopilotButton.exe."
+          } finally {
+            Remove-Item -Path $pfxPath -Force -ErrorAction SilentlyContinue
+          }
 
       # ── Package Distribution Files ────────────────────────
       - name: Package Distribution Files
