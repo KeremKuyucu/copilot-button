@@ -2,7 +2,7 @@
 # Copilot Button – GitHub Actions Release Pipeline
 # ============================================================
 # Triggers:
-#   - Push of a version tag (v2.x.x)
+#   - Push of a version tag (v*)
 #   - Manual dispatch (workflow_dispatch)
 #
 # Process:
@@ -11,9 +11,8 @@
 #   3. Setup MinGW C++20 toolchain (GCC + windres)
 #   4. Configure & Build engine with CMake
 #   5. Code sign CopilotButton.exe (SignTool + RFC 3161 timestamping)
-#   6. Package distribution files (CopilotButton.exe + SHA-256 checksum)
-#   7. Generate SHA-256 checksums
-#   8. Upload artifacts & publish GitHub Release
+#   6. Package distribution files (CopilotButton.exe)
+#   7. Upload artifacts & publish GitHub Release
 # ============================================================
 
 name: Copilot Button Release

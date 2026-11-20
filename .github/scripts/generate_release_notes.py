@@ -180,7 +180,7 @@ Respond ONLY with a valid JSON object with a single key "release_notes":
             "responseMimeType": "application/json"
         }
     }
-1
+
     last_error = None
     for model in models:
         m = model.removeprefix("models/")

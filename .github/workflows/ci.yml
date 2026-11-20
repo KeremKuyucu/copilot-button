@@ -1,0 +1,60 @@
+name: Copilot Button CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build & Verify (Windows)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify Python scripts
+        shell: pwsh
+        run: |
+          python -m py_compile .github/scripts/generate_release_notes.py
+
+      - name: Setup MSYS2 UCRT64 Toolchain
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: false
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-binutils
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-cppwinrt
+
+      - name: Configure CMake
+        shell: msys2 {0}
+        run: |
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -G "Ninja"
+
+      - name: Build Binary (CMake)
+        shell: msys2 {0}
+        run: |
+          cmake --build build --config Release --parallel
+
+      - name: Verify Built Binary
+        shell: pwsh
+        run: |
+          $exe = "${{ github.workspace }}\CopilotButton.exe"
+          if (-not (Test-Path $exe)) {
+            throw "Compilation failed: CopilotButton.exe not found at $exe"
+          }
+          $sizeKB = [math]::Round((Get-Item $exe).Length / 1KB, 2)
+          Write-Host "CopilotButton.exe built successfully ($sizeKB KB)"
