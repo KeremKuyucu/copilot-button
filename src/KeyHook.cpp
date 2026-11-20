@@ -31,11 +31,11 @@ static bool IsOurInjectedKey(const KBDLLHOOKSTRUCT* kb) {
 }
 
 static bool IsWinKey(DWORD vk) {
-    return (vk == VK_LWIN || vk == VK_RWIN);
+    return (vk == VK_LWIN);
 }
 
 static bool IsShiftKey(DWORD vk) {
-    return (vk == VK_LSHIFT || vk == VK_RSHIFT || vk == VK_SHIFT);
+    return (vk == VK_LSHIFT);
 }
 
 static bool IsCopilotKey(const KBDLLHOOKSTRUCT* kb) {
@@ -96,15 +96,19 @@ static void SendWinShiftTap() {
     for (int i = 0; i < 4; ++i) in[i].type = INPUT_KEYBOARD;
 
     in[0].ki.wVk = VK_LWIN;
+    in[0].ki.wScan = static_cast<WORD>(MapVirtualKeyW(VK_LWIN, MAPVK_VK_TO_VSC));
     in[0].ki.dwFlags = KEYEVENTF_EXTENDEDKEY;
 
     in[1].ki.wVk = VK_LSHIFT;
+    in[1].ki.wScan = static_cast<WORD>(MapVirtualKeyW(VK_LSHIFT, MAPVK_VK_TO_VSC));
     in[1].ki.dwFlags = 0;
 
     in[2].ki.wVk = VK_LSHIFT;
+    in[2].ki.wScan = static_cast<WORD>(MapVirtualKeyW(VK_LSHIFT, MAPVK_VK_TO_VSC));
     in[2].ki.dwFlags = KEYEVENTF_KEYUP;
 
     in[3].ki.wVk = VK_LWIN;
+    in[3].ki.wScan = static_cast<WORD>(MapVirtualKeyW(VK_LWIN, MAPVK_VK_TO_VSC));
     in[3].ki.dwFlags = KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP;
 
     for (int i = 0; i < 4; ++i) in[i].ki.dwExtraInfo = MAGIC_INJECTED_TAG;
@@ -128,8 +132,10 @@ static void SendWinAndShiftDown() {
     INPUT in[2] = {};
     in[0].type = in[1].type = INPUT_KEYBOARD;
     in[0].ki.wVk = VK_LWIN;
+    in[0].ki.wScan = static_cast<WORD>(MapVirtualKeyW(VK_LWIN, MAPVK_VK_TO_VSC));
     in[0].ki.dwFlags = KEYEVENTF_EXTENDEDKEY;
     in[1].ki.wVk = VK_LSHIFT;
+    in[1].ki.wScan = static_cast<WORD>(MapVirtualKeyW(VK_LSHIFT, MAPVK_VK_TO_VSC));
     in[1].ki.dwFlags = 0;
     in[0].ki.dwExtraInfo = in[1].ki.dwExtraInfo = MAGIC_INJECTED_TAG;
     SendInput(2, in, sizeof(INPUT));
@@ -138,10 +144,11 @@ static void SendWinAndShiftDown() {
 // ─────────────────────────────────────────────
 //  Kurulum / Kaldırma
 // ─────────────────────────────────────────────
-bool KeyHook::Install(ActionCallback cb, HWND msgWnd) {
-    m_callback = std::move(cb);
-    m_msgWnd   = msgWnd;
-    s_instance = this;
+bool KeyHook::Install(ActionCallback cb, HWND msgWnd, MicStateCallback onMicChanged) {
+    m_callback     = std::move(cb);
+    m_msgWnd       = msgWnd;
+    m_onMicChanged = std::move(onMicChanged);
+    s_instance     = this;
     m_hook = SetWindowsHookExW(WH_KEYBOARD_LL, LowLevelProc, GetModuleHandleW(nullptr), 0);
     return m_hook != nullptr;
 }
@@ -155,6 +162,10 @@ void KeyHook::Uninstall() {
         KillTimer(m_msgWnd, TIMER_ID_MULTIPRESS);
         KillTimer(m_msgWnd, TIMER_ID_WIN_PASS);
         KillTimer(m_msgWnd, TIMER_ID_SHIFT_PASS);
+    }
+    if (m_pttActive) {
+        m_pttActive = false;
+        SetMicMuteState(true);
     }
 }
 
@@ -211,6 +222,7 @@ void CALLBACK KeyHook::OnHoldTimer(HWND hw, UINT, UINT_PTR, DWORD) {
     if (h->m_cfg.holdAction == Action::PushToTalk) {
         h->m_pttActive = true;
         SetMicMuteState(false);
+        if (h->m_onMicChanged) h->m_onMicChanged(false);
         if (h->m_cfg.soundFxEnabled) PlayMicSound(false);
         OsdManager::Instance().ShowTip(L"🎙️ PTT — Active");
     } else if (h->m_cfg.holdAction != Action::None) {
@@ -271,7 +283,6 @@ LRESULT CALLBACK KeyHook::LowLevelProc(int nCode, WPARAM wParam, LPARAM lParam) 
             }
 
             h->m_copState = CopState::Waiting;
-            h->m_winSuppressed = true;
             KillTimer(h->m_msgWnd, TIMER_ID_WIN_PASS);
             SetTimer(h->m_msgWnd, TIMER_ID_WIN_PASS, 25, OnWinPassTimer);
             return 1;
@@ -279,7 +290,6 @@ LRESULT CALLBACK KeyHook::LowLevelProc(int nCode, WPARAM wParam, LPARAM lParam) 
             ULONGLONG now = GetTickCount64();
             // Copilot henüz bırakıldıysa trailing Win Up sinyalini tamamen yut
             if (h->m_copState == CopState::Copilot || now < h->m_copilotJustReleased) {
-                h->m_winSuppressed = false;
                 return 1;
             }
 
@@ -288,16 +298,13 @@ LRESULT CALLBACK KeyHook::LowLevelProc(int nCode, WPARAM wParam, LPARAM lParam) 
                 h->m_copState = CopState::Idle;
                 if (h->m_shiftSuppressed) {
                     h->m_shiftSuppressed = false;
-                    h->m_winSuppressed = false;
                     SendWinShiftTap();
                 } else {
-                    h->m_winSuppressed = false;
                     SendWinTap();
                 }
                 return 1;
             } else if (h->m_copState == CopState::Passed) {
                 h->m_copState = CopState::Idle;
-                h->m_winSuppressed = false;
                 SendWinUp();
                 return 1;
             }
@@ -362,7 +369,6 @@ LRESULT CALLBACK KeyHook::LowLevelProc(int nCode, WPARAM wParam, LPARAM lParam) 
             h->m_copState = CopState::Copilot;
             h->m_shiftState = ShiftState::Idle;
             h->m_shiftSuppressed = false;
-            h->m_winSuppressed = false;
 
             if (h->m_isKeyDown)
                 return 1; // Donanım auto-repeat: yut ve çık
@@ -391,6 +397,7 @@ LRESULT CALLBACK KeyHook::LowLevelProc(int nCode, WPARAM wParam, LPARAM lParam) 
             if (h->m_pttActive) {
                 h->m_pttActive = false;
                 SetMicMuteState(true);
+                if (h->m_onMicChanged) h->m_onMicChanged(true);
                 if (h->m_cfg.soundFxEnabled) PlayMicSound(true);
                 OsdManager::Instance().ShowTip(L"🎙️ PTT — Muted");
                 return 1;

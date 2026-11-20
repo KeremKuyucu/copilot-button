@@ -7,6 +7,7 @@
 #include <shlwapi.h>
 #include <gdiplus.h>
 #include <algorithm>
+#include <memory>
 
 #pragma comment(lib, "user32.lib")
 #pragma comment(lib, "gdi32.lib")
@@ -80,13 +81,35 @@ static void HookTaskbarEvents() {
     }
 }
 
+static UINT GetEffectiveDpi(HWND hwnd) {
+    using GetDpiForWindowFn = UINT(WINAPI*)(HWND);
+    static auto pGetDpiForWindow = reinterpret_cast<GetDpiForWindowFn>(
+        reinterpret_cast<INT_PTR>(GetProcAddress(GetModuleHandleW(L"user32.dll"), "GetDpiForWindow")));
+    if (pGetDpiForWindow && hwnd) {
+        UINT dpi = pGetDpiForWindow(hwnd);
+        if (dpi > 0) return dpi;
+    }
+    HDC hdc = GetDC(hwnd);
+    UINT dpi = 96;
+    if (hdc) {
+        int logY = GetDeviceCaps(hdc, LOGPIXELSY);
+        if (logY > 0) dpi = static_cast<UINT>(logY);
+        ReleaseDC(hwnd, hdc);
+    }
+    return dpi;
+}
+
+static int ScaleDpi(int px96, UINT dpi) {
+    return MulDiv(px96, static_cast<int>(dpi), 96);
+}
+
 static HBITMAP DecodeThumbnail(const std::vector<uint8_t>& data, int targetW, int targetH) {
     if (data.empty()) return nullptr;
 
     IStream* pStream = SHCreateMemStream(data.data(), static_cast<UINT>(data.size()));
     if (!pStream) return nullptr;
 
-    Gdiplus::Bitmap* bmp = Gdiplus::Bitmap::FromStream(pStream);
+    std::unique_ptr<Gdiplus::Bitmap> bmp(Gdiplus::Bitmap::FromStream(pStream));
     HBITMAP hResult = nullptr;
     if (bmp && bmp->GetLastStatus() == Gdiplus::Ok) {
         HDC hdcScreen = GetDC(nullptr);
@@ -97,14 +120,13 @@ static HBITMAP DecodeThumbnail(const std::vector<uint8_t>& data, int targetW, in
         Gdiplus::Graphics g(hdcMem);
         g.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
         g.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHalf);
-        g.DrawImage(bmp, 0, 0, targetW, targetH);
+        g.DrawImage(bmp.get(), 0, 0, targetW, targetH);
 
         SelectObject(hdcMem, oldBmp);
         DeleteDC(hdcMem);
         ReleaseDC(nullptr, hdcScreen);
-
-        delete bmp;
     }
+    bmp.reset();
     pStream->Release();
     return hResult;
 }
@@ -200,6 +222,7 @@ void OsdManager::Destroy() {
         DeleteObject(m_mediaThumbBmp);
         m_mediaThumbBmp = nullptr;
     }
+    m_mediaThumbSize = 0;
     m_mediaThumbData.clear();
 }
 
@@ -242,6 +265,8 @@ bool OsdManager::CreateTipWindow() {
 }
 
 void OsdManager::PositionTipWindow(int textW, int textH) {
+    UINT dpi = GetEffectiveDpi(m_tipHwnd);
+
     RECT workArea = {};
     if (!SystemParametersInfoW(SPI_GETWORKAREA, 0, &workArea, 0)) {
         workArea.left   = 0;
@@ -253,37 +278,43 @@ void OsdManager::PositionTipWindow(int textW, int textH) {
     int workW = workArea.right - workArea.left;
     int workH = workArea.bottom - workArea.top;
 
-    int padX = 28;
-    int padY = 14;
-    m_tipWidth  = (std::max)(textW + padX, 140);
-    m_tipHeight = (std::max)(textH + padY, 36);
+    int padX = ScaleDpi(28, dpi);
+    int padY = ScaleDpi(14, dpi);
+    m_tipWidth  = (std::max)(textW + padX, ScaleDpi(140, dpi));
+    m_tipHeight = (std::max)(textH + padY, ScaleDpi(36, dpi));
 
-    int x = workArea.left + 20;
-    int y = workArea.top + 55;
+    int offXLeft  = ScaleDpi(20, dpi);
+    int offXSide  = ScaleDpi(24, dpi);
+    int offYTop   = ScaleDpi(55, dpi);
+    int offYBot   = ScaleDpi(12, dpi);
+
+    int x = workArea.left + offXLeft;
+    int y = workArea.top + offYTop;
 
     if (m_cfg.osdPosition == L"TopRight") {
-        x = workArea.right - m_tipWidth - 24;
-        y = workArea.top + 55;
+        x = workArea.right - m_tipWidth - offXSide;
+        y = workArea.top + offYTop;
     } else if (m_cfg.osdPosition == L"BottomLeft") {
-        x = workArea.left + 24;
-        y = workArea.bottom - m_tipHeight - 12;
+        x = workArea.left + offXSide;
+        y = workArea.bottom - m_tipHeight - offYBot;
     } else if (m_cfg.osdPosition == L"BottomRight") {
-        x = workArea.right - m_tipWidth - 24;
-        y = workArea.bottom - m_tipHeight - 12;
+        x = workArea.right - m_tipWidth - offXSide;
+        y = workArea.bottom - m_tipHeight - offYBot;
     } else if (m_cfg.osdPosition == L"Center") {
         x = workArea.left + (workW - m_tipWidth) / 2;
         y = workArea.top + (workH - m_tipHeight) / 2;
     } else {
         // TopLeft
-        x = workArea.left + 20;
-        y = workArea.top + 55;
+        x = workArea.left + offXLeft;
+        y = workArea.top + offYTop;
     }
 
     SetWindowPos(m_tipHwnd, HWND_TOPMOST, x, y, m_tipWidth, m_tipHeight,
                  SWP_NOACTIVATE);
 
     // Pencere bölgesini yuvarlak köşeyle kırp (köşe artıklarını engeller)
-    HRGN hRgn = CreateRoundRectRgn(0, 0, m_tipWidth + 1, m_tipHeight + 1, 10, 10);
+    int radius = ScaleDpi(10, dpi);
+    HRGN hRgn = CreateRoundRectRgn(0, 0, m_tipWidth + 1, m_tipHeight + 1, radius, radius);
     if (hRgn) SetWindowRgn(m_tipHwnd, hRgn, TRUE);
 }
 
@@ -295,10 +326,12 @@ void OsdManager::ShowTip(const std::wstring& msg, DWORD durationMs) {
     m_tipText = msg;
     m_tipDuration = (durationMs > 0) ? durationMs : m_cfg.osdDurationMs;
 
+    UINT dpi = GetEffectiveDpi(m_tipHwnd);
+
     // Metin boyutunu hesapla
     HDC hdc = GetDC(m_tipHwnd);
     HFONT font = CreateFontW(
-        -MulDiv(m_cfg.osdFontSize, GetDeviceCaps(hdc, LOGPIXELSY), 72),
+        -MulDiv(m_cfg.osdFontSize, static_cast<int>(dpi), 72),
         0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
         CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
@@ -344,6 +377,10 @@ void OsdManager::OnPaintTip(HWND hwnd) {
     int w = rc.right - rc.left;
     int h = rc.bottom - rc.top;
 
+    UINT dpi = GetEffectiveDpi(hwnd);
+    int radius = ScaleDpi(10, dpi);
+    int insetX = ScaleDpi(14, dpi);
+
     HDC memDC = CreateCompatibleDC(hdc);
     HBITMAP memBmp = CreateCompatibleBitmap(hdc, w, h);
     HGDIOBJ oldBmp = SelectObject(memDC, memBmp);
@@ -354,11 +391,11 @@ void OsdManager::OnPaintTip(HWND hwnd) {
     HGDIOBJ oldBrush = SelectObject(memDC, bgBrush);
     HGDIOBJ oldPen   = SelectObject(memDC, borderPen);
 
-    RoundRect(memDC, 0, 0, w, h, 10, 10);
+    RoundRect(memDC, 0, 0, w, h, radius, radius);
 
     // Metin çizimi
     HFONT font = CreateFontW(
-        -MulDiv(m_cfg.osdFontSize, GetDeviceCaps(memDC, LOGPIXELSY), 72),
+        -MulDiv(m_cfg.osdFontSize, static_cast<int>(dpi), 72),
         0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
         CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
@@ -368,7 +405,7 @@ void OsdManager::OnPaintTip(HWND hwnd) {
     SetBkMode(memDC, TRANSPARENT);
     SetTextColor(memDC, m_cfg.osdColor);
 
-    RECT textRc = { 14, 0, w - 14, h };
+    RECT textRc = { insetX, 0, w - insetX, h };
     DrawTextW(memDC, m_tipText.c_str(), -1, &textRc,
               DT_SINGLELINE | DT_VCENTER | DT_CENTER);
 
@@ -614,23 +651,36 @@ bool OsdManager::IsTaskbarVisible() {
 }
 
 RECT OsdManager::GetNextBtnRect(int w, int h) const {
-    int btnW = 24, btnH = 24;
-    int rightX = w - 6 - btnW;
-    int y = (h - btnH) / 2;
+    UINT dpi   = GetEffectiveDpi(m_mediaHwnd);
+    int btnW   = ScaleDpi(24, dpi);
+    int btnH   = ScaleDpi(24, dpi);
+    int padR   = ScaleDpi(6, dpi);
+    int rightX = w - padR - btnW;
+    int y      = (h - btnH) / 2;
     return { rightX, y, rightX + btnW, y + btnH };
 }
 
 RECT OsdManager::GetPlayBtnRect(int w, int h) const {
-    int btnW = 26, btnH = 26;
-    int rightX = w - 6 - 24 - 8 - btnW;
-    int y = (h - btnH) / 2;
+    UINT dpi   = GetEffectiveDpi(m_mediaHwnd);
+    int btn24  = ScaleDpi(24, dpi);
+    int btnW   = ScaleDpi(26, dpi);
+    int btnH   = ScaleDpi(26, dpi);
+    int padR   = ScaleDpi(6, dpi);
+    int gap    = ScaleDpi(8, dpi);
+    int rightX = w - padR - btn24 - gap - btnW;
+    int y      = (h - btnH) / 2;
     return { rightX, y, rightX + btnW, y + btnH };
 }
 
 RECT OsdManager::GetPrevBtnRect(int w, int h) const {
-    int btnW = 24, btnH = 24;
-    int rightX = w - 6 - 24 - 8 - 26 - 8 - btnW;
-    int y = (h - btnH) / 2;
+    UINT dpi   = GetEffectiveDpi(m_mediaHwnd);
+    int btnW   = ScaleDpi(24, dpi);
+    int btnH   = ScaleDpi(24, dpi);
+    int btn26  = ScaleDpi(26, dpi);
+    int padR   = ScaleDpi(6, dpi);
+    int gap    = ScaleDpi(8, dpi);
+    int rightX = w - padR - btnW - gap - btn26 - gap - btnW;
+    int y      = (h - btnH) / 2;
     return { rightX, y, rightX + btnW, y + btnH };
 }
 
@@ -648,6 +698,7 @@ MediaCardButton OsdManager::HitTestMediaButton(int x, int y, int w, int h) const
 void OsdManager::PositionMediaWindow(int textW, int textH) {
     (void)textH;
     m_mediaTextW = textW;
+    UINT dpi = GetEffectiveDpi(m_mediaHwnd);
 
     // Görev çubuğunun gerçek ekran koordinatlarını al
     HWND hTaskbar = FindWindowW(L"Shell_TrayWnd", nullptr);
@@ -665,37 +716,43 @@ void OsdManager::PositionMediaWindow(int textW, int textH) {
     int workW = workArea.right - workArea.left;
     int workH = workArea.bottom - workArea.top;
 
-    int tbH = hasTb ? (rcTb.bottom - rcTb.top) : 48;
+    int tbH = hasTb ? (rcTb.bottom - rcTb.top) : ScaleDpi(48, dpi);
 
-    // Resim 2'deki gibi 2 satır metin ve 32x32 kare thumbnail için ideal yükseklik (36-40px)
-    m_mediaHeight = (tbH >= 42) ? 38 : 34;
-    // [Sol Thumbnail: 40px] + [Metin: textW] + [3 Buton: 96px] + kenar payı
-    m_mediaWidth  = (std::clamp)(textW + 160, 220, 480);
+    // 2 satır metin ve kare thumbnail için DPI duyarlı yükseklik
+    m_mediaHeight = (tbH >= ScaleDpi(42, dpi)) ? ScaleDpi(38, dpi) : ScaleDpi(34, dpi);
+    // [Sol Thumbnail] + [Metin: textW] + [3 Buton] + kenar payı
+    m_mediaWidth  = (std::clamp)(textW + ScaleDpi(160, dpi), ScaleDpi(220, dpi), ScaleDpi(480, dpi));
 
     std::wstring pos = m_cfg.mediaOsdPosition;
     if (pos.empty()) {
         pos = m_cfg.mediaOsdPersistent ? L"BottomLeft" : m_cfg.osdPosition;
     }
 
-    int x = 12;
-    int y = hasTb ? (rcTb.top + (tbH - m_mediaHeight) / 2) : (workArea.bottom - m_mediaHeight - 8);
+    int offX12 = ScaleDpi(12, dpi);
+    int offX20 = ScaleDpi(20, dpi);
+    int offX24 = ScaleDpi(24, dpi);
+    int offY8  = ScaleDpi(8, dpi);
+    int offY55 = ScaleDpi(55, dpi);
+
+    int x = offX12;
+    int y = hasTb ? (rcTb.top + (tbH - m_mediaHeight) / 2) : (workArea.bottom - m_mediaHeight - offY8);
 
     if (pos == L"BottomLeft") {
         // Doğrudan görev çubuğunun sol tarafında, dikeyde ortalı
-        x = hasTb ? (rcTb.left + 12) : (workArea.left + 12);
-        y = hasTb ? (rcTb.top + (tbH - m_mediaHeight) / 2) : (workArea.bottom - m_mediaHeight - 8);
+        x = (hasTb ? rcTb.left : workArea.left) + offX12;
+        y = hasTb ? (rcTb.top + (tbH - m_mediaHeight) / 2) : (workArea.bottom - m_mediaHeight - offY8);
     } else if (pos == L"BottomRight") {
-        x = (hasTb ? rcTb.right : workArea.right) - m_mediaWidth - 24;
-        y = hasTb ? (rcTb.top + (tbH - m_mediaHeight) / 2) : (workArea.bottom - m_mediaHeight - 8);
+        x = (hasTb ? rcTb.right : workArea.right) - m_mediaWidth - offX24;
+        y = hasTb ? (rcTb.top + (tbH - m_mediaHeight) / 2) : (workArea.bottom - m_mediaHeight - offY8);
     } else if (pos == L"Center") {
         x = workArea.left + (workW - m_mediaWidth) / 2;
         y = workArea.top + (workH - m_mediaHeight) / 2;
     } else if (pos == L"TopLeft") {
-        x = workArea.left + 20;
-        y = workArea.top + 55;
+        x = workArea.left + offX20;
+        y = workArea.top + offY55;
     } else if (pos == L"TopRight") {
-        x = workArea.right - m_mediaWidth - 24;
-        y = workArea.top + 55;
+        x = workArea.right - m_mediaWidth - offX24;
+        y = workArea.top + offY55;
     }
 
     SetWindowPos(m_mediaHwnd, HWND_TOPMOST, x, y, m_mediaWidth, m_mediaHeight, SWP_NOACTIVATE);
@@ -792,14 +849,22 @@ void OsdManager::ShowMediaTrack(const std::wstring& songTitle,
     m_isMediaPlaying = isPlaying;
     m_hasActiveMedia = true;
 
-    if (thumbChanged) {
+    UINT dpi = GetEffectiveDpi(m_mediaHwnd);
+    int thumbSize = ScaleDpi(30, dpi);
+    bool thumbResize = (!thumbnailData.empty() && m_mediaThumbSize != thumbSize);
+
+    if (thumbChanged || thumbResize) {
         m_mediaThumbData = thumbnailData;
         if (m_mediaThumbBmp) {
             DeleteObject(m_mediaThumbBmp);
             m_mediaThumbBmp = nullptr;
         }
+        m_mediaThumbSize = 0;
         if (!m_mediaThumbData.empty()) {
-            m_mediaThumbBmp = DecodeThumbnail(m_mediaThumbData, 30, 30);
+            m_mediaThumbBmp = DecodeThumbnail(m_mediaThumbData, thumbSize, thumbSize);
+            if (m_mediaThumbBmp) {
+                m_mediaThumbSize = thumbSize;
+            }
         }
     }
 
@@ -808,13 +873,13 @@ void OsdManager::ShowMediaTrack(const std::wstring& songTitle,
     // İki satır metin genişliğini ölç
     HDC hdc = GetDC(m_mediaHwnd);
     HFONT fontTitle = CreateFontW(
-        -13, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
+        -ScaleDpi(13, dpi), 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
         CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
         L"Segoe UI"
     );
     HFONT fontArtist = CreateFontW(
-        -11, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+        -ScaleDpi(11, dpi), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
         CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
         L"Segoe UI"
@@ -835,7 +900,7 @@ void OsdManager::ShowMediaTrack(const std::wstring& songTitle,
     DeleteObject(fontArtist);
     ReleaseDC(m_mediaHwnd, hdc);
 
-    int textW = (std::clamp)((std::max)(titleW, artistW), 60, 240);
+    int textW = (std::clamp)((std::max)(titleW, artistW), ScaleDpi(60, dpi), ScaleDpi(240, dpi));
     PositionMediaWindow(textW, m_mediaHeight);
 
     if (m_cfg.mediaOsdPersistent) {
@@ -849,11 +914,11 @@ void OsdManager::ShowMediaTrack(const std::wstring& songTitle,
 
         m_suppressedByFullscreen = false;
 
-        if (IsWindowVisible(m_mediaHwnd) && !trackChanged && !playChanged && !thumbChanged) {
+        if (IsWindowVisible(m_mediaHwnd) && !trackChanged && !playChanged && !thumbChanged && !thumbResize) {
             return;
         }
 
-        if (IsWindowVisible(m_mediaHwnd) && (trackChanged || playChanged || thumbChanged)) {
+        if (IsWindowVisible(m_mediaHwnd) && (trackChanged || playChanged || thumbChanged || thumbResize)) {
             InvalidateRect(m_mediaHwnd, nullptr, TRUE);
             UpdateWindow(m_mediaHwnd);
             return;
@@ -905,6 +970,8 @@ void OsdManager::OnPaintMedia(HWND hwnd) {
     int w = rc.right - rc.left;
     int h = rc.bottom - rc.top;
 
+    UINT dpi = GetEffectiveDpi(hwnd);
+
     HDC memDC = CreateCompatibleDC(hdc);
     HBITMAP memBmp = CreateCompatibleBitmap(hdc, w, h);
     HGDIOBJ oldBmp = SelectObject(memDC, memBmp);
@@ -915,11 +982,12 @@ void OsdManager::OnPaintMedia(HWND hwnd) {
     DeleteObject(bgBrush);
 
     // 2. Sol Küçük Kare Albüm / Medya Rozeti (4-6px hafif yuvarlatılmış kare)
-    int thumbSize = 30;
-    int thumbX = 8;
-    int thumbY = (h - thumbSize) / 2;
+    int thumbSize   = ScaleDpi(30, dpi);
+    int thumbX      = ScaleDpi(8, dpi);
+    int thumbY      = (h - thumbSize) / 2;
+    int thumbRadius = ScaleDpi(6, dpi);
 
-    HRGN clipRgn = CreateRoundRectRgn(thumbX, thumbY, thumbX + thumbSize + 1, thumbY + thumbSize + 1, 6, 6);
+    HRGN clipRgn = CreateRoundRectRgn(thumbX, thumbY, thumbX + thumbSize + 1, thumbY + thumbSize + 1, thumbRadius, thumbRadius);
 
     if (m_mediaThumbBmp) {
         // Şarkının gerçek albüm kapağı resmi
@@ -927,7 +995,13 @@ void OsdManager::OnPaintMedia(HWND hwnd) {
         HGDIOBJ oldThumb = SelectObject(bmpDC, m_mediaThumbBmp);
 
         SelectClipRgn(memDC, clipRgn);
-        BitBlt(memDC, thumbX, thumbY, thumbSize, thumbSize, bmpDC, 0, 0, SRCCOPY);
+        if (m_mediaThumbSize > 0 && m_mediaThumbSize != thumbSize) {
+            SetStretchBltMode(memDC, HALFTONE);
+            StretchBlt(memDC, thumbX, thumbY, thumbSize, thumbSize,
+                       bmpDC, 0, 0, m_mediaThumbSize, m_mediaThumbSize, SRCCOPY);
+        } else {
+            BitBlt(memDC, thumbX, thumbY, thumbSize, thumbSize, bmpDC, 0, 0, SRCCOPY);
+        }
         SelectClipRgn(memDC, nullptr);
 
         SelectObject(bmpDC, oldThumb);
@@ -938,7 +1012,7 @@ void OsdManager::OnPaintMedia(HWND hwnd) {
         HPEN thumbPen  = CreatePen(PS_SOLID, 1, RGB(45, 58, 78));
         HGDIOBJ oldTbB = SelectObject(memDC, thumbBg);
         HGDIOBJ oldTbP = SelectObject(memDC, thumbPen);
-        RoundRect(memDC, thumbX, thumbY, thumbX + thumbSize, thumbY + thumbSize, 6, 6);
+        RoundRect(memDC, thumbX, thumbY, thumbX + thumbSize, thumbY + thumbSize, thumbRadius, thumbRadius);
         SelectObject(memDC, oldTbB);
         SelectObject(memDC, oldTbP);
         DeleteObject(thumbBg);
@@ -947,7 +1021,7 @@ void OsdManager::OnPaintMedia(HWND hwnd) {
         if (m_isMediaPlaying) {
             SetBkMode(memDC, TRANSPARENT);
             HFONT noteFont = CreateFontW(
-                -12, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+                -ScaleDpi(12, dpi), 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
                 DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                 CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
                 L"Segoe UI"
@@ -984,14 +1058,18 @@ void OsdManager::OnPaintMedia(HWND hwnd) {
         DeleteDC(overlayDC);
 
         // Beyaz yuvarlatılmış duraklatma simgesi
-        int tcx = thumbX + thumbSize / 2;
-        int tcy = thumbY + thumbSize / 2;
+        int tcx    = thumbX + thumbSize / 2;
+        int tcy    = thumbY + thumbSize / 2;
+        int barGap = (std::max)(1, ScaleDpi(1, dpi));
+        int barW   = (std::max)(2, ScaleDpi(4, dpi));
+        int barH   = ScaleDpi(7, dpi);
+        int barRad = ScaleDpi(3, dpi);
         HBRUSH barBrush = CreateSolidBrush(RGB(255, 255, 255));
         HPEN barPen     = CreatePen(PS_SOLID, 1, RGB(255, 255, 255));
         HGDIOBJ oldBarB = SelectObject(memDC, barBrush);
         HGDIOBJ oldBarP = SelectObject(memDC, barPen);
-        RoundRect(memDC, tcx - 5, tcy - 7, tcx - 1, tcy + 7, 3, 3);
-        RoundRect(memDC, tcx + 1, tcy - 7, tcx + 5, tcy + 7, 3, 3);
+        RoundRect(memDC, tcx - barGap - barW, tcy - barH, tcx - barGap, tcy + barH, barRad, barRad);
+        RoundRect(memDC, tcx + barGap, tcy - barH, tcx + barGap + barW, tcy + barH, barRad, barRad);
         SelectObject(memDC, oldBarB);
         SelectObject(memDC, oldBarP);
         DeleteObject(barBrush);
@@ -1002,7 +1080,7 @@ void OsdManager::OnPaintMedia(HWND hwnd) {
     HPEN borderPen = CreatePen(PS_SOLID, 1, RGB(45, 58, 78));
     HGDIOBJ oldBp = SelectObject(memDC, borderPen);
     HGDIOBJ oldBb = SelectObject(memDC, GetStockObject(NULL_BRUSH));
-    RoundRect(memDC, thumbX, thumbY, thumbX + thumbSize, thumbY + thumbSize, 6, 6);
+    RoundRect(memDC, thumbX, thumbY, thumbX + thumbSize, thumbY + thumbSize, thumbRadius, thumbRadius);
     SelectObject(memDC, oldBp);
     SelectObject(memDC, oldBb);
     DeleteObject(borderPen);
@@ -1015,6 +1093,8 @@ void OsdManager::OnPaintMedia(HWND hwnd) {
     RECT rNext = GetNextBtnRect(w, h);
 
     COLORREF btnRestKey = RGB(13, 17, 21);
+    int btnRad = ScaleDpi(6, dpi);
+    int penW   = (std::max)(1, ScaleDpi(2, dpi));
 
     auto DrawBtnHoverOrHitbox = [&](const RECT& rBtn, bool isHovered) {
         if (isHovered) {
@@ -1022,7 +1102,7 @@ void OsdManager::OnPaintMedia(HWND hwnd) {
             HPEN hHovP  = CreatePen(PS_SOLID, 1, RGB(71, 85, 105));
             HGDIOBJ ob = SelectObject(memDC, hHov);
             HGDIOBJ op = SelectObject(memDC, hHovP);
-            RoundRect(memDC, rBtn.left, rBtn.top, rBtn.right, rBtn.bottom, 6, 6);
+            RoundRect(memDC, rBtn.left, rBtn.top, rBtn.right, rBtn.bottom, btnRad, btnRad);
             SelectObject(memDC, ob);
             SelectObject(memDC, op);
             DeleteObject(hHov);
@@ -1032,7 +1112,7 @@ void OsdManager::OnPaintMedia(HWND hwnd) {
             HPEN hHitP  = CreatePen(PS_SOLID, 1, btnRestKey);
             HGDIOBJ ob = SelectObject(memDC, hHit);
             HGDIOBJ op = SelectObject(memDC, hHitP);
-            RoundRect(memDC, rBtn.left, rBtn.top, rBtn.right, rBtn.bottom, 6, 6);
+            RoundRect(memDC, rBtn.left, rBtn.top, rBtn.right, rBtn.bottom, btnRad, btnRad);
             SelectObject(memDC, ob);
             SelectObject(memDC, op);
             DeleteObject(hHit);
@@ -1045,15 +1125,20 @@ void OsdManager::OnPaintMedia(HWND hwnd) {
     DrawBtnHoverOrHitbox(rPrev, prevHover);
 
     COLORREF prevColor = prevHover ? RGB(255, 255, 255) : RGB(226, 232, 240);
-    HPEN prevPen = CreatePen(PS_SOLID, 2, prevColor);
+    HPEN prevPen = CreatePen(PS_SOLID, penW, prevColor);
     HGDIOBJ oldP = SelectObject(memDC, prevPen);
     HGDIOBJ oldNullB = SelectObject(memDC, GetStockObject(NULL_BRUSH)); // İçi boş (outline)
 
     int prevCx = (rPrev.left + rPrev.right) / 2;
     int prevCy = (rPrev.top + rPrev.bottom) / 2;
-    MoveToEx(memDC, prevCx - 6, prevCy - 6, nullptr);
-    LineTo(memDC, prevCx - 6, prevCy + 7);
-    POINT prevTri[3] = { { prevCx + 5, prevCy - 6 }, { prevCx + 5, prevCy + 6 }, { prevCx - 4, prevCy } };
+    int d6 = ScaleDpi(6, dpi);
+    int d7 = ScaleDpi(7, dpi);
+    int d5 = ScaleDpi(5, dpi);
+    int d4 = ScaleDpi(4, dpi);
+    int d3 = ScaleDpi(3, dpi);
+    MoveToEx(memDC, prevCx - d6, prevCy - d6, nullptr);
+    LineTo(memDC, prevCx - d6, prevCy + d7);
+    POINT prevTri[3] = { { prevCx + d5, prevCy - d6 }, { prevCx + d5, prevCy + d6 }, { prevCx - d4, prevCy } };
     Polygon(memDC, prevTri, 3);
     SelectObject(memDC, oldP);
     DeleteObject(prevPen);
@@ -1063,18 +1148,18 @@ void OsdManager::OnPaintMedia(HWND hwnd) {
     DrawBtnHoverOrHitbox(rPlay, playHover);
 
     COLORREF playColor = playHover ? RGB(255, 255, 255) : RGB(241, 245, 249);
-    HPEN playPen = CreatePen(PS_SOLID, 2, playColor);
+    HPEN playPen = CreatePen(PS_SOLID, penW, playColor);
     oldP = SelectObject(memDC, playPen);
     int playCx = (rPlay.left + rPlay.right) / 2;
     int playCy = (rPlay.top + rPlay.bottom) / 2;
 
     if (m_isMediaPlaying) {
-        MoveToEx(memDC, playCx - 4, playCy - 6, nullptr);
-        LineTo(memDC, playCx - 4, playCy + 7);
-        MoveToEx(memDC, playCx + 3, playCy - 6, nullptr);
-        LineTo(memDC, playCx + 3, playCy + 7);
+        MoveToEx(memDC, playCx - d4, playCy - d6, nullptr);
+        LineTo(memDC, playCx - d4, playCy + d7);
+        MoveToEx(memDC, playCx + d3, playCy - d6, nullptr);
+        LineTo(memDC, playCx + d3, playCy + d7);
     } else {
-        POINT playTri[3] = { { playCx - 4, playCy - 6 }, { playCx - 4, playCy + 6 }, { playCx + 6, playCy } };
+        POINT playTri[3] = { { playCx - d4, playCy - d6 }, { playCx - d4, playCy + d6 }, { playCx + d6, playCy } };
         Polygon(memDC, playTri, 3);
     }
     SelectObject(memDC, oldP);
@@ -1085,14 +1170,14 @@ void OsdManager::OnPaintMedia(HWND hwnd) {
     DrawBtnHoverOrHitbox(rNext, nextHover);
 
     COLORREF nextColor = nextHover ? RGB(255, 255, 255) : RGB(226, 232, 240);
-    HPEN nextPen = CreatePen(PS_SOLID, 2, nextColor);
+    HPEN nextPen = CreatePen(PS_SOLID, penW, nextColor);
     oldP = SelectObject(memDC, nextPen);
     int nextCx = (rNext.left + rNext.right) / 2;
     int nextCy = (rNext.top + rNext.bottom) / 2;
-    POINT nextTri[3] = { { nextCx - 5, nextCy - 6 }, { nextCx - 5, nextCy + 6 }, { nextCx + 4, nextCy } };
+    POINT nextTri[3] = { { nextCx - d5, nextCy - d6 }, { nextCx - d5, nextCy + d6 }, { nextCx + d4, nextCy } };
     Polygon(memDC, nextTri, 3);
-    MoveToEx(memDC, nextCx + 6, nextCy - 6, nullptr);
-    LineTo(memDC, nextCx + 6, nextCy + 7);
+    MoveToEx(memDC, nextCx + d6, nextCy - d6, nullptr);
+    LineTo(memDC, nextCx + d6, nextCy + d7);
     SelectObject(memDC, oldP);
     DeleteObject(nextPen);
     SelectObject(memDC, oldNullB);
@@ -1103,28 +1188,28 @@ void OsdManager::OnPaintMedia(HWND hwnd) {
     SetBkMode(memDC, TRANSPARENT);
 
     HFONT titleFont = CreateFontW(
-        -13, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
+        -ScaleDpi(13, dpi), 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
         CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
         L"Segoe UI"
     );
 
     HFONT artistFont = CreateFontW(
-        -11, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+        -ScaleDpi(11, dpi), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
         CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
         L"Segoe UI"
     );
 
-    int textLeft = thumbX + thumbSize + 10;
-    int maxTextRight = rPrev.left - 10;
+    int textLeft     = thumbX + thumbSize + ScaleDpi(10, dpi);
+    int maxTextRight = rPrev.left - ScaleDpi(10, dpi);
 
-    RECT rcLine1 = { textLeft, (h / 2) - 17, maxTextRight, (h / 2) + 1 };
+    RECT rcLine1 = { textLeft, (h / 2) - ScaleDpi(17, dpi), maxTextRight, (h / 2) + ScaleDpi(1, dpi) };
     HGDIOBJ oldF = SelectObject(memDC, titleFont);
     SetTextColor(memDC, RGB(255, 255, 255));
     DrawTextW(memDC, m_mediaTitle.c_str(), -1, &rcLine1, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
 
-    RECT rcLine2 = { textLeft, (h / 2) + 1, maxTextRight, (h / 2) + 16 };
+    RECT rcLine2 = { textLeft, (h / 2) + ScaleDpi(1, dpi), maxTextRight, (h / 2) + ScaleDpi(16, dpi) };
     SelectObject(memDC, artistFont);
     SetTextColor(memDC, RGB(148, 163, 184));
     DrawTextW(memDC, m_mediaArtist.c_str(), -1, &rcLine2, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);

@@ -8,14 +8,8 @@
 #include <string>
 #include <vector>
 #include <functional>
-#include <mutex>
+#include <memory>
 #include <thread>
-#include <atomic>
-
-// C++/WinRT başlıkları
-#include <winrt/Windows.Foundation.h>
-#include <winrt/Windows.Foundation.Collections.h>
-#include <winrt/Windows.Media.Control.h>
 
 struct TrackInfo {
     std::wstring          artist;
@@ -43,28 +37,9 @@ public:
     TrackInfo GetCurrentTrack() const;
 
 private:
-    void WorkerLoop();
-    void UpdateCurrentSession();
-    void RegisterSessionEvents();
-    void UnregisterSessionEvents();
-    void SyncMediaProperties();
-    void SyncPlaybackInfo();
+    struct Impl;
 
-    TrackChangeCallback m_callback;
-    mutable std::mutex  m_mutex;
-    TrackInfo           m_currentTrack;
-
-    std::mutex          m_sessionMutex;
-    std::thread         m_workerThread;
-    std::atomic<bool>   m_running{ false };
-
-    // WinRT Media nesneleri
-    winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSessionManager m_sessionManager{ nullptr };
-    winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSession        m_currentSession{ nullptr };
-
-    // Event dinleme token'ları
-    winrt::event_token m_sessionsChangedToken{};
-    winrt::event_token m_currentSessionChangedToken{};
-    winrt::event_token m_mediaPropertiesToken{};
-    winrt::event_token m_playbackInfoToken{};
+    std::shared_ptr<Impl> m_impl;
+    std::thread           m_workerThread;
+    std::thread           m_thumbThread;
 };

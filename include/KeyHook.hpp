@@ -14,14 +14,15 @@ static constexpr UINT TIMER_ID_MULTIPRESS = 2;  // Çok tık toplama (DoubleTapM
 static constexpr UINT TIMER_ID_WIN_PASS   = 3;  // 25ms Win geçirme gecikmesi (PassModifiers)
 static constexpr UINT TIMER_ID_SHIFT_PASS = 4;  // 15ms Shift geçirme gecikmesi (PassShiftOnly)
 
-using ActionCallback = std::function<void(Action)>;
+using ActionCallback   = std::function<void(Action)>;
+using MicStateCallback = std::function<void(bool isMuted)>;
 
 class KeyHook {
 public:
     KeyHook() = default;
     ~KeyHook();
 
-    bool Install(ActionCallback cb, HWND msgWnd);
+    bool Install(ActionCallback cb, HWND msgWnd, MicStateCallback onMicChanged = nullptr);
     void Uninstall();
     void UpdateConfig(const Config& cfg);
 
@@ -40,10 +41,11 @@ private:
 
     static KeyHook* s_instance;
 
-    HHOOK          m_hook        = nullptr;
-    HWND           m_msgWnd      = nullptr;   // SetTimer için pencere
-    ActionCallback m_callback;
-    Config         m_cfg;
+    HHOOK            m_hook        = nullptr;
+    HWND             m_msgWnd      = nullptr;   // SetTimer için pencere
+    ActionCallback   m_callback;
+    MicStateCallback m_onMicChanged;
+    Config           m_cfg;
 
     // ── Tuş durumu ──────────────────────────────────────────────────
     bool  m_isKeyDown       = false;
@@ -57,7 +59,6 @@ private:
 
     CopState   m_copState            = CopState::Idle;
     ShiftState m_shiftState          = ShiftState::Idle;
-    bool       m_winSuppressed       = false;
     bool       m_shiftSuppressed     = false;
     ULONGLONG  m_copilotJustReleased = 0;  // TickCount damgası (80ms trailing bastırma)
 };

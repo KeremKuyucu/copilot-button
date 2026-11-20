@@ -5,6 +5,12 @@
 #include <windows.h>
 #include <string>
 
+// Komut satırı bayrağı denetimi (büyük/küçük harf duyarsız, tam argüman eşleşmesi)
+bool HasCommandLineFlag(const wchar_t* flag);
+
+// Taşınabilir (Portable) mod denetimi: --portable / /portable veya exe yanında portable.flag
+bool IsPortableMode();
+
 // Uygulamayı Windows'a resmi bir uygulama olarak tanıtır:
 // - AUMID (AppUserModelID)
 // - Başlat menüsü kısayolu

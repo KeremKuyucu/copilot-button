@@ -38,6 +38,8 @@ void PlayMicSound(bool muted);
 //  Donanım kulaklık düğmesi veya Windows ayarlarından
 //  gelen değişiklikleri anında yakalar.
 // ─────────────────────────────────────────────
-using MicChangeCallback = std::function<void(bool isMuted)>;
-bool RegisterMicNotification(MicChangeCallback cb);
+using MicChangeCallback         = std::function<void(bool isMuted)>;
+using AudioDeviceChangeCallback = std::function<void()>;
+bool RegisterMicNotification(MicChangeCallback cb, AudioDeviceChangeCallback onDeviceChanged = nullptr);
+bool RefreshMicNotification();
 void UnregisterMicNotification();

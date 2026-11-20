@@ -106,7 +106,6 @@ flowchart TD
 | `LockScreen` | Instantly lock your Windows workstation | - |
 | `CustomApp` | Launch an application (`.exe`) or open a web URL | - |
 | `PushToTalk` | Unmute microphone while key is held, mute upon release | **Hold** |
-| `RunAgy` | Launch command in Windows Terminal / console at target folder | - |
 | `None` | Ignore key press / no action | **4 Taps** |
 
 ---
@@ -137,18 +136,11 @@ Action3=NextTrack
 ; 4-Taps Action
 Action4=None
 
-; Press-and-Hold Action (PushToTalk, CustomApp, or RunAgy)
+; Press-and-Hold Action (PushToTalk or CustomApp)
 HoldAction=PushToTalk
 
 ; Path or URL when CustomApp is selected (e.g. C:\Program Files\App.exe or https://gemini.google.com)
 CustomAppPath=
-
-; RunAgy options (working directory, command, terminal type: wt/cmd, optional F5 press, delay ms)
-AgyPath=
-AgyCommand=agy
-AgyTerminal=wt
-AgySendF5=0
-AgyDelayMs=1000
 
 ; ── System & Startup ──
 ; Auto-start with Windows (1 = Enabled, 0 = Disabled)
@@ -190,6 +182,10 @@ OsdFadeEnabled=1
 1. Download `CopilotButton.exe` from the [Latest Release](https://github.com/KeremKuyucu/copilot-button/releases/latest).
 2. Double-click to run.
 3. The app automatically relocates itself to `%LOCALAPPDATA%\CopilotButton\`, cleans up the downloaded file, registers with Windows, and runs in the system tray. If `AutoStart=1` in `config.ini`, it automatically launches on Windows startup.
+
+### Portable Mode & Uninstall
+- **Portable Mode**: Launch with `--portable` or place an empty `portable.flag` file next to `CopilotButton.exe`. In portable mode, the executable runs directly from its current folder, keeps `config.ini` in the same folder, and does not relocate or create registry/Task Scheduler/Start Menu entries.
+- **Uninstall**: Uninstall from **Windows Settings > Installed apps** or run `CopilotButton.exe --uninstall --silent`.
 
 ---
 
@@ -345,6 +341,10 @@ OsdFadeEnabled=1
 1. [En Son Sürüm](https://github.com/KeremKuyucu/copilot-button/releases/latest) sayfasından `CopilotButton.exe` dosyasını indirin.
 2. Çift tıklayarak çalıştırın.
 3. Uygulama kendini otomatik olarak `%LOCALAPPDATA%\CopilotButton\` klasörüne taşır, indirilen dosyayı temizler, Windows'a tanıtır ve sistem tepsisinde arka planda çalışmaya başlar. `config.ini` içinde `AutoStart=1` ise her Windows açılışında otomatik başlar.
+
+### Taşınabilir (Portable) Mod ve Kaldırma
+- **Taşınabilir Mod (Portable)**: Uygulamayı `--portable` parametresiyle çalıştırın veya `CopilotButton.exe` yanına boş bir `portable.flag` dosyası koyun. Bu modda uygulama kendini başka klasöre taşımaz, `config.ini` dosyasını kendi klasöründe tutar ve kayıt defteri/Başlat menüsü/Görev Zamanlayıcı kaydı oluşturmaz.
+- **Kaldırma**: **Windows Ayarları > Yüklü Uygulamalar** üzerinden veya `CopilotButton.exe --uninstall --silent` komutuyla kaldırabilirsiniz.
 
 ---
 

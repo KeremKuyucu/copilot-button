@@ -28,10 +28,11 @@
 // ─────────────────────────────────────────────
 //  Özel mesajlar (Thread-safe dahili bildirimler)
 // ─────────────────────────────────────────────
-static constexpr UINT WM_USER_MIC_STATE_CHANGED = WM_USER + 101;
-static constexpr UINT WM_USER_TRACK_CHANGED     = WM_USER + 102;
-static constexpr UINT WM_USER_CONFIG_CHANGED    = WM_USER + 103;
-static constexpr UINT WM_USER_APPBAR_NOTIFY     = WM_USER + 104;
+static constexpr UINT WM_USER_MIC_STATE_CHANGED    = WM_USER + 101;
+static constexpr UINT WM_USER_TRACK_CHANGED        = WM_USER + 102;
+static constexpr UINT WM_USER_CONFIG_CHANGED       = WM_USER + 103;
+static constexpr UINT WM_USER_APPBAR_NOTIFY        = WM_USER + 104;
+static constexpr UINT WM_USER_AUDIO_DEVICE_CHANGED = WM_USER + 105;
 
 static const wchar_t* APP_WND_CLASS   = L"CopilotButtonHost";
 static const wchar_t* APP_MUTEX_NAME  = L"Global\\CopilotButton_SingleInstance_Mutex";
@@ -43,6 +44,8 @@ static KeyHook*        g_pHook           = nullptr;
 static TrayManager*    g_pTray           = nullptr;
 static UINT            g_uTaskbarRestart = 0;
 static HANDLE          g_hAppMutex       = nullptr;
+static bool            g_isPortable      = false;
+static bool            g_lastAutoStart   = false;
 
 static LRESULT CALLBACK HostWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     if (msg == g_uTaskbarRestart) {
@@ -67,6 +70,13 @@ static LRESULT CALLBACK HostWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
         case WM_USER_MIC_STATE_CHANGED:
             if (g_pMicOverlay) {
                 g_pMicOverlay->SetMuted(wParam != 0);
+            }
+            return 0;
+
+        case WM_USER_AUDIO_DEVICE_CHANGED:
+            RefreshMicNotification();
+            if (g_pMicOverlay) {
+                g_pMicOverlay->SetMuted(GetMicMuteState());
             }
             return 0;
 
@@ -96,6 +106,9 @@ static LRESULT CALLBACK HostWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
             if (g_pCfgMgr) {
                 PostMessageW(hwnd, WM_USER_TRACK_CHANGED, 0, 0);
             }
+            if (g_pMicOverlay) {
+                g_pMicOverlay->RefreshPosition();
+            }
             OsdManager::Instance().CheckFullscreenAndTaskbarState();
             return 0;
 
@@ -106,7 +119,11 @@ static LRESULT CALLBACK HostWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
                     g_pHook->UpdateConfig(cfg);
                 }
                 OsdManager::Instance().UpdateConfig(cfg);
-                SetAutoStartRegistry(cfg.autoStart);
+                if (!g_isPortable && cfg.autoStart != g_lastAutoStart) {
+                    SetAutoStartRegistry(cfg.autoStart);
+                    g_lastAutoStart = cfg.autoStart;
+                }
+                PostMessageW(hwnd, WM_USER_TRACK_CHANGED, 0, 0);
             }
             return 0;
 
@@ -140,9 +157,7 @@ static void TerminateOldInstances() {
 
     if (Process32FirstW(snap, &entry)) {
         do {
-            if ((_wcsicmp(entry.szExeFile, L"Copilot.exe") == 0 ||
-                 _wcsicmp(entry.szExeFile, L"CopilotButton.exe") == 0 ||
-                 _wcsicmp(entry.szExeFile, L"CopilotButtonEngine.exe") == 0) &&
+            if (_wcsicmp(entry.szExeFile, L"CopilotButton.exe") == 0 &&
                 entry.th32ProcessID != currentPid) {
                 HANDLE hProc = OpenProcess(PROCESS_TERMINATE, FALSE, entry.th32ProcessID);
                 if (hProc) {
@@ -167,28 +182,34 @@ static bool EnsureSingleInstance() {
 // ─────────────────────────────────────────────
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
     // ── Kaldırma (Uninstall) argümanı denetimi ────────────────────────
-    const wchar_t* cmdLine = GetCommandLineW();
-    if (wcsstr(cmdLine, L"--uninstall") || wcsstr(cmdLine, L"/uninstall")) {
-        bool silent = (wcsstr(cmdLine, L"--silent") != nullptr ||
-                       wcsstr(cmdLine, L"/quiet")   != nullptr ||
-                       wcsstr(cmdLine, L"/qn")      != nullptr);
+    if (HasCommandLineFlag(L"--uninstall") || HasCommandLineFlag(L"/uninstall")) {
+        bool silent = (HasCommandLineFlag(L"--silent") ||
+                       HasCommandLineFlag(L"/silent")  ||
+                       HasCommandLineFlag(L"/quiet")   ||
+                       HasCommandLineFlag(L"/qn")      ||
+                       HasCommandLineFlag(L"/S"));
         UninstallApp(silent);
         return 0;
     }
 
-    // ── Her zaman %LOCALAPPDATA%\CopilotButton klasörüne taşıma denetimi ──
-    if (CheckAndPerformSelfRelocate()) {
-        return 0;
-    }
+    g_isPortable = IsPortableMode();
 
-    CleanupOldSourceIfRequested();
+    // ── Taşınabilir modda değilse %LOCALAPPDATA%\CopilotButton klasörüne taşı ──
+    if (!g_isPortable) {
+        if (CheckAndPerformSelfRelocate()) {
+            return 0;
+        }
+        CleanupOldSourceIfRequested();
+    }
 
     if (!EnsureSingleInstance()) return 0;
 
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
 
     // ── Windows'a tanıt (AUMID + Başlat Menüsü Kısayolu + Ayarlar Listesi) ─
-    RegisterAppWithWindows();
+    if (!g_isPortable) {
+        RegisterAppWithWindows();
+    }
 
     g_uTaskbarRestart = RegisterWindowMessageW(L"TaskbarCreated");
 
@@ -235,7 +256,10 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
     g_pCfgMgr = &cfgMgr;
 
     Config initialCfg = cfgMgr.GetConfig();
-    SetAutoStartRegistry(initialCfg.autoStart);
+    g_lastAutoStart = initialCfg.autoStart;
+    if (!g_isPortable) {
+        SetAutoStartRegistry(initialCfg.autoStart);
+    }
 
     // ── OSD Yöneticisi başlat ────────────────────────────────────────
     OsdManager::Instance().Init(hWnd);
@@ -265,11 +289,18 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
     );
 
     // ── Harici Mikrofon Senkronizasyonu (Core Audio Callback) ─────────
-    RegisterMicNotification([hWnd](bool isMuted) {
-        if (hWnd && IsWindow(hWnd)) {
-            PostMessageW(hWnd, WM_USER_MIC_STATE_CHANGED, isMuted ? 1 : 0, 0);
+    RegisterMicNotification(
+        [hWnd](bool isMuted) {
+            if (hWnd && IsWindow(hWnd)) {
+                PostMessageW(hWnd, WM_USER_MIC_STATE_CHANGED, isMuted ? 1 : 0, 0);
+            }
+        },
+        [hWnd]() {
+            if (hWnd && IsWindow(hWnd)) {
+                PostMessageW(hWnd, WM_USER_AUDIO_DEVICE_CHANGED, 0, 0);
+            }
         }
-    });
+    );
 
     // ── Evrensel Medya Takibi ─────────────────────────────────────────
     MediaTracker mediaTracker;
@@ -298,7 +329,12 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
             bool m = GetMicMuteState();
             PostMessageW(hWnd, WM_USER_MIC_STATE_CHANGED, m ? 1 : 0, 0);
         },
-        hWnd
+        hWnd,
+        [hWnd](bool isMuted) {
+            if (hWnd && IsWindow(hWnd)) {
+                PostMessageW(hWnd, WM_USER_MIC_STATE_CHANGED, isMuted ? 1 : 0, 0);
+            }
+        }
     );
 
     if (!installed) {

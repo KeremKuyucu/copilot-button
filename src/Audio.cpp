@@ -21,8 +21,11 @@ static IAudioEndpointVolume* GetEPV(EDataFlow flow) {
 
     IMMDevice* pDevice = nullptr;
     hr = pEnum->GetDefaultAudioEndpoint(flow, eConsole, &pDevice);
+    if (FAILED(hr) && flow == eCapture) {
+        hr = pEnum->GetDefaultAudioEndpoint(flow, eCommunications, &pDevice);
+    }
     pEnum->Release();
-    if (FAILED(hr)) return nullptr;
+    if (FAILED(hr) || !pDevice) return nullptr;
 
     IAudioEndpointVolume* pEPV = nullptr;
     hr = pDevice->Activate(__uuidof(IAudioEndpointVolume),
@@ -173,33 +176,140 @@ private:
     MicChangeCallback m_cb;
 };
 
-static IAudioEndpointVolume* g_pObservedEPV = nullptr;
-static MicEndpointCallback*  g_pMicCallback = nullptr;
+class MicDeviceNotificationClient : public IMMNotificationClient {
+public:
+    virtual ~MicDeviceNotificationClient() = default;
 
-bool RegisterMicNotification(MicChangeCallback cb) {
-    UnregisterMicNotification();
+    explicit MicDeviceNotificationClient(AudioDeviceChangeCallback cb)
+        : m_ref(1), m_cb(std::move(cb)) {}
 
-    g_pObservedEPV = GetDefaultCaptureEPV();
-    if (!g_pObservedEPV) return false;
+    STDMETHODIMP QueryInterface(REFIID riid, void** ppv) override {
+        if (!ppv) return E_POINTER;
+        if (riid == __uuidof(IUnknown) || riid == __uuidof(IMMNotificationClient)) {
+            *ppv = static_cast<IMMNotificationClient*>(this);
+            AddRef();
+            return S_OK;
+        }
+        *ppv = nullptr;
+        return E_NOINTERFACE;
+    }
 
-    g_pMicCallback = new MicEndpointCallback(std::move(cb));
-    HRESULT hr = g_pObservedEPV->RegisterControlChangeNotify(g_pMicCallback);
-    if (FAILED(hr)) {
+    STDMETHODIMP_(ULONG) AddRef() override {
+        return InterlockedIncrement(&m_ref);
+    }
+
+    STDMETHODIMP_(ULONG) Release() override {
+        ULONG ref = InterlockedDecrement(&m_ref);
+        if (ref == 0) delete this;
+        return ref;
+    }
+
+    STDMETHODIMP OnDeviceStateChanged(LPCWSTR, DWORD) override {
+        if (m_cb) m_cb();
+        return S_OK;
+    }
+
+    STDMETHODIMP OnDeviceAdded(LPCWSTR) override {
+        return S_OK;
+    }
+
+    STDMETHODIMP OnDeviceRemoved(LPCWSTR) override {
+        return S_OK;
+    }
+
+    STDMETHODIMP OnDefaultDeviceChanged(EDataFlow flow, ERole role, LPCWSTR) override {
+        if (flow == eCapture && (role == eConsole || role == eCommunications) && m_cb) {
+            m_cb();
+        }
+        return S_OK;
+    }
+
+    STDMETHODIMP OnPropertyValueChanged(LPCWSTR, const PROPERTYKEY) override {
+        return S_OK;
+    }
+
+private:
+    LONG m_ref;
+    AudioDeviceChangeCallback m_cb;
+};
+
+static IMMDeviceEnumerator*         g_pDeviceEnum   = nullptr;
+static MicDeviceNotificationClient* g_pDeviceNotify = nullptr;
+static IAudioEndpointVolume*        g_pObservedEPV  = nullptr;
+static MicEndpointCallback*         g_pMicCallback  = nullptr;
+static MicChangeCallback            g_savedMicCb;
+
+static void DetachMicEndpoint() {
+    if (g_pObservedEPV && g_pMicCallback) {
+        g_pObservedEPV->UnregisterControlChangeNotify(g_pMicCallback);
+    }
+    if (g_pMicCallback) {
         g_pMicCallback->Release();
         g_pMicCallback = nullptr;
+    }
+    if (g_pObservedEPV) {
         g_pObservedEPV->Release();
         g_pObservedEPV = nullptr;
-        return false;
     }
-    return true;
+}
+
+static void AttachMicEndpoint() {
+    DetachMicEndpoint();
+    if (!g_savedMicCb) return;
+
+    g_pObservedEPV = GetDefaultCaptureEPV();
+    if (!g_pObservedEPV) return;
+
+    g_pMicCallback = new MicEndpointCallback(g_savedMicCb);
+    HRESULT hr = g_pObservedEPV->RegisterControlChangeNotify(g_pMicCallback);
+    if (FAILED(hr)) {
+        DetachMicEndpoint();
+    }
+}
+
+bool RegisterMicNotification(MicChangeCallback cb, AudioDeviceChangeCallback onDeviceChanged) {
+    UnregisterMicNotification();
+    g_savedMicCb = std::move(cb);
+
+    if (onDeviceChanged) {
+        HRESULT hrEnum = CoCreateInstance(
+            __uuidof(MMDeviceEnumerator), nullptr,
+            CLSCTX_ALL, __uuidof(IMMDeviceEnumerator),
+            reinterpret_cast<void**>(&g_pDeviceEnum));
+        if (SUCCEEDED(hrEnum) && g_pDeviceEnum) {
+            g_pDeviceNotify = new MicDeviceNotificationClient(std::move(onDeviceChanged));
+            HRESULT hrReg = g_pDeviceEnum->RegisterEndpointNotificationCallback(g_pDeviceNotify);
+            if (FAILED(hrReg)) {
+                g_pDeviceNotify->Release();
+                g_pDeviceNotify = nullptr;
+                g_pDeviceEnum->Release();
+                g_pDeviceEnum = nullptr;
+            }
+        }
+    }
+
+    AttachMicEndpoint();
+    return (g_pObservedEPV != nullptr || g_pDeviceNotify != nullptr);
+}
+
+bool RefreshMicNotification() {
+    AttachMicEndpoint();
+    return g_pObservedEPV != nullptr;
 }
 
 void UnregisterMicNotification() {
-    if (g_pObservedEPV && g_pMicCallback) {
-        g_pObservedEPV->UnregisterControlChangeNotify(g_pMicCallback);
-        g_pMicCallback->Release();
-        g_pMicCallback = nullptr;
-        g_pObservedEPV->Release();
-        g_pObservedEPV = nullptr;
+    DetachMicEndpoint();
+
+    if (g_pDeviceEnum && g_pDeviceNotify) {
+        g_pDeviceEnum->UnregisterEndpointNotificationCallback(g_pDeviceNotify);
     }
+    if (g_pDeviceNotify) {
+        g_pDeviceNotify->Release();
+        g_pDeviceNotify = nullptr;
+    }
+    if (g_pDeviceEnum) {
+        g_pDeviceEnum->Release();
+        g_pDeviceEnum = nullptr;
+    }
+    g_savedMicCb = nullptr;
 }

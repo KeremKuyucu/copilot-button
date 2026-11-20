@@ -20,8 +20,7 @@ enum class Action : int {
     PrevTrack,
     LockScreen,
     CustomApp,
-    PushToTalk,
-    RunAgy
+    PushToTalk
 };
 
 Action ParseAction(const std::wstring& s);
@@ -47,18 +46,11 @@ struct Config {
     bool         soundFxEnabled  = true;
     bool         autoStart       = true;
 
-    // RunAgy Ayarları
-    std::wstring agyPath;
-    std::wstring agyCommand  = L"agy";
-    std::wstring agyTerminal = L"wt";
-    bool         agySendF5   = false;
-    DWORD        agyDelayMs  = 1000;
-
     // OSD Ayarları
     std::wstring osdPosition        = L"TopLeft";
     std::wstring mediaOsdPosition   = L"BottomLeft";
-    std::wstring osdColorHex        = L"B388FF";
-    COLORREF     osdColor           = RGB(179, 136, 255);
+    std::wstring osdColorHex        = L"00E5FF";
+    COLORREF     osdColor           = RGB(0, 229, 255);
     int          osdFontSize        = 10;
     DWORD        osdDurationMs      = 1500;
     bool         osdFadeEnabled     = true;

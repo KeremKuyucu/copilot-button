@@ -1,4 +1,5 @@
 #include "AppRegister.hpp"
+#include <shellapi.h>
 #include <shlobj.h>
 #include <propvarutil.h>
 #include <propkey.h>
@@ -23,6 +24,62 @@ static std::wstring GetCurrentExePath() {
     wchar_t path[MAX_PATH] = {};
     GetModuleFileNameW(nullptr, path, MAX_PATH);
     return path;
+}
+
+bool HasCommandLineFlag(const wchar_t* flag) {
+    if (!flag || !*flag) return false;
+    int argc = 0;
+    LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+    if (!argv) return false;
+
+    bool found = false;
+    for (int i = 1; i < argc; ++i) {
+        if (_wcsicmp(argv[i], flag) == 0) {
+            found = true;
+            break;
+        }
+    }
+    LocalFree(argv);
+    return found;
+}
+
+bool IsPortableMode() {
+    if (HasCommandLineFlag(L"--portable") || HasCommandLineFlag(L"/portable")) {
+        return true;
+    }
+
+    std::wstring exePath = GetCurrentExePath();
+    size_t lastSlash = exePath.find_last_of(L"\\/");
+    if (lastSlash != std::wstring::npos) {
+        std::wstring flagPath = exePath.substr(0, lastSlash) + L"\\portable.flag";
+        if (GetFileAttributesW(flagPath.c_str()) != INVALID_FILE_ATTRIBUTES) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void TerminateRunningAppInstances() {
+    DWORD currentPid = GetCurrentProcessId();
+    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (snap == INVALID_HANDLE_VALUE) return;
+
+    PROCESSENTRY32W pe = {};
+    pe.dwSize = sizeof(pe);
+    if (Process32FirstW(snap, &pe)) {
+        do {
+            if (pe.th32ProcessID != currentPid &&
+                _wcsicmp(pe.szExeFile, L"CopilotButton.exe") == 0) {
+                HANDLE hProc = OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, FALSE, pe.th32ProcessID);
+                if (hProc) {
+                    TerminateProcess(hProc, 0);
+                    WaitForSingleObject(hProc, 1000);
+                    CloseHandle(hProc);
+                }
+            }
+        } while (Process32NextW(snap, &pe));
+    }
+    CloseHandle(snap);
 }
 
 // ─────────────────────────────────────────────
@@ -223,14 +280,15 @@ void SetAutoStartRegistry(bool enable) {
     }
 
     std::wstring exePath = GetCurrentExePath();
-    wchar_t schCmd[512] = {};
+    wchar_t schCmd[1024] = {};
     if (enable) {
-        wsprintfW(schCmd, L"schtasks.exe /create /tn \"CopilotButton\" /tr \"\\\"%s\\\"\" /sc onlogon /rl highest /f", exePath.c_str());
+        swprintf_s(schCmd, 1024, L"schtasks.exe /create /tn \"CopilotButton\" /tr \"\\\"%s\\\"\" /sc onlogon /rl highest /f", exePath.c_str());
     } else {
-        wsprintfW(schCmd, L"schtasks.exe /delete /tn \"CopilotButton\" /f");
+        swprintf_s(schCmd, 1024, L"schtasks.exe /delete /tn \"CopilotButton\" /f");
     }
 
-    STARTUPINFOW si = { sizeof(si) };
+    STARTUPINFOW si = {};
+    si.cb = sizeof(si);
     si.dwFlags = STARTF_USESHOWWINDOW;
     si.wShowWindow = SW_HIDE;
     PROCESS_INFORMATION pi = {};
@@ -258,27 +316,7 @@ bool UninstallApp(bool silent) {
     }
 
     // 1. Diğer çalışan CopilotButton örneklerini sonlandır
-    DWORD currentPid = GetCurrentProcessId();
-    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    if (snap != INVALID_HANDLE_VALUE) {
-        PROCESSENTRY32W pe = { sizeof(pe) };
-        if (Process32FirstW(snap, &pe)) {
-            do {
-                if (pe.th32ProcessID != currentPid &&
-                    (_wcsicmp(pe.szExeFile, L"Copilot.exe") == 0 ||
-                     _wcsicmp(pe.szExeFile, L"CopilotButton.exe") == 0 ||
-                     _wcsicmp(pe.szExeFile, L"CopilotButtonEngine.exe") == 0)) {
-                    HANDLE hProc = OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, FALSE, pe.th32ProcessID);
-                    if (hProc) {
-                        TerminateProcess(hProc, 0);
-                        WaitForSingleObject(hProc, 1000);
-                        CloseHandle(hProc);
-                    }
-                }
-            } while (Process32NextW(snap, &pe));
-        }
-        CloseHandle(snap);
-    }
+    TerminateRunningAppInstances();
 
     // 2. Başlangıç görevlerini kaldır
     SetAutoStartRegistry(false);
@@ -327,7 +365,8 @@ bool UninstallApp(bool silent) {
         std::vector<wchar_t> cmdBuf(cleanCmd.begin(), cleanCmd.end());
         cmdBuf.push_back(L'\0');
 
-        STARTUPINFOW siClean = { sizeof(siClean) };
+        STARTUPINFOW siClean = {};
+        siClean.cb = sizeof(siClean);
         siClean.dwFlags = STARTF_USESHOWWINDOW;
         siClean.wShowWindow = SW_HIDE;
         PROCESS_INFORMATION piClean = {};
@@ -377,27 +416,7 @@ bool CheckAndPerformSelfRelocate() {
     CreateDirectoryW(targetDir.c_str(), nullptr);
 
     // Hedef konumda eski çalışan bir örnek varsa sonlandır ki CopyFile kilitlenmesin
-    DWORD currentPid = GetCurrentProcessId();
-    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    if (snap != INVALID_HANDLE_VALUE) {
-        PROCESSENTRY32W pe = { sizeof(pe) };
-        if (Process32FirstW(snap, &pe)) {
-            do {
-                if (pe.th32ProcessID != currentPid &&
-                    (_wcsicmp(pe.szExeFile, L"Copilot.exe") == 0 ||
-                     _wcsicmp(pe.szExeFile, L"CopilotButton.exe") == 0 ||
-                     _wcsicmp(pe.szExeFile, L"CopilotButtonEngine.exe") == 0)) {
-                    HANDLE hProc = OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, FALSE, pe.th32ProcessID);
-                    if (hProc) {
-                        TerminateProcess(hProc, 0);
-                        WaitForSingleObject(hProc, 1000);
-                        CloseHandle(hProc);
-                    }
-                }
-            } while (Process32NextW(snap, &pe));
-        }
-        CloseHandle(snap);
-    }
+    TerminateRunningAppInstances();
     Sleep(150);
 
     bool copied = false;
@@ -435,7 +454,8 @@ bool CheckAndPerformSelfRelocate() {
         RegCloseKey(hKey);
     }
 
-    STARTUPINFOW si = { sizeof(si) };
+    STARTUPINFOW si = {};
+    si.cb = sizeof(si);
     PROCESS_INFORMATION pi = {};
     std::wstring launchCmd = L"\"" + targetExe + L"\" --delete-source \"" + currentExe + L"\"";
 
@@ -479,4 +499,3 @@ void CleanupOldSourceIfRequested() {
         }
     }).detach();
 }
-

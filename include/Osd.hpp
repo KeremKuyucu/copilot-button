@@ -87,5 +87,6 @@ private:
     bool         m_isTrackingMouse        = false;
     bool         m_suppressedByFullscreen = false;
     HBITMAP      m_mediaThumbBmp          = nullptr;
+    int          m_mediaThumbSize         = 0;
     std::vector<uint8_t> m_mediaThumbData;
 };

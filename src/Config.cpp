@@ -1,4 +1,5 @@
 #include "Config.hpp"
+#include "AppRegister.hpp"
 #include <algorithm>
 #include <cctype>
 #include <vector>
@@ -30,14 +31,12 @@ Action ParseAction(const std::wstring& s) {
     if (s == L"LockScreen")    return Action::LockScreen;
     if (s == L"CustomApp")     return Action::CustomApp;
     if (s == L"PushToTalk")    return Action::PushToTalk;
-    if (s == L"RunAgy" || s == L"Agy" || s == L"RunAgyTest" || s == L"AgyTest") return Action::RunAgy;
     return Action::None;
 }
 
 static Action ParseHoldAction(const std::wstring& s) {
     if (s == L"PushToTalk") return Action::PushToTalk;
     if (s == L"CustomApp")  return Action::CustomApp;
-    if (s == L"RunAgy" || s == L"Agy" || s == L"RunAgyTest" || s == L"AgyTest") return Action::RunAgy;
     return Action::None;
 }
 
@@ -65,6 +64,11 @@ std::wstring GetIniPath() {
     if (last) *last = L'\0'; // Exe dizini
 
     std::wstring directPath = std::wstring(exePath) + L"\\config.ini";
+    if (IsPortableMode()) {
+        EnsureConfigExists(directPath);
+        return directPath;
+    }
+
     if (GetFileAttributesW(directPath.c_str()) != INVALID_FILE_ATTRIBUTES) {
         return directPath;
     }
@@ -132,18 +136,11 @@ void EnsureConfigExists(const std::wstring& path) {
         "; 4 Tık Eylemi\r\n"
         "Action4=None\r\n"
         "\r\n"
-        "; Basılı Tutma Eylemi (PushToTalk: bas-konuş, CustomApp: özel uygulama/URL, RunAgy: terminalde agy çalıştırıp F5 bas)\r\n"
+        "; Basılı Tutma Eylemi (PushToTalk: bas-konuş, CustomApp: özel uygulama/URL)\r\n"
         "HoldAction=PushToTalk\r\n"
         "\r\n"
         "; CustomApp seçildiğinde açılacak uygulama yolu veya URL\r\n"
         "CustomAppPath=\r\n"
-        "\r\n"
-        "; RunAgy seçildiğinde çalışacak dizin (boş bırakılırsa sistem Geçici/Temp dizini kullanılır), komut, terminal (wt, cmd, powershell), F5 basımı (1 = Açık, 0 = Kapalı) ve gecikme süresi\r\n"
-        "AgyPath=\r\n"
-        "AgyCommand=agy\r\n"
-        "AgyTerminal=wt\r\n"
-        "AgySendF5=0\r\n"
-        "AgyDelayMs=1000\r\n"
         "\r\n"
         "; ── Sistem ve Başlangıç ──\r\n"
         "; Windows başlangıcında otomatik çalıştır (1 = Açık, 0 = Kapalı)\r\n"
@@ -254,19 +251,14 @@ void ConfigManager::Load() {
     c.action4        = ParseAction(ReadStr(p, L"Action4", L"None"));
     c.holdAction     = ParseHoldAction(ReadStr(p, L"HoldAction", L"PushToTalk"));
     c.customAppPath  = ReadStr(p, L"CustomAppPath");
-    c.agyPath        = ReadStr(p, L"AgyPath", ReadStr(p, L"AgyTestPath", L"").c_str());
-    c.agyCommand     = ReadStr(p, L"AgyCommand", ReadStr(p, L"AgyTestCommand", L"agy").c_str());
-    c.agyTerminal    = ReadStr(p, L"AgyTerminal", L"wt");
-    c.agySendF5      = (ReadInt(p, L"AgySendF5", 0) != 0);
-    c.agyDelayMs     = ReadInt(p, L"AgyDelayMs", ReadInt(p, L"AgyTestDelayMs", 1000));
     c.soundFxEnabled = (ReadInt(p, L"SoundFxEnabled", 1) != 0);
     c.autoStart      = (ReadInt(p, L"AutoStart", 1) != 0);
 
     // OSD Ayarları
     c.osdPosition        = ReadStr(p, L"OsdPosition", L"TopLeft");
     c.mediaOsdPosition   = ReadStr(p, L"MediaOsdPosition", L"BottomLeft");
-    c.osdColorHex        = ReadStr(p, L"OsdColor", L"B388FF");
-    c.osdColor           = HexToColor(c.osdColorHex, RGB(179, 136, 255));
+    c.osdColorHex        = ReadStr(p, L"OsdColor", L"00E5FF");
+    c.osdColor           = HexToColor(c.osdColorHex, RGB(0, 229, 255));
     c.osdFontSize        = static_cast<int>(ReadInt(p, L"OsdFontSize", 10));
     c.osdDurationMs      = ReadInt(p, L"OsdDurationMs", 1500);
     c.osdFadeEnabled     = (ReadInt(p, L"OsdFadeEnabled", 1) != 0);
