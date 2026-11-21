@@ -33,6 +33,7 @@ static constexpr UINT WM_USER_TRACK_CHANGED        = WM_USER + 102;
 static constexpr UINT WM_USER_CONFIG_CHANGED       = WM_USER + 103;
 static constexpr UINT WM_USER_APPBAR_NOTIFY        = WM_USER + 104;
 static constexpr UINT WM_USER_AUDIO_DEVICE_CHANGED = WM_USER + 105;
+static constexpr UINT WM_USER_TASKBAR_LAYOUT_CHANGED = WM_USER + 106;
 
 static const wchar_t* APP_WND_CLASS   = L"CopilotButtonHost";
 static const wchar_t* APP_MUTEX_NAME  = L"Global\\CopilotButton_SingleInstance_Mutex";
@@ -80,6 +81,10 @@ static LRESULT CALLBACK HostWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
             }
             return 0;
 
+        case WM_USER_TASKBAR_LAYOUT_CHANGED:
+            OsdManager::Instance().OnTaskbarLayoutUpdated();
+            return 0;
+
         case WM_USER_TRACK_CHANGED:
             if (g_pMediaTracker && g_pCfgMgr) {
                 Config cfg = g_pCfgMgr->GetConfig();
@@ -109,6 +114,7 @@ static LRESULT CALLBACK HostWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
             if (g_pMicOverlay) {
                 g_pMicOverlay->RefreshPosition();
             }
+            OsdManager::Instance().RefreshTaskbarLayout(50);
             OsdManager::Instance().CheckFullscreenAndTaskbarState();
             return 0;
 

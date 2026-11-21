@@ -5,8 +5,14 @@
 #include <shellapi.h>
 #include <windowsx.h>
 #include <shlwapi.h>
+#include <objbase.h>
+#include <oleauto.h>
+#include <uiautomationclient.h>
 #include <gdiplus.h>
 #include <algorithm>
+#include <chrono>
+#include <climits>
+#include <cwctype>
 #include <memory>
 
 #pragma comment(lib, "user32.lib")
@@ -42,6 +48,7 @@ static constexpr UINT_PTR TIMER_ID_MEDIA_FADE_OUT = 306;
 static const wchar_t* TIP_CLASS_NAME   = L"CopilotTipOsdClass";
 static const wchar_t* MEDIA_CLASS_NAME = L"CopilotMediaOsdClass";
 static constexpr COLORREF MEDIA_COLOR_KEY = RGB(12, 16, 20);
+static constexpr UINT WM_USER_TASKBAR_LAYOUT_CHANGED = WM_USER + 106;
 
 static HWINEVENTHOOK s_hForegroundHook = nullptr;
 static HWINEVENTHOOK s_hTaskbarHook    = nullptr;
@@ -49,14 +56,17 @@ static HWINEVENTHOOK s_hMoveSizeHook   = nullptr;
 
 static void CALLBACK ForegroundEventProc(HWINEVENTHOOK, DWORD, HWND, LONG, LONG, DWORD, DWORD) {
     OsdManager::Instance().CheckFullscreenAndTaskbarState();
+    OsdManager::Instance().RefreshTaskbarLayout(80);
 }
 
 static void CALLBACK TaskbarEventProc(HWINEVENTHOOK, DWORD, HWND, LONG, LONG, DWORD, DWORD) {
     OsdManager::Instance().CheckFullscreenAndTaskbarState();
+    OsdManager::Instance().RefreshTaskbarLayout(80);
 }
 
 static void CALLBACK MoveSizeEventProc(HWINEVENTHOOK, DWORD, HWND, LONG, LONG, DWORD, DWORD) {
     OsdManager::Instance().CheckFullscreenAndTaskbarState();
+    OsdManager::Instance().RefreshTaskbarLayout(80);
 }
 
 static void HookTaskbarEvents() {
@@ -70,9 +80,9 @@ static void HookTaskbarEvents() {
         DWORD tbPid = 0;
         DWORD tbTid = GetWindowThreadProcessId(hTaskbar, &tbPid);
         if (tbPid && tbTid) {
-            // Yalnızca görev çubuğu thread'inden gelen show/hide/locationchange (0x8002 - 0x800B) olaylarını yakala
+            // Görev çubuğu thread'inden gelen create/destroy/show/hide/locationchange (0x8000 - 0x800B) olaylarını yakala
             s_hTaskbarHook = SetWinEventHook(
-                EVENT_OBJECT_SHOW, EVENT_OBJECT_LOCATIONCHANGE,
+                EVENT_OBJECT_CREATE, EVENT_OBJECT_LOCATIONCHANGE,
                 nullptr, TaskbarEventProc,
                 tbPid, tbTid,
                 WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS
@@ -101,6 +111,50 @@ static UINT GetEffectiveDpi(HWND hwnd) {
 
 static int ScaleDpi(int px96, UINT dpi) {
     return MulDiv(px96, static_cast<int>(dpi), 96);
+}
+
+struct MediaMetrics {
+    int thumbX;
+    int thumbSize;
+    int thumbRadius;
+    int textGapL;
+    int textGapR;
+    int btnW;
+    int btnH;
+    int playW;
+    int playH;
+    int btnGap;
+    int compactGap;
+    int compactThumbGap;
+    int padR;
+
+    int FullChromeW() const {
+        return thumbX + thumbSize + textGapL + textGapR + btnW + btnGap + playW + btnGap + btnW + padR;
+    }
+    int CompactControlsW() const {
+        return thumbX + thumbSize + compactThumbGap + btnW + compactGap + playW + compactGap + btnW + padR;
+    }
+    int MiniPlayW() const {
+        return thumbX + thumbSize + compactGap + playW + padR;
+    }
+};
+
+static MediaMetrics GetMediaMetrics(UINT dpi) {
+    MediaMetrics m{};
+    m.thumbX          = ScaleDpi(6, dpi);
+    m.thumbSize       = ScaleDpi(26, dpi);
+    m.thumbRadius     = ScaleDpi(5, dpi);
+    m.textGapL        = ScaleDpi(8, dpi);
+    m.textGapR        = ScaleDpi(8, dpi);
+    m.btnW            = ScaleDpi(22, dpi);
+    m.btnH            = ScaleDpi(22, dpi);
+    m.playW           = ScaleDpi(24, dpi);
+    m.playH           = ScaleDpi(24, dpi);
+    m.btnGap          = ScaleDpi(6, dpi);
+    m.compactGap      = ScaleDpi(4, dpi);
+    m.compactThumbGap = ScaleDpi(6, dpi);
+    m.padR            = ScaleDpi(4, dpi);
+    return m;
 }
 
 static HBITMAP DecodeThumbnail(const std::vector<uint8_t>& data, int targetW, int targetH) {
@@ -173,15 +227,20 @@ void OsdManager::Init(HWND hostWnd) {
         abd.uCallbackMessage = WM_USER + 104; // WM_USER_APPBAR_NOTIFY
         SHAppBarMessage(ABM_NEW, &abd);
     }
+
+    StartTaskbarProbe();
+    RefreshTaskbarLayout(0);
 }
 
 void OsdManager::OnTaskbarRecreated() {
     HookTaskbarEvents();
+    RefreshTaskbarLayout(150);
     CheckFullscreenAndTaskbarState();
 }
 
 void OsdManager::UpdateConfig(const Config& cfg) {
     m_cfg = cfg;
+    m_probeActive.store(m_hasActiveMedia && m_cfg.mediaOsdPersistent && !m_suppressedByFullscreen);
     if (m_mediaHwnd) {
         if (m_cfg.mediaOsdPersistent && m_hasActiveMedia) {
             CheckFullscreenAndTaskbarState();
@@ -190,6 +249,7 @@ void OsdManager::UpdateConfig(const Config& cfg) {
 }
 
 void OsdManager::Destroy() {
+    StopTaskbarProbe();
     if (m_hostWnd) {
         APPBARDATA abd = { sizeof(abd) };
         abd.hWnd = m_hostWnd;
@@ -505,8 +565,8 @@ bool OsdManager::CreateMediaWindow() {
         }
     }
 
-    int w = 260;
-    int h = 32;
+    int w = 220;
+    int h = 34;
 
     HWND hTaskbar = FindWindowW(L"Shell_TrayWnd", nullptr);
 
@@ -650,38 +710,418 @@ bool OsdManager::IsTaskbarVisible() {
     return true;
 }
 
+// ─────────────────────────────────────────────
+//  Arka Plan Görev Çubuğu Alanı Ölçümü (IUIAutomation)
+// ─────────────────────────────────────────────
+static bool ContainsCaseInsensitive(const std::wstring& haystack, const wchar_t* needle) {
+    if (!needle || !*needle) return true;
+    size_t nLen = wcslen(needle);
+    if (haystack.size() < nLen) return false;
+    for (size_t i = 0; i <= haystack.size() - nLen; ++i) {
+        bool match = true;
+        for (size_t j = 0; j < nLen; ++j) {
+            if (towlower(haystack[i + j]) != towlower(needle[j])) {
+                match = false;
+                break;
+            }
+        }
+        if (match) return true;
+    }
+    return false;
+}
+
+static bool StartsWith(const std::wstring& s, const wchar_t* prefix) {
+    if (!prefix) return false;
+    size_t nLen = wcslen(prefix);
+    return s.size() >= nLen && s.compare(0, nLen, prefix) == 0;
+}
+
+struct TaskbarProbeItem {
+    RECT rc{};
+    bool isStart   = false;
+    bool isWidgets = false;
+    bool isTray    = false;
+};
+
+template <typename T>
+struct TaskbarBoundsQueryHelper {
+    static T Query(IUIAutomation* pUia, IUIAutomationCondition* pCond, IUIAutomationCacheRequest* pCacheReq) {
+        T result{};
+
+        HWND hTaskbar = FindWindowW(L"Shell_TrayWnd", nullptr);
+        if (!hTaskbar || !IsWindowVisible(hTaskbar)) {
+            return result;
+        }
+
+        RECT rcTb = {};
+        if (!GetWindowRect(hTaskbar, &rcTb)) {
+            return result;
+        }
+
+        int tbLeft  = rcTb.left;
+        int tbRight = rcTb.right;
+        int tbW     = tbRight - tbLeft;
+        int tbH     = rcTb.bottom - rcTb.top;
+        if (tbW <= tbH || tbW <= 200 || tbH <= 4) {
+            return result;
+        }
+
+        UINT dpi = GetEffectiveDpi(hTaskbar);
+        DWORD myPid = GetCurrentProcessId();
+
+        int win32TrayLeft = INT_MAX;
+        HWND hTrayNotify = FindWindowExW(hTaskbar, nullptr, L"TrayNotifyWnd", nullptr);
+        if (hTrayNotify && IsWindowVisible(hTrayNotify)) {
+            RECT rcTray = {};
+            if (GetWindowRect(hTrayNotify, &rcTray) &&
+                rcTray.left > tbLeft + tbW / 2 &&
+                rcTray.right <= tbRight + 4) {
+                win32TrayLeft = rcTray.left;
+            }
+        }
+
+        std::vector<TaskbarProbeItem> items;
+        bool hasStart = false;
+        RECT startRect = {};
+        int uiaTrayLeft = INT_MAX;
+
+        IUIAutomationElement* pTbEl = nullptr;
+        if (pUia && pCond && pCacheReq &&
+            SUCCEEDED(pUia->ElementFromHandle(reinterpret_cast<UIA_HWND>(hTaskbar), &pTbEl)) && pTbEl) {
+            IUIAutomationElementArray* pArr = nullptr;
+            if (SUCCEEDED(pTbEl->FindAllBuildCache(TreeScope_Descendants, pCond, pCacheReq, &pArr)) && pArr) {
+                int len = 0;
+                if (SUCCEEDED(pArr->get_Length(&len)) && len > 0) {
+                    items.reserve(static_cast<size_t>(len));
+                    for (int i = 0; i < len; ++i) {
+                        IUIAutomationElement* pEl = nullptr;
+                        if (FAILED(pArr->GetElement(i, &pEl)) || !pEl) continue;
+
+                        int pid = 0;
+                        WINBOOL isOffscreen = FALSE;
+                        RECT rc = {};
+                        BSTR bstrAutoId = nullptr;
+                        BSTR bstrCls    = nullptr;
+
+                        pEl->get_CachedProcessId(&pid);
+                        pEl->get_CachedIsOffscreen(&isOffscreen);
+                        HRESULT hrRect = pEl->get_CachedBoundingRectangle(&rc);
+                        pEl->get_CachedAutomationId(&bstrAutoId);
+                        pEl->get_CachedClassName(&bstrCls);
+
+                        std::wstring autoId = bstrAutoId ? bstrAutoId : L"";
+                        std::wstring cls    = bstrCls ? bstrCls : L"";
+                        if (bstrAutoId) SysFreeString(bstrAutoId);
+                        if (bstrCls) SysFreeString(bstrCls);
+                        pEl->Release();
+
+                        if (pid == static_cast<int>(myPid)) continue;
+                        if (isOffscreen == TRUE) continue;
+                        if (FAILED(hrRect)) continue;
+                        if (rc.right <= rc.left || rc.bottom <= rc.top) continue;
+                        if (rc.left < tbLeft - 4 || rc.right > tbRight + 4) continue;
+                        if (rc.bottom <= rcTb.top || rc.top >= rcTb.bottom) continue;
+                        if ((rc.right - rc.left) > tbW / 2) continue;
+
+                        TaskbarProbeItem item;
+                        item.rc = rc;
+                        item.isStart = (autoId == L"StartButton" || autoId == L"Start" || cls == L"Start");
+                        item.isWidgets = (autoId == L"WidgetsButton" ||
+                                          ContainsCaseInsensitive(autoId, L"widget") ||
+                                          ContainsCaseInsensitive(cls, L"widget") ||
+                                          ContainsCaseInsensitive(cls, L"augmentedentrypoint"));
+                        item.isTray = (StartsWith(cls, L"SystemTray.") ||
+                                       StartsWith(autoId, L"SystemTray") ||
+                                       StartsWith(autoId, L"NotifyIcon") ||
+                                       autoId == L"ShowDesktopButton" ||
+                                       cls == L"TrayButton" ||
+                                       cls == L"TrayClockWClass" ||
+                                       cls == L"TrayShowDesktopButtonWClass");
+
+                        if (item.isStart && !hasStart) {
+                            hasStart = true;
+                            startRect = rc;
+                        }
+                        if (item.isTray && rc.left > tbLeft + tbW / 2) {
+                            uiaTrayLeft = (std::min)(uiaTrayLeft, static_cast<int>(rc.left));
+                        }
+
+                        items.push_back(std::move(item));
+                    }
+                }
+                pArr->Release();
+            }
+            pTbEl->Release();
+        }
+
+        // Windows 10 için Win32 Start düğmesi yedeği
+        if (!hasStart) {
+            HWND hStart = FindWindowExW(hTaskbar, nullptr, L"Start", nullptr);
+            if (hStart && IsWindowVisible(hStart) && GetWindowRect(hStart, &startRect)) {
+                if (startRect.right > startRect.left && startRect.bottom > startRect.top) {
+                    hasStart = true;
+                }
+            }
+        }
+
+        if (!hasStart) {
+            return result;
+        }
+
+        int trayLeft = tbRight;
+        if (uiaTrayLeft < INT_MAX && uiaTrayLeft > tbLeft + tbW / 2) {
+            trayLeft = uiaTrayLeft;
+        } else if (win32TrayLeft < INT_MAX) {
+            trayLeft = win32TrayLeft;
+        }
+
+        bool isLeftAligned = (startRect.left <= tbLeft + ScaleDpi(80, dpi));
+
+        int leftSlotLeft  = tbLeft;
+        int leftSlotRight = startRect.left;
+        int iconsRight    = startRect.right;
+
+        for (const auto& item : items) {
+            if (item.isTray) continue;
+            const RECT& rc = item.rc;
+
+            if (!isLeftAligned && rc.right <= startRect.left + 2) {
+                if (item.isWidgets) {
+                    leftSlotLeft = (std::max)(leftSlotLeft, static_cast<int>(rc.right));
+                } else if (rc.left < tbLeft + ScaleDpi(200, dpi) &&
+                           (startRect.left - rc.right) > ScaleDpi(16, dpi)) {
+                    leftSlotLeft = (std::max)(leftSlotLeft, static_cast<int>(rc.right));
+                } else {
+                    leftSlotRight = (std::min)(leftSlotRight, static_cast<int>(rc.left));
+                }
+            } else if (rc.left >= startRect.left - 2 && rc.right <= trayLeft + 2) {
+                iconsRight = (std::max)(iconsRight, static_cast<int>(rc.right));
+            }
+        }
+
+        result.valid          = true;
+        result.isLeftAligned  = isLeftAligned;
+        result.tbRect         = rcTb;
+        result.leftSlotLeft   = leftSlotLeft;
+        result.leftSlotRight  = leftSlotRight;
+        result.rightSlotLeft  = iconsRight;
+        result.rightSlotRight = trayLeft;
+        return result;
+    }
+};
+
+void OsdManager::StartTaskbarProbe() {
+    if (m_probeRunning.load()) return;
+    {
+        std::lock_guard<std::mutex> lk(m_probeWakeMutex);
+        m_probeRequested  = false;
+        m_probePending    = false;
+        m_probeFirstReqMs = 0;
+        m_probeRunAtMs    = 0;
+    }
+    m_probeRunning.store(true);
+    m_probeThread = std::thread(&OsdManager::TaskbarProbeLoop, this);
+}
+
+void OsdManager::StopTaskbarProbe() {
+    if (!m_probeRunning.exchange(false)) return;
+    m_probeWakeCv.notify_all();
+    if (m_probeThread.joinable()) {
+        m_probeThread.join();
+    }
+    std::lock_guard<std::mutex> lk(m_tbBoundsMutex);
+    m_tbBounds = {};
+}
+
+void OsdManager::RefreshTaskbarLayout(DWORD delayMs) {
+    if (!m_probeRunning.load()) return;
+    {
+        std::lock_guard<std::mutex> lk(m_probeWakeMutex);
+        ULONGLONG now = GetTickCount64();
+        if (!m_probePending) {
+            m_probePending    = true;
+            m_probeFirstReqMs = now;
+        }
+        ULONGLONG target    = now + static_cast<ULONGLONG>(delayMs);
+        ULONGLONG maxTarget = m_probeFirstReqMs + 250ULL;
+        m_probeRunAtMs      = (std::min)(target, maxTarget);
+        m_probeRequested    = true;
+    }
+    m_probeWakeCv.notify_one();
+}
+
+void OsdManager::TaskbarProbeLoop() {
+    HRESULT hrCom = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    bool comInit = SUCCEEDED(hrCom);
+
+    IUIAutomation* pUia = nullptr;
+    IUIAutomationCondition* pCond = nullptr;
+    IUIAutomationCacheRequest* pCacheReq = nullptr;
+
+    if (SUCCEEDED(CoCreateInstance(__uuidof(CUIAutomation), nullptr, CLSCTX_INPROC_SERVER,
+                                   __uuidof(IUIAutomation), reinterpret_cast<void**>(&pUia))) && pUia) {
+        IUIAutomationCondition* pBtnCond = nullptr;
+        IUIAutomationCondition* pEditCond = nullptr;
+
+        VARIANT vBtn;
+        VariantInit(&vBtn);
+        vBtn.vt = VT_I4;
+        vBtn.lVal = UIA_ButtonControlTypeId;
+        if (SUCCEEDED(pUia->CreatePropertyCondition(UIA_ControlTypePropertyId, vBtn, &pBtnCond)) && pBtnCond) {
+            VARIANT vEdit;
+            VariantInit(&vEdit);
+            vEdit.vt = VT_I4;
+            vEdit.lVal = UIA_EditControlTypeId;
+            if (SUCCEEDED(pUia->CreatePropertyCondition(UIA_ControlTypePropertyId, vEdit, &pEditCond)) && pEditCond) {
+                if (FAILED(pUia->CreateOrCondition(pBtnCond, pEditCond, &pCond))) {
+                    pCond = nullptr;
+                }
+            }
+        }
+        if (!pCond && pBtnCond) {
+            pCond = pBtnCond;
+            pCond->AddRef();
+        }
+        if (pBtnCond) pBtnCond->Release();
+        if (pEditCond) pEditCond->Release();
+
+        if (SUCCEEDED(pUia->CreateCacheRequest(&pCacheReq)) && pCacheReq) {
+            pCacheReq->AddProperty(UIA_BoundingRectanglePropertyId);
+            pCacheReq->AddProperty(UIA_AutomationIdPropertyId);
+            pCacheReq->AddProperty(UIA_ClassNamePropertyId);
+            pCacheReq->AddProperty(UIA_IsOffscreenPropertyId);
+            pCacheReq->AddProperty(UIA_ProcessIdPropertyId);
+        }
+    }
+
+    ULONGLONG expectedSettleAt = 0;
+
+    while (m_probeRunning.load()) {
+        bool shouldRunProbe = false;
+        bool isSettlePass   = false;
+        {
+            std::unique_lock<std::mutex> lk(m_probeWakeMutex);
+            for (;;) {
+                if (!m_probeRunning.load()) break;
+
+                if (m_probeRequested) {
+                    ULONGLONG now = GetTickCount64();
+                    if (now >= m_probeRunAtMs) {
+                        isSettlePass = (expectedSettleAt != 0 && m_probeRunAtMs == expectedSettleAt);
+                        expectedSettleAt = 0;
+                        m_probeRequested = false;
+                        m_probePending   = false;
+                        shouldRunProbe   = true;
+                        break;
+                    }
+                    ULONGLONG waitMs = m_probeRunAtMs - now;
+                    m_probeWakeCv.wait_for(lk, std::chrono::milliseconds(waitMs));
+                    continue;
+                }
+
+                if (m_probeActive.load()) {
+                    auto status = m_probeWakeCv.wait_for(lk, std::chrono::milliseconds(1500));
+                    if (!m_probeRunning.load()) break;
+                    if (status == std::cv_status::timeout && !m_probeRequested && m_probeActive.load()) {
+                        isSettlePass   = false;
+                        shouldRunProbe = true;
+                        break;
+                    }
+                } else {
+                    m_probeWakeCv.wait(lk, [this]() {
+                        return !m_probeRunning.load() || m_probeRequested || m_probeActive.load();
+                    });
+                }
+            }
+        }
+
+        if (!m_probeRunning.load() || !shouldRunProbe) break;
+
+        TaskbarFreeBounds fresh = TaskbarBoundsQueryHelper<TaskbarFreeBounds>::Query(pUia, pCond, pCacheReq);
+        if (!m_probeRunning.load()) break;
+
+        bool changed = false;
+        {
+            std::lock_guard<std::mutex> lk(m_tbBoundsMutex);
+            if (fresh != m_tbBounds) {
+                m_tbBounds = fresh;
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            if (m_hostWnd && IsWindow(m_hostWnd)) {
+                PostMessageW(m_hostWnd, WM_USER_TASKBAR_LAYOUT_CHANGED, 0, 0);
+            }
+            if (!isSettlePass) {
+                std::lock_guard<std::mutex> lk(m_probeWakeMutex);
+                if (!m_probeRequested && m_probeRunning.load()) {
+                    ULONGLONG now     = GetTickCount64();
+                    m_probePending    = true;
+                    m_probeFirstReqMs = now;
+                    m_probeRunAtMs    = now + 260ULL;
+                    m_probeRequested  = true;
+                    expectedSettleAt  = m_probeRunAtMs;
+                }
+            }
+        }
+    }
+
+    if (pCacheReq) pCacheReq->Release();
+    if (pCond) pCond->Release();
+    if (pUia) pUia->Release();
+    if (comInit) CoUninitialize();
+}
+
+void OsdManager::OnTaskbarLayoutUpdated() {
+    if (!m_mediaHwnd || !m_hasActiveMedia || m_mediaTitle.empty()) return;
+
+    if (m_cfg.mediaOsdPersistent) {
+        CheckFullscreenAndTaskbarState();
+    } else if (IsWindowVisible(m_mediaHwnd)) {
+        if (!PositionMediaWindow(m_mediaTextW, m_mediaHeight)) {
+            KillTimer(m_mediaHwnd, TIMER_ID_MEDIA_FADE_IN);
+            KillTimer(m_mediaHwnd, TIMER_ID_MEDIA_HOLD);
+            KillTimer(m_mediaHwnd, TIMER_ID_MEDIA_FADE_OUT);
+            ShowWindow(m_mediaHwnd, SW_HIDE);
+            m_mediaAlpha = 0;
+            SetLayeredWindowAttributes(m_mediaHwnd, MEDIA_COLOR_KEY, 0, LWA_COLORKEY | LWA_ALPHA);
+        }
+    }
+}
+
 RECT OsdManager::GetNextBtnRect(int w, int h) const {
-    UINT dpi   = GetEffectiveDpi(m_mediaHwnd);
-    int btnW   = ScaleDpi(24, dpi);
-    int btnH   = ScaleDpi(24, dpi);
-    int padR   = ScaleDpi(6, dpi);
-    int rightX = w - padR - btnW;
-    int y      = (h - btnH) / 2;
-    return { rightX, y, rightX + btnW, y + btnH };
+    if (m_mediaLayoutMode == MediaLayoutMode::MiniPlay) {
+        return { 0, 0, 0, 0 };
+    }
+    MediaMetrics m = GetMediaMetrics(GetEffectiveDpi(m_mediaHwnd));
+    int rightX = w - m.padR - m.btnW;
+    int y      = (h - m.btnH) / 2;
+    return { rightX, y, rightX + m.btnW, y + m.btnH };
 }
 
 RECT OsdManager::GetPlayBtnRect(int w, int h) const {
-    UINT dpi   = GetEffectiveDpi(m_mediaHwnd);
-    int btn24  = ScaleDpi(24, dpi);
-    int btnW   = ScaleDpi(26, dpi);
-    int btnH   = ScaleDpi(26, dpi);
-    int padR   = ScaleDpi(6, dpi);
-    int gap    = ScaleDpi(8, dpi);
-    int rightX = w - padR - btn24 - gap - btnW;
-    int y      = (h - btnH) / 2;
-    return { rightX, y, rightX + btnW, y + btnH };
+    MediaMetrics m = GetMediaMetrics(GetEffectiveDpi(m_mediaHwnd));
+    int rightX = 0;
+    if (m_mediaLayoutMode == MediaLayoutMode::MiniPlay) {
+        rightX = w - m.padR - m.playW;
+    } else {
+        int gap = (m_mediaLayoutMode == MediaLayoutMode::CompactControls) ? m.compactGap : m.btnGap;
+        rightX = w - m.padR - m.btnW - gap - m.playW;
+    }
+    int y = (h - m.playH) / 2;
+    return { rightX, y, rightX + m.playW, y + m.playH };
 }
 
 RECT OsdManager::GetPrevBtnRect(int w, int h) const {
-    UINT dpi   = GetEffectiveDpi(m_mediaHwnd);
-    int btnW   = ScaleDpi(24, dpi);
-    int btnH   = ScaleDpi(24, dpi);
-    int btn26  = ScaleDpi(26, dpi);
-    int padR   = ScaleDpi(6, dpi);
-    int gap    = ScaleDpi(8, dpi);
-    int rightX = w - padR - btnW - gap - btn26 - gap - btnW;
-    int y      = (h - btnH) / 2;
-    return { rightX, y, rightX + btnW, y + btnH };
+    if (m_mediaLayoutMode == MediaLayoutMode::MiniPlay) {
+        return { 0, 0, 0, 0 };
+    }
+    MediaMetrics m = GetMediaMetrics(GetEffectiveDpi(m_mediaHwnd));
+    int gap    = (m_mediaLayoutMode == MediaLayoutMode::CompactControls) ? m.compactGap : m.btnGap;
+    int rightX = w - m.padR - m.btnW - gap - m.playW - gap - m.btnW;
+    int y      = (h - m.btnH) / 2;
+    return { rightX, y, rightX + m.btnW, y + m.btnH };
 }
 
 MediaCardButton OsdManager::HitTestMediaButton(int x, int y, int w, int h) const {
@@ -695,10 +1135,11 @@ MediaCardButton OsdManager::HitTestMediaButton(int x, int y, int w, int h) const
     return MediaCardButton::None;
 }
 
-void OsdManager::PositionMediaWindow(int textW, int textH) {
+bool OsdManager::PositionMediaWindow(int textW, int textH) {
     (void)textH;
     m_mediaTextW = textW;
     UINT dpi = GetEffectiveDpi(m_mediaHwnd);
+    MediaMetrics m = GetMediaMetrics(dpi);
 
     // Görev çubuğunun gerçek ekran koordinatlarını al
     HWND hTaskbar = FindWindowW(L"Shell_TrayWnd", nullptr);
@@ -717,58 +1158,147 @@ void OsdManager::PositionMediaWindow(int textW, int textH) {
     int workH = workArea.bottom - workArea.top;
 
     int tbH = hasTb ? (rcTb.bottom - rcTb.top) : ScaleDpi(48, dpi);
+    bool isHorizTb = hasTb && ((rcTb.right - rcTb.left) > tbH);
 
-    // 2 satır metin ve kare thumbnail için DPI duyarlı yükseklik
-    m_mediaHeight = (tbH >= ScaleDpi(42, dpi)) ? ScaleDpi(38, dpi) : ScaleDpi(34, dpi);
-    // [Sol Thumbnail] + [Metin: textW] + [3 Buton] + kenar payı
-    m_mediaWidth  = (std::clamp)(textW + ScaleDpi(160, dpi), ScaleDpi(220, dpi), ScaleDpi(480, dpi));
+    // 2 satır metin ve kare thumbnail için hafif küçültülmüş DPI duyarlı yükseklik
+    int newH = (tbH >= ScaleDpi(42, dpi)) ? ScaleDpi(34, dpi) : ScaleDpi(30, dpi);
+
+    int effTextW     = (std::clamp)(textW, ScaleDpi(48, dpi), ScaleDpi(190, dpi));
+    int preferredW   = effTextW + m.FullChromeW();
+    int minFullW     = (std::min)(preferredW, m.FullChromeW() + ScaleDpi(44, dpi));
+    int compactCtrlW = m.CompactControlsW();
+    int miniPlayW    = m.MiniPlayW();
 
     std::wstring pos = m_cfg.mediaOsdPosition;
     if (pos.empty()) {
         pos = m_cfg.mediaOsdPersistent ? L"BottomLeft" : m_cfg.osdPosition;
     }
 
-    int offX12 = ScaleDpi(12, dpi);
-    int offX20 = ScaleDpi(20, dpi);
-    int offX24 = ScaleDpi(24, dpi);
-    int offY8  = ScaleDpi(8, dpi);
-    int offY55 = ScaleDpi(55, dpi);
+    int offXEdge = ScaleDpi(10, dpi);
+    int offXGap  = ScaleDpi(8, dpi);
+    int offX20   = ScaleDpi(20, dpi);
+    int offX24   = ScaleDpi(24, dpi);
+    int offY8    = ScaleDpi(8, dpi);
+    int offY55   = ScaleDpi(55, dpi);
 
-    int x = offX12;
-    int y = hasTb ? (rcTb.top + (tbH - m_mediaHeight) / 2) : (workArea.bottom - m_mediaHeight - offY8);
+    auto SelectTier = [&](int availW, int& outW, MediaLayoutMode& outMode) -> bool {
+        if (availW >= preferredW) {
+            outMode = MediaLayoutMode::Full;
+            outW = preferredW;
+            return true;
+        }
+        if (availW >= minFullW) {
+            outMode = MediaLayoutMode::Full;
+            outW = availW;
+            return true;
+        }
+        if (availW >= compactCtrlW) {
+            outMode = MediaLayoutMode::CompactControls;
+            outW = compactCtrlW;
+            return true;
+        }
+        if (availW >= miniPlayW) {
+            outMode = MediaLayoutMode::MiniPlay;
+            outW = miniPlayW;
+            return true;
+        }
+        return false;
+    };
 
-    if (pos == L"BottomLeft") {
-        // Doğrudan görev çubuğunun sol tarafında, dikeyde ortalı
-        x = (hasTb ? rcTb.left : workArea.left) + offX12;
-        y = hasTb ? (rcTb.top + (tbH - m_mediaHeight) / 2) : (workArea.bottom - m_mediaHeight - offY8);
+    MediaLayoutMode newMode = MediaLayoutMode::Full;
+    int newW = preferredW;
+    int x = (hasTb ? rcTb.left : workArea.left) + offXEdge;
+    int y = hasTb ? (rcTb.top + (tbH - newH) / 2) : (workArea.bottom - newH - offY8);
+
+    if ((pos == L"BottomLeft" || pos == L"BottomRight") && isHorizTb) {
+        y = rcTb.top + (tbH - newH) / 2;
+
+        TaskbarFreeBounds bounds;
+        {
+            std::lock_guard<std::mutex> lk(m_tbBoundsMutex);
+            bounds = m_tbBounds;
+        }
+
+        if (bounds.valid && bounds.tbRect.left == rcTb.left && bounds.tbRect.right == rcTb.right) {
+            int slotLeft  = 0;
+            int slotRight = 0;
+
+            if (pos == L"BottomLeft") {
+                if (!bounds.isLeftAligned) {
+                    slotLeft  = bounds.leftSlotLeft + ((bounds.leftSlotLeft > rcTb.left) ? offXGap : offXEdge);
+                    slotRight = bounds.leftSlotRight - offXGap;
+                } else {
+                    slotLeft  = bounds.rightSlotLeft + offXGap;
+                    slotRight = bounds.rightSlotRight - offXGap;
+                }
+            } else {
+                slotLeft  = bounds.rightSlotLeft + offXGap;
+                slotRight = bounds.rightSlotRight - offXGap;
+            }
+
+            int availW = slotRight - slotLeft;
+            if (!SelectTier(availW, newW, newMode)) {
+                return false;
+            }
+            x = (pos == L"BottomRight") ? (slotRight - newW) : slotLeft;
+        } else {
+            int maxFallbackW = (std::max)(miniPlayW, static_cast<int>((rcTb.right - rcTb.left) / 3));
+            SelectTier(maxFallbackW, newW, newMode);
+            x = (pos == L"BottomRight") ? (rcTb.right - newW - offX24) : (rcTb.left + offXEdge);
+        }
+    } else if (pos == L"BottomLeft") {
+        x = (hasTb ? rcTb.left : workArea.left) + offXEdge;
+        y = hasTb ? (rcTb.top + (tbH - newH) / 2) : (workArea.bottom - newH - offY8);
     } else if (pos == L"BottomRight") {
-        x = (hasTb ? rcTb.right : workArea.right) - m_mediaWidth - offX24;
-        y = hasTb ? (rcTb.top + (tbH - m_mediaHeight) / 2) : (workArea.bottom - m_mediaHeight - offY8);
+        x = (hasTb ? rcTb.right : workArea.right) - newW - offX24;
+        y = hasTb ? (rcTb.top + (tbH - newH) / 2) : (workArea.bottom - newH - offY8);
     } else if (pos == L"Center") {
-        x = workArea.left + (workW - m_mediaWidth) / 2;
-        y = workArea.top + (workH - m_mediaHeight) / 2;
+        x = workArea.left + (workW - newW) / 2;
+        y = workArea.top + (workH - newH) / 2;
     } else if (pos == L"TopLeft") {
         x = workArea.left + offX20;
         y = workArea.top + offY55;
     } else if (pos == L"TopRight") {
-        x = workArea.right - m_mediaWidth - offX24;
+        x = workArea.right - newW - offX24;
         y = workArea.top + offY55;
     }
 
-    SetWindowPos(m_mediaHwnd, HWND_TOPMOST, x, y, m_mediaWidth, m_mediaHeight, SWP_NOACTIVATE);
+    bool geomChanged = (x != m_mediaX || y != m_mediaY || newW != m_mediaWidth || newH != m_mediaHeight);
+    bool modeChanged = (newMode != m_mediaLayoutMode);
 
-    // Şeffaf pencere: Herhangi bir DWM bölgesi kesimi yapılmaz, böylece dışta çizgi kalmaz
-    SetWindowRgn(m_mediaHwnd, nullptr, TRUE);
+    m_mediaX = x;
+    m_mediaY = y;
+    m_mediaWidth = newW;
+    m_mediaHeight = newH;
+    m_mediaLayoutMode = newMode;
+
+    if (modeChanged) {
+        m_hoveredMediaBtn = MediaCardButton::None;
+    }
+
+    if (geomChanged || modeChanged || !IsWindowVisible(m_mediaHwnd)) {
+        SetWindowPos(m_mediaHwnd, HWND_TOPMOST, m_mediaX, m_mediaY, m_mediaWidth, m_mediaHeight, SWP_NOACTIVATE);
+        // Şeffaf pencere: Herhangi bir DWM bölgesi kesimi yapılmaz, böylece dışta çizgi kalmaz
+        SetWindowRgn(m_mediaHwnd, nullptr, TRUE);
+        if (IsWindowVisible(m_mediaHwnd)) {
+            InvalidateRect(m_mediaHwnd, nullptr, FALSE);
+            UpdateWindow(m_mediaHwnd);
+        }
+    }
+
+    return true;
 }
 
 void OsdManager::CheckFullscreenAndTaskbarState() {
     if (!m_mediaHwnd) return;
     if (!m_cfg.mediaOsdPersistent) {
+        m_probeActive.store(false);
         return;
     }
 
     // Şarkı başlığı yoksa gizle
     if (m_mediaTitle.empty()) {
+        m_probeActive.store(false);
         if (IsWindowVisible(m_mediaHwnd)) {
             HideMediaTrack();
         }
@@ -777,12 +1307,17 @@ void OsdManager::CheckFullscreenAndTaskbarState() {
 
     bool isFs = IsFullscreenAppActive(m_mediaHwnd);
     bool isTb = IsTaskbarVisible();
-    bool shouldShow = (!isFs && isTb);
+    m_probeActive.store(m_hasActiveMedia && m_cfg.mediaOsdPersistent && !isFs);
+
+    bool hasRoom = (!isFs && isTb) ? PositionMediaWindow(m_mediaTextW, m_mediaHeight) : false;
+    bool shouldShow = (!isFs && isTb && hasRoom);
 
     if (shouldShow) {
-        if (!IsWindowVisible(m_mediaHwnd) || m_suppressedByFullscreen) {
-            m_suppressedByFullscreen = false;
-            PositionMediaWindow(m_mediaTextW, m_mediaHeight);
+        bool wasSuppressed = (m_suppressedByFullscreen || m_suppressedBySpace);
+        m_suppressedByFullscreen = false;
+        m_suppressedBySpace = false;
+
+        if (!IsWindowVisible(m_mediaHwnd) || wasSuppressed) {
             InvalidateRect(m_mediaHwnd, nullptr, TRUE);
             ShowWindow(m_mediaHwnd, SW_SHOWNOACTIVATE);
             UpdateWindow(m_mediaHwnd);
@@ -801,8 +1336,9 @@ void OsdManager::CheckFullscreenAndTaskbarState() {
                          SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
         }
     } else {
+        m_suppressedByFullscreen = (isFs || !isTb);
+        m_suppressedBySpace = (!isFs && isTb && !hasRoom);
         if (IsWindowVisible(m_mediaHwnd)) {
-            m_suppressedByFullscreen = true;
             KillTimer(m_mediaHwnd, TIMER_ID_MEDIA_FADE_IN);
             KillTimer(m_mediaHwnd, TIMER_ID_MEDIA_HOLD);
             KillTimer(m_mediaHwnd, TIMER_ID_MEDIA_FADE_OUT);
@@ -815,6 +1351,9 @@ void OsdManager::CheckFullscreenAndTaskbarState() {
 
 void OsdManager::HideMediaTrack() {
     m_hasActiveMedia = false;
+    m_suppressedByFullscreen = false;
+    m_suppressedBySpace = false;
+    m_probeActive.store(false);
     if (!m_mediaHwnd || !IsWindowVisible(m_mediaHwnd)) return;
 
     KillTimer(m_mediaHwnd, TIMER_ID_MEDIA_FADE_IN);
@@ -850,7 +1389,8 @@ void OsdManager::ShowMediaTrack(const std::wstring& songTitle,
     m_hasActiveMedia = true;
 
     UINT dpi = GetEffectiveDpi(m_mediaHwnd);
-    int thumbSize = ScaleDpi(30, dpi);
+    MediaMetrics m = GetMediaMetrics(dpi);
+    int thumbSize = m.thumbSize;
     bool thumbResize = (!thumbnailData.empty() && m_mediaThumbSize != thumbSize);
 
     if (thumbChanged || thumbResize) {
@@ -873,13 +1413,13 @@ void OsdManager::ShowMediaTrack(const std::wstring& songTitle,
     // İki satır metin genişliğini ölç
     HDC hdc = GetDC(m_mediaHwnd);
     HFONT fontTitle = CreateFontW(
-        -ScaleDpi(13, dpi), 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
+        -ScaleDpi(12, dpi), 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
         CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
         L"Segoe UI"
     );
     HFONT fontArtist = CreateFontW(
-        -ScaleDpi(11, dpi), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+        -ScaleDpi(10, dpi), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
         CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
         L"Segoe UI"
@@ -900,25 +1440,46 @@ void OsdManager::ShowMediaTrack(const std::wstring& songTitle,
     DeleteObject(fontArtist);
     ReleaseDC(m_mediaHwnd, hdc);
 
-    int textW = (std::clamp)((std::max)(titleW, artistW), ScaleDpi(60, dpi), ScaleDpi(240, dpi));
-    PositionMediaWindow(textW, m_mediaHeight);
+    bool boundsValid = false;
+    {
+        std::lock_guard<std::mutex> lk(m_tbBoundsMutex);
+        boundsValid = m_tbBounds.valid;
+    }
+    if (!boundsValid) {
+        RefreshTaskbarLayout(0);
+    }
+
+    int textW = (std::clamp)((std::max)(titleW, artistW), ScaleDpi(48, dpi), ScaleDpi(190, dpi));
+    bool hasRoom = PositionMediaWindow(textW, m_mediaHeight);
 
     if (m_cfg.mediaOsdPersistent) {
         bool isFs = IsFullscreenAppActive(m_mediaHwnd);
         bool isTb = IsTaskbarVisible();
-        if (isFs || !isTb) {
-            m_suppressedByFullscreen = true;
-            ShowWindow(m_mediaHwnd, SW_HIDE);
+        m_probeActive.store(m_hasActiveMedia && m_cfg.mediaOsdPersistent && !isFs);
+
+        if (isFs || !isTb || !hasRoom) {
+            m_suppressedByFullscreen = (isFs || !isTb);
+            m_suppressedBySpace = (!isFs && isTb && !hasRoom);
+            if (IsWindowVisible(m_mediaHwnd)) {
+                KillTimer(m_mediaHwnd, TIMER_ID_MEDIA_FADE_IN);
+                KillTimer(m_mediaHwnd, TIMER_ID_MEDIA_HOLD);
+                KillTimer(m_mediaHwnd, TIMER_ID_MEDIA_FADE_OUT);
+                ShowWindow(m_mediaHwnd, SW_HIDE);
+                m_mediaAlpha = 0;
+                SetLayeredWindowAttributes(m_mediaHwnd, MEDIA_COLOR_KEY, 0, LWA_COLORKEY | LWA_ALPHA);
+            }
             return;
         }
 
+        bool wasSuppressed = (m_suppressedByFullscreen || m_suppressedBySpace);
         m_suppressedByFullscreen = false;
+        m_suppressedBySpace = false;
 
-        if (IsWindowVisible(m_mediaHwnd) && !trackChanged && !playChanged && !thumbChanged && !thumbResize) {
+        if (IsWindowVisible(m_mediaHwnd) && !wasSuppressed && !trackChanged && !playChanged && !thumbChanged && !thumbResize) {
             return;
         }
 
-        if (IsWindowVisible(m_mediaHwnd) && (trackChanged || playChanged || thumbChanged || thumbResize)) {
+        if (IsWindowVisible(m_mediaHwnd) && !wasSuppressed && (trackChanged || playChanged || thumbChanged || thumbResize)) {
             InvalidateRect(m_mediaHwnd, nullptr, TRUE);
             UpdateWindow(m_mediaHwnd);
             return;
@@ -941,6 +1502,19 @@ void OsdManager::ShowMediaTrack(const std::wstring& songTitle,
             SetLayeredWindowAttributes(m_mediaHwnd, MEDIA_COLOR_KEY, 255, LWA_COLORKEY | LWA_ALPHA);
         }
     } else {
+        m_probeActive.store(false);
+        if (!hasRoom) {
+            if (IsWindowVisible(m_mediaHwnd)) {
+                KillTimer(m_mediaHwnd, TIMER_ID_MEDIA_FADE_IN);
+                KillTimer(m_mediaHwnd, TIMER_ID_MEDIA_HOLD);
+                KillTimer(m_mediaHwnd, TIMER_ID_MEDIA_FADE_OUT);
+                ShowWindow(m_mediaHwnd, SW_HIDE);
+                m_mediaAlpha = 0;
+                SetLayeredWindowAttributes(m_mediaHwnd, MEDIA_COLOR_KEY, 0, LWA_COLORKEY | LWA_ALPHA);
+            }
+            return;
+        }
+
         KillTimer(m_mediaHwnd, TIMER_ID_MEDIA_FADE_IN);
         KillTimer(m_mediaHwnd, TIMER_ID_MEDIA_HOLD);
         KillTimer(m_mediaHwnd, TIMER_ID_MEDIA_FADE_OUT);
@@ -971,6 +1545,7 @@ void OsdManager::OnPaintMedia(HWND hwnd) {
     int h = rc.bottom - rc.top;
 
     UINT dpi = GetEffectiveDpi(hwnd);
+    MediaMetrics m = GetMediaMetrics(dpi);
 
     HDC memDC = CreateCompatibleDC(hdc);
     HBITMAP memBmp = CreateCompatibleBitmap(hdc, w, h);
@@ -981,11 +1556,11 @@ void OsdManager::OnPaintMedia(HWND hwnd) {
     FillRect(memDC, &rc, bgBrush);
     DeleteObject(bgBrush);
 
-    // 2. Sol Küçük Kare Albüm / Medya Rozeti (4-6px hafif yuvarlatılmış kare)
-    int thumbSize   = ScaleDpi(30, dpi);
-    int thumbX      = ScaleDpi(8, dpi);
+    // 2. Sol Küçük Kare Albüm / Medya Rozeti (4-5px hafif yuvarlatılmış kare)
+    int thumbSize   = m.thumbSize;
+    int thumbX      = m.thumbX;
     int thumbY      = (h - thumbSize) / 2;
-    int thumbRadius = ScaleDpi(6, dpi);
+    int thumbRadius = m.thumbRadius;
 
     HRGN clipRgn = CreateRoundRectRgn(thumbX, thumbY, thumbX + thumbSize + 1, thumbY + thumbSize + 1, thumbRadius, thumbRadius);
 
@@ -1021,7 +1596,7 @@ void OsdManager::OnPaintMedia(HWND hwnd) {
         if (m_isMediaPlaying) {
             SetBkMode(memDC, TRANSPARENT);
             HFONT noteFont = CreateFontW(
-                -ScaleDpi(12, dpi), 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+                -ScaleDpi(11, dpi), 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
                 DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                 CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
                 L"Segoe UI"
@@ -1061,9 +1636,9 @@ void OsdManager::OnPaintMedia(HWND hwnd) {
         int tcx    = thumbX + thumbSize / 2;
         int tcy    = thumbY + thumbSize / 2;
         int barGap = (std::max)(1, ScaleDpi(1, dpi));
-        int barW   = (std::max)(2, ScaleDpi(4, dpi));
-        int barH   = ScaleDpi(7, dpi);
-        int barRad = ScaleDpi(3, dpi);
+        int barW   = (std::max)(2, ScaleDpi(3, dpi));
+        int barH   = ScaleDpi(6, dpi);
+        int barRad = ScaleDpi(2, dpi);
         HBRUSH barBrush = CreateSolidBrush(RGB(255, 255, 255));
         HPEN barPen     = CreatePen(PS_SOLID, 1, RGB(255, 255, 255));
         HGDIOBJ oldBarB = SelectObject(memDC, barBrush);
@@ -1093,7 +1668,7 @@ void OsdManager::OnPaintMedia(HWND hwnd) {
     RECT rNext = GetNextBtnRect(w, h);
 
     COLORREF btnRestKey = RGB(13, 17, 21);
-    int btnRad = ScaleDpi(6, dpi);
+    int btnRad = ScaleDpi(5, dpi);
     int penW   = (std::max)(1, ScaleDpi(2, dpi));
 
     auto DrawBtnHoverOrHitbox = [&](const RECT& rBtn, bool isHovered) {
@@ -1120,105 +1695,117 @@ void OsdManager::OnPaintMedia(HWND hwnd) {
         }
     };
 
-    // 3a. Prev Düğmesi (|<)
-    bool prevHover = (m_hoveredMediaBtn == MediaCardButton::Prev);
-    DrawBtnHoverOrHitbox(rPrev, prevHover);
-
-    COLORREF prevColor = prevHover ? RGB(255, 255, 255) : RGB(226, 232, 240);
-    HPEN prevPen = CreatePen(PS_SOLID, penW, prevColor);
-    HGDIOBJ oldP = SelectObject(memDC, prevPen);
-    HGDIOBJ oldNullB = SelectObject(memDC, GetStockObject(NULL_BRUSH)); // İçi boş (outline)
-
-    int prevCx = (rPrev.left + rPrev.right) / 2;
-    int prevCy = (rPrev.top + rPrev.bottom) / 2;
     int d6 = ScaleDpi(6, dpi);
-    int d7 = ScaleDpi(7, dpi);
     int d5 = ScaleDpi(5, dpi);
     int d4 = ScaleDpi(4, dpi);
     int d3 = ScaleDpi(3, dpi);
-    MoveToEx(memDC, prevCx - d6, prevCy - d6, nullptr);
-    LineTo(memDC, prevCx - d6, prevCy + d7);
-    POINT prevTri[3] = { { prevCx + d5, prevCy - d6 }, { prevCx + d5, prevCy + d6 }, { prevCx - d4, prevCy } };
-    Polygon(memDC, prevTri, 3);
-    SelectObject(memDC, oldP);
-    DeleteObject(prevPen);
+    int d2 = ScaleDpi(2, dpi);
+    HGDIOBJ oldNullB = SelectObject(memDC, GetStockObject(NULL_BRUSH)); // İçi boş (outline)
+
+    // 3a. Prev Düğmesi (|<)
+    if (m_mediaLayoutMode != MediaLayoutMode::MiniPlay) {
+        bool prevHover = (m_hoveredMediaBtn == MediaCardButton::Prev);
+        DrawBtnHoverOrHitbox(rPrev, prevHover);
+
+        COLORREF prevColor = prevHover ? RGB(255, 255, 255) : RGB(226, 232, 240);
+        HPEN prevPen = CreatePen(PS_SOLID, penW, prevColor);
+        HGDIOBJ oldP = SelectObject(memDC, prevPen);
+
+        int prevCx = (rPrev.left + rPrev.right) / 2;
+        int prevCy = (rPrev.top + rPrev.bottom) / 2;
+        MoveToEx(memDC, prevCx - d5, prevCy - d5, nullptr);
+        LineTo(memDC, prevCx - d5, prevCy + d6);
+        POINT prevTri[3] = { { prevCx + d4, prevCy - d5 }, { prevCx + d4, prevCy + d5 }, { prevCx - d3, prevCy } };
+        Polygon(memDC, prevTri, 3);
+        SelectObject(memDC, oldP);
+        DeleteObject(prevPen);
+    }
 
     // 3b. Play/Pause Düğmesi (▷ / ||)
-    bool playHover = (m_hoveredMediaBtn == MediaCardButton::PlayPause);
-    DrawBtnHoverOrHitbox(rPlay, playHover);
+    {
+        bool playHover = (m_hoveredMediaBtn == MediaCardButton::PlayPause);
+        DrawBtnHoverOrHitbox(rPlay, playHover);
 
-    COLORREF playColor = playHover ? RGB(255, 255, 255) : RGB(241, 245, 249);
-    HPEN playPen = CreatePen(PS_SOLID, penW, playColor);
-    oldP = SelectObject(memDC, playPen);
-    int playCx = (rPlay.left + rPlay.right) / 2;
-    int playCy = (rPlay.top + rPlay.bottom) / 2;
+        COLORREF playColor = playHover ? RGB(255, 255, 255) : RGB(241, 245, 249);
+        HPEN playPen = CreatePen(PS_SOLID, penW, playColor);
+        HGDIOBJ oldP = SelectObject(memDC, playPen);
+        int playCx = (rPlay.left + rPlay.right) / 2;
+        int playCy = (rPlay.top + rPlay.bottom) / 2;
 
-    if (m_isMediaPlaying) {
-        MoveToEx(memDC, playCx - d4, playCy - d6, nullptr);
-        LineTo(memDC, playCx - d4, playCy + d7);
-        MoveToEx(memDC, playCx + d3, playCy - d6, nullptr);
-        LineTo(memDC, playCx + d3, playCy + d7);
-    } else {
-        POINT playTri[3] = { { playCx - d4, playCy - d6 }, { playCx - d4, playCy + d6 }, { playCx + d6, playCy } };
-        Polygon(memDC, playTri, 3);
+        if (m_isMediaPlaying) {
+            MoveToEx(memDC, playCx - d3, playCy - d5, nullptr);
+            LineTo(memDC, playCx - d3, playCy + d6);
+            MoveToEx(memDC, playCx + d2, playCy - d5, nullptr);
+            LineTo(memDC, playCx + d2, playCy + d6);
+        } else {
+            POINT playTri[3] = { { playCx - d3, playCy - d5 }, { playCx - d3, playCy + d5 }, { playCx + d5, playCy } };
+            Polygon(memDC, playTri, 3);
+        }
+        SelectObject(memDC, oldP);
+        DeleteObject(playPen);
     }
-    SelectObject(memDC, oldP);
-    DeleteObject(playPen);
 
     // 3c. Next Düğmesi (>|)
-    bool nextHover = (m_hoveredMediaBtn == MediaCardButton::Next);
-    DrawBtnHoverOrHitbox(rNext, nextHover);
+    if (m_mediaLayoutMode != MediaLayoutMode::MiniPlay) {
+        bool nextHover = (m_hoveredMediaBtn == MediaCardButton::Next);
+        DrawBtnHoverOrHitbox(rNext, nextHover);
 
-    COLORREF nextColor = nextHover ? RGB(255, 255, 255) : RGB(226, 232, 240);
-    HPEN nextPen = CreatePen(PS_SOLID, penW, nextColor);
-    oldP = SelectObject(memDC, nextPen);
-    int nextCx = (rNext.left + rNext.right) / 2;
-    int nextCy = (rNext.top + rNext.bottom) / 2;
-    POINT nextTri[3] = { { nextCx - d5, nextCy - d6 }, { nextCx - d5, nextCy + d6 }, { nextCx + d4, nextCy } };
-    Polygon(memDC, nextTri, 3);
-    MoveToEx(memDC, nextCx + d6, nextCy - d6, nullptr);
-    LineTo(memDC, nextCx + d6, nextCy + d7);
-    SelectObject(memDC, oldP);
-    DeleteObject(nextPen);
+        COLORREF nextColor = nextHover ? RGB(255, 255, 255) : RGB(226, 232, 240);
+        HPEN nextPen = CreatePen(PS_SOLID, penW, nextColor);
+        HGDIOBJ oldP = SelectObject(memDC, nextPen);
+        int nextCx = (rNext.left + rNext.right) / 2;
+        int nextCy = (rNext.top + rNext.bottom) / 2;
+        POINT nextTri[3] = { { nextCx - d4, nextCy - d5 }, { nextCx - d4, nextCy + d5 }, { nextCx + d3, nextCy } };
+        Polygon(memDC, nextTri, 3);
+        MoveToEx(memDC, nextCx + d5, nextCy - d5, nullptr);
+        LineTo(memDC, nextCx + d5, nextCy + d6);
+        SelectObject(memDC, oldP);
+        DeleteObject(nextPen);
+    }
     SelectObject(memDC, oldNullB);
 
-    // 4. Metin Alanı (İki satır alt alta)
+    // 4. Metin Alanı (İki satır alt alta - yalnızca Full modda)
     // 1. Satır: Şarkı Adı (Kalın, Beyaz)
     // 2. Satır: Sanatçı Adı (Normal, Gri)
-    SetBkMode(memDC, TRANSPARENT);
+    if (m_mediaLayoutMode == MediaLayoutMode::Full) {
+        int textLeft     = thumbX + thumbSize + m.textGapL;
+        int maxTextRight = rPrev.left - m.textGapR;
 
-    HFONT titleFont = CreateFontW(
-        -ScaleDpi(13, dpi), 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
-        L"Segoe UI"
-    );
+        if (maxTextRight > textLeft + ScaleDpi(12, dpi)) {
+            SetBkMode(memDC, TRANSPARENT);
 
-    HFONT artistFont = CreateFontW(
-        -ScaleDpi(11, dpi), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
-        L"Segoe UI"
-    );
+            HFONT titleFont = CreateFontW(
+                -ScaleDpi(12, dpi), 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
+                DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
+                L"Segoe UI"
+            );
 
-    int textLeft     = thumbX + thumbSize + ScaleDpi(10, dpi);
-    int maxTextRight = rPrev.left - ScaleDpi(10, dpi);
+            HFONT artistFont = CreateFontW(
+                -ScaleDpi(10, dpi), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+                DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
+                L"Segoe UI"
+            );
 
-    RECT rcLine1 = { textLeft, (h / 2) - ScaleDpi(17, dpi), maxTextRight, (h / 2) + ScaleDpi(1, dpi) };
-    HGDIOBJ oldF = SelectObject(memDC, titleFont);
-    SetTextColor(memDC, RGB(255, 255, 255));
-    DrawTextW(memDC, m_mediaTitle.c_str(), -1, &rcLine1, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+            RECT rcLine1 = { textLeft, (h / 2) - ScaleDpi(15, dpi), maxTextRight, (h / 2) };
+            HGDIOBJ oldF = SelectObject(memDC, titleFont);
+            SetTextColor(memDC, RGB(255, 255, 255));
+            DrawTextW(memDC, m_mediaTitle.c_str(), -1, &rcLine1, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
 
-    RECT rcLine2 = { textLeft, (h / 2) + ScaleDpi(1, dpi), maxTextRight, (h / 2) + ScaleDpi(16, dpi) };
-    SelectObject(memDC, artistFont);
-    SetTextColor(memDC, RGB(148, 163, 184));
-    DrawTextW(memDC, m_mediaArtist.c_str(), -1, &rcLine2, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+            RECT rcLine2 = { textLeft, (h / 2), maxTextRight, (h / 2) + ScaleDpi(14, dpi) };
+            SelectObject(memDC, artistFont);
+            SetTextColor(memDC, RGB(148, 163, 184));
+            DrawTextW(memDC, m_mediaArtist.c_str(), -1, &rcLine2, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+
+            SelectObject(memDC, oldF);
+            DeleteObject(titleFont);
+            DeleteObject(artistFont);
+        }
+    }
 
     BitBlt(hdc, 0, 0, w, h, memDC, 0, 0, SRCCOPY);
 
-    SelectObject(memDC, oldF);
-    DeleteObject(titleFont);
-    DeleteObject(artistFont);
     SelectObject(memDC, oldBmp);
     DeleteObject(memBmp);
     DeleteDC(memDC);
