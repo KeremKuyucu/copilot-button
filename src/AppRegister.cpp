@@ -14,7 +14,7 @@
 
 static const wchar_t* APP_ID         = L"KeremKuyucu.CopilotButton";
 static const wchar_t* APP_NAME       = L"Copilot Button";
-static const wchar_t* APP_VERSION    = L"3.2.3";
+static const wchar_t* APP_VERSION    = L"3.3.0";
 static const wchar_t* APP_PUBLISHER  = L"Kerem Kuyucu";
 static const wchar_t* RUN_REG_KEY    = L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 static const wchar_t* APP_PATHS_KEY  = L"Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\CopilotButton.exe";
@@ -248,7 +248,7 @@ void RegisterAppWithWindows() {
                        reinterpret_cast<const BYTE*>(&dwOne), sizeof(DWORD));
 
         // VersionMajor & VersionMinor
-        DWORD vMaj = 3, vMin = 2;
+        DWORD vMaj = 3, vMin = 3;
         RegSetValueExW(hKey, L"VersionMajor", 0, REG_DWORD,
                        reinterpret_cast<const BYTE*>(&vMaj), sizeof(DWORD));
         RegSetValueExW(hKey, L"VersionMinor", 0, REG_DWORD,
