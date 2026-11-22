@@ -22,10 +22,9 @@ TrayManager::~TrayManager() {
     Uninstall();
 }
 
-bool TrayManager::Install(HWND hWnd, std::function<void()> onSettings, std::function<void()> onExit) {
-    m_hWnd       = hWnd;
-    m_onSettings = std::move(onSettings);
-    m_onExit     = std::move(onExit);
+bool TrayManager::Install(HWND hWnd, std::function<void()> onExit) {
+    m_hWnd   = hWnd;
+    m_onExit = std::move(onExit);
 
     Reinstall();
     return m_installed;
@@ -98,11 +97,6 @@ void TrayManager::HandleMessage(WPARAM wParam, LPARAM lParam) {
             GetCursorPos(&pt);
         }
         ShowContextMenu(pt);
-    } else if (msg == WM_LBUTTONUP || msg == WM_LBUTTONDBLCLK ||
-               msg == NIN_SELECT || msg == NIN_KEYSELECT) {
-        if (m_onSettings) {
-            m_onSettings();
-        }
     }
 }
 
@@ -114,8 +108,6 @@ void TrayManager::ShowContextMenu(POINT pt) {
     HMENU hMenu = CreatePopupMenu();
     if (!hMenu) return;
 
-    AppendMenuW(hMenu, MF_STRING, IDM_TRAY_SETTINGS, L"⚙️  Settings");
-    AppendMenuW(hMenu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(hMenu, MF_STRING, IDM_TRAY_EXIT, L"❌  Exit");
 
     SetForegroundWindow(m_hWnd);
@@ -125,9 +117,7 @@ void TrayManager::ShowContextMenu(POINT pt) {
     PostMessageW(m_hWnd, WM_NULL, 0, 0);
     DestroyMenu(hMenu);
 
-    if (cmd == IDM_TRAY_SETTINGS) {
-        if (m_onSettings) m_onSettings();
-    } else if (cmd == IDM_TRAY_EXIT) {
+    if (cmd == IDM_TRAY_EXIT) {
         if (m_onExit) m_onExit();
     }
 }

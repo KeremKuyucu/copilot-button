@@ -94,10 +94,3 @@ void DispatchAction(Action act, const Config& cfg) {
             break;
     }
 }
-
-void DispatchAction(Action act, const std::wstring& customAppPath, bool soundFx) {
-    Config cfg;
-    cfg.customAppPath = customAppPath;
-    cfg.soundFxEnabled = soundFx;
-    DispatchAction(act, cfg);
-}

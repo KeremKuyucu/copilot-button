@@ -13,13 +13,13 @@ set(SOURCES
     src/main.cpp
     src/Tray.cpp
     src/AppRegister.cpp
-    src/Config.cpp
     src/Audio.cpp
     src/KeyHook.cpp
     src/Actions.cpp
     src/MicOverlay.cpp
     src/MediaTracker.cpp
     src/Osd.cpp
+    src/HelloLight.cpp
     resources/app.rc
 )
 

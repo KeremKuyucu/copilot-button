@@ -346,10 +346,6 @@ bool UninstallApp(bool silent) {
     wchar_t localApp[MAX_PATH] = {};
     if (SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, localApp))) {
         std::wstring targetDir = std::wstring(localApp) + L"\\CopilotButton";
-        std::wstring targetConfig = targetDir + L"\\config.ini";
-
-        // config.ini kilitli olmadığı için hemen silinebilir
-        DeleteFileW(targetConfig.c_str());
 
         // Bu uninstaller süreci kapandığında hedef klasörü silecek arka plan cmd işlemi
         std::wstring cleanCmd = L"cmd.exe /c ping 127.0.0.1 -n 2 >nul & rmdir /s /q \"" + targetDir + L"\"";
@@ -430,14 +426,6 @@ bool CheckAndPerformSelfRelocate() {
 
     if (!copied) {
         return false;
-    }
-
-    // Kaynak dizinde config.ini varsa ve hedefte henüz yoksa kopyala
-    std::wstring curConfig = std::wstring(curDir) + L"\\config.ini";
-    std::wstring targetConfig = targetDir + L"\\config.ini";
-    if (GetFileAttributesW(curConfig.c_str()) != INVALID_FILE_ATTRIBUTES &&
-        GetFileAttributesW(targetConfig.c_str()) == INVALID_FILE_ATTRIBUTES) {
-        CopyFileW(curConfig.c_str(), targetConfig.c_str(), TRUE);
     }
 
     CreateStartMenuShortcut(targetExe);

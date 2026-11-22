@@ -14,9 +14,9 @@ echo [2/2] CopilotButton.exe olusturuluyor (C++20)...
 g++ -std=c++20 -DUNICODE -D_UNICODE -DWIN32_LEAN_AND_MEAN -Wall -Wextra -O2 -s -flto -ffunction-sections -fdata-sections -Wl,--gc-sections -mwindows ^
     -I include ^
     src/main.cpp src/Tray.cpp src/AppRegister.cpp ^
-    src/Config.cpp src/Audio.cpp ^
+    src/Audio.cpp ^
     src/KeyHook.cpp src/Actions.cpp src/MicOverlay.cpp ^
-    src/MediaTracker.cpp src/Osd.cpp resources/app.res ^
+    src/MediaTracker.cpp src/Osd.cpp src/HelloLight.cpp resources/app.res ^
     -o CopilotButton.exe ^
     -luser32 -lshell32 -lole32 -loleaut32 -luuid -lwinmm -ladvapi32 -lgdi32 -ldwmapi -lwindowsapp -lgdiplus -lshlwapi -lmsimg32 ^
     -static-libgcc -static-libstdc++ -static

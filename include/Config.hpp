@@ -4,8 +4,6 @@
 #endif
 #include <windows.h>
 #include <string>
-#include <mutex>
-#include <functional>
 
 // ─────────────────────────────────────────────
 //  Eylem listesi
@@ -23,64 +21,34 @@ enum class Action : int {
     PushToTalk
 };
 
-Action ParseAction(const std::wstring& s);
-
-// config.ini mevcut değilse varsayılan ayarlarla otomatik oluşturur
-void EnsureConfigExists(const std::wstring& path);
-
-// config.ini yolunu çözümler (exe dizini, üst dizin veya %LOCALAPPDATA%\CopilotButton)
-std::wstring GetIniPath();
-
 // ─────────────────────────────────────────────
-//  Yapılandırma yapısı
+//  Yapılandırma — tüm ayarlar burada sabit olarak tanımlıdır
 // ─────────────────────────────────────────────
 struct Config {
-    DWORD        doubleTapMs  = 250;
-    DWORD        holdMs       = 250;
-    Action       action1      = Action::MicMute;
-    Action       action2      = Action::PlayPause;
-    Action       action3      = Action::NextTrack;
-    Action       action4      = Action::None;
-    Action       holdAction   = Action::PushToTalk;
-    std::wstring customAppPath;
-    bool         soundFxEnabled  = true;
-    bool         autoStart       = true;
+    // Tıklama ve basılı tutma eylemleri
+    Action       action1           = Action::MicMute;
+    Action       action2           = Action::PlayPause;
+    Action       action3           = Action::NextTrack;
+    Action       action4           = Action::None;
+    Action       holdAction        = Action::CustomApp;
+    std::wstring customAppPath     = L"C:\\Users\\kerem\\AppData\\Local\\Programs\\antigravity\\Antigravity.exe";
+    bool         windowsHelloLight = true;
 
-    // OSD Ayarları
-    std::wstring osdPosition        = L"TopLeft";
-    std::wstring mediaOsdPosition   = L"BottomLeft";
-    std::wstring osdColorHex        = L"00E5FF";
-    COLORREF     osdColor           = RGB(0, 229, 255);
+    // Tıklama ve basılı tutma zamanlamaları (milisaniye)
+    DWORD        doubleTapMs        = 250;
+    DWORD        holdMs             = 250;
+
+    // Sistem ve ses davranışları
+    bool         autoStart          = true;   // Taşınabilir mod dışında Windows başlangıcında otomatik çalışır
+    bool         soundFxEnabled     = true;   // Mikrofon susturma/açma ses efektleri
+
+    // Medya ve bildirim OSD ayarları
+    bool         mediaTrackOsd      = true;   // Medya parça değişiminde OSD göster
+    bool         mediaOsdPersistent = true;   // Sürekli medya OSD kartı (tam ekranda gizlenir)
+    std::wstring mediaOsdPosition   = L"BottomLeft";       // BottomLeft, BottomRight, TopLeft, TopRight, Center
+    std::wstring osdPosition        = L"TopLeft";          // TopLeft, TopRight, BottomLeft, BottomRight, Center
+    COLORREF     osdColor           = RGB(0, 229, 255);    // #00E5FF
     int          osdFontSize        = 10;
     DWORD        osdDurationMs      = 1500;
     bool         osdFadeEnabled     = true;
-    bool         mediaTrackOsd      = true;
-    bool         mediaOsdPersistent = true;
-};
-
-// ─────────────────────────────────────────────
-//  ConfigManager – INI okuma + dinamik hot-reload
-// ─────────────────────────────────────────────
-class ConfigManager {
-public:
-    using ChangeCallback = std::function<void(const Config&)>;
-
-    explicit ConfigManager(std::wstring iniPath, ChangeCallback onChange = nullptr);
-    ~ConfigManager();
-
-    void   Start();          // Yükleme + arka plan izleyicisi başlat
-    Config GetConfig() const;
-
-private:
-    void Load();
-    void WatcherThread();
-
-    std::wstring       m_path;
-    std::wstring       m_dir;
-    mutable std::mutex m_mu;
-    Config             m_cfg;
-    ChangeCallback     m_onChange;
-    HANDLE             m_stopEvent     = INVALID_HANDLE_VALUE;
-    HANDLE             m_thread        = INVALID_HANDLE_VALUE;
-    FILETIME           m_lastWriteTime = {};
 };
