@@ -20,11 +20,16 @@ public:
     void SetEnabled(bool enabled);
     void Destroy();
 
+    // Aktif Windows Hello oturumu varken ışığı sadece bu oturum için açıp kapatır
+    bool IsSessionActive() const;
+    void ToggleSessionOverlay();
+
 private:
     void Enable();
     void Disable();
     void ShowOverlayForWindow(HWND targetHwnd);
     void HideOverlay();
+    void ApplyRingRegion(int width, int height);
 
     static bool IsCredentialUIBroker(HWND hwnd);
     static void CALLBACK WinEventProc(
@@ -46,7 +51,8 @@ private:
     HINSTANCE     m_hInstance      = nullptr;
     HWND          m_overlayHwnd    = nullptr;
     HWND          m_helloHwnd      = nullptr;
-    HWINEVENTHOOK m_foregroundHook = nullptr;
-    bool          m_enabled        = false;
+    HWINEVENTHOOK m_foregroundHook  = nullptr;
+    bool          m_enabled         = false;
+    bool          m_sessionSuppressed = false;
     bool          m_classRegistered = false;
 };

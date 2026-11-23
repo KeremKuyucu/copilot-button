@@ -300,6 +300,10 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
 
     bool installed = hook.Install(
         [&](Action act) {
+            if (act == g_cfg.action1 && g_pHelloLight && g_pHelloLight->IsSessionActive()) {
+                g_pHelloLight->ToggleSessionOverlay();
+                return;
+            }
             DispatchAction(act, g_cfg);
 
             bool m = GetMicMuteState();

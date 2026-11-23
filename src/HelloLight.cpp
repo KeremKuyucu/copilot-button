@@ -1,4 +1,5 @@
 #include "HelloLight.hpp"
+#include <algorithm>
 #include <string>
 #include <cwctype>
 
@@ -54,7 +55,7 @@ void HelloLight::Enable() {
         // WS_EX_NOACTIVATE: Tıklansa veya açılsa bile odak çalmaz
         // WS_EX_TRANSPARENT: Tıklamaları altındaki pencerelere geçirir
         m_overlayHwnd = CreateWindowExW(
-            WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT,
+            WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT,
             HELLO_OVERLAY_CLASS,
             L"",
             WS_POPUP,
@@ -150,10 +151,44 @@ bool HelloLight::IsCredentialUIBroker(HWND hwnd) {
     return isBroker;
 }
 
+void HelloLight::ApplyRingRegion(int width, int height) {
+    if (!m_overlayHwnd || width <= 0 || height <= 0) return;
+
+    int thickness = std::clamp(std::min(width, height) * 15 / 100, 120, 200);
+    if (width <= thickness * 2 || height <= thickness * 2) {
+        SetWindowRgn(m_overlayHwnd, nullptr, TRUE);
+        return;
+    }
+
+    HRGN hOuter = CreateRectRgn(0, 0, width, height);
+    HRGN hInner = CreateRoundRectRgn(
+        thickness,
+        thickness,
+        width - thickness,
+        height - thickness,
+        48,
+        48
+    );
+
+    if (hOuter && hInner) {
+        CombineRgn(hOuter, hOuter, hInner, RGN_DIFF);
+        DeleteObject(hInner);
+        if (SetWindowRgn(m_overlayHwnd, hOuter, TRUE) == 0) {
+            DeleteObject(hOuter);
+        }
+    } else {
+        if (hOuter) DeleteObject(hOuter);
+        if (hInner) DeleteObject(hInner);
+    }
+}
+
 void HelloLight::ShowOverlayForWindow(HWND targetHwnd) {
     if (!m_overlayHwnd) return;
 
     m_helloHwnd = targetHwnd;
+    if (m_sessionSuppressed) {
+        return;
+    }
 
     // Yalnızca Windows Hello penceresinin bulunduğu monitörü kapla
     HMONITOR hMon = MonitorFromWindow(targetHwnd, MONITOR_DEFAULTTONEAREST);
@@ -168,11 +203,21 @@ void HelloLight::ShowOverlayForWindow(HWND targetHwnd) {
         h = mi.rcMonitor.bottom - mi.rcMonitor.top;
     }
 
-    // HWND_TOPMOST + SWP_NOACTIVATE: Normal pencerelerin üstünde,
-    // sistem katmanındaki CredentialUIBroker'ın arkasında, odak çalmadan göster.
+    // Ortası boş ring light çerçeve bölgesini uygula
+    ApplyRingRegion(w, h);
+
+    // Katmanı hedef pencereyle aynı Z-order bandına alıp doğrudan onun ARKASINA yerleştir.
+    // Böylece CredentialUIBroker (yüz tanıma, PIN veya Passkey QR kodu) her zaman üstte kalır.
+    bool targetTopmost = (GetWindowLongW(targetHwnd, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0;
     SetWindowPos(
         m_overlayHwnd,
-        HWND_TOPMOST,
+        targetTopmost ? HWND_TOPMOST : HWND_NOTOPMOST,
+        0, 0, 0, 0,
+        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE
+    );
+    SetWindowPos(
+        m_overlayHwnd,
+        targetHwnd,
         x, y, w, h,
         SWP_NOACTIVATE | SWP_SHOWWINDOW
     );
@@ -182,6 +227,7 @@ void HelloLight::ShowOverlayForWindow(HWND targetHwnd) {
 }
 
 void HelloLight::HideOverlay() {
+    m_sessionSuppressed = false;
     if (!m_overlayHwnd) {
         m_helloHwnd = nullptr;
         return;
@@ -190,6 +236,24 @@ void HelloLight::HideOverlay() {
     KillTimer(m_overlayHwnd, WATCHDOG_TIMER_ID);
     m_helloHwnd = nullptr;
     ShowWindow(m_overlayHwnd, SW_HIDE);
+}
+
+bool HelloLight::IsSessionActive() const {
+    return m_enabled && m_helloHwnd != nullptr && IsWindow(m_helloHwnd);
+}
+
+void HelloLight::ToggleSessionOverlay() {
+    if (!IsSessionActive() || !m_overlayHwnd) {
+        return;
+    }
+
+    if (m_sessionSuppressed) {
+        m_sessionSuppressed = false;
+        ShowOverlayForWindow(m_helloHwnd);
+    } else {
+        m_sessionSuppressed = true;
+        ShowWindow(m_overlayHwnd, SW_HIDE);
+    }
 }
 
 void CALLBACK HelloLight::WinEventProc(
@@ -214,6 +278,9 @@ void CALLBACK HelloLight::WinEventProc(
     }
 
     if (IsCredentialUIBroker(hwnd)) {
+        if (hwnd != s_instance->m_helloHwnd) {
+            s_instance->m_sessionSuppressed = false;
+        }
         s_instance->ShowOverlayForWindow(hwnd);
     } else if (s_instance->m_helloHwnd != nullptr) {
         s_instance->HideOverlay();
